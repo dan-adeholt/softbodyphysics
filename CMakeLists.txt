@@ -15,8 +15,8 @@ endif()
 
 find_package(SDL2 REQUIRED)
 
-add_executable(SoftBodyPhysics main.cpp timer.cpp game/Game.cpp containers/ContainerPlatform.cpp)
-add_executable(SoftBodyPhysicsTest test.main.cpp containers/ContainerPlatform.cpp)
+add_executable(SoftBodyPhysics main.cpp SDLGameRenderer.cpp timer.cpp game/Game.cpp containers/ContainerPlatform.cpp game/Shapes.cpp game/Physics.cpp)
+add_executable(SoftBodyPhysicsTest test.main.cpp containers/ContainerPlatform.cpp game/Shapes.cpp game/Physics.cpp)
 
 # Link against C standard library
 if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")

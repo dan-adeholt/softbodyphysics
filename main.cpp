@@ -4,24 +4,10 @@
 #include "timer.h"
 #include "game/Game.h"
 #include "./game/Physics.h"
+#include "./SDLGameRenderer.h"
 
 const int WINDOW_WIDTH = 1024;
 const int WINDOW_HEIGHT = 768;
-
-void renderPointMasses(SDL_Renderer *renderer, Range<PointMass> pointMasses)
-{
-    SDL_Rect rectangle;
-    rectangle.h = 4;
-    rectangle.w = 4;
-    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-
-    for (int i = 0; i < pointMasses.size; i++)
-    {
-        rectangle.x = pointMasses.data[i].x;
-        rectangle.y = pointMasses.data[i].y;
-        SDL_RenderFillRect(renderer, &rectangle);
-    }
-}
 
 int main(int argc, char *argv[])
 {
@@ -77,10 +63,11 @@ int main(int argc, char *argv[])
     bool dragging = false;
     int offsetX = 0;
     int offsetY = 0;
-
+    bool paused = false;
     SDL_Event event;
     bool quit = false;
 
+    SDLGameRenderer gameRenderer;
     Game game;
     uint64_t startNanos = monotonicTimeNanos();
 
@@ -88,35 +75,74 @@ int main(int argc, char *argv[])
     {
         while (SDL_PollEvent(&event))
         {
-            if (event.type == SDL_QUIT)
-            {
-                quit = true;
-            }
-            else if (event.type == SDL_MOUSEBUTTONDOWN)
-            {
-                if (event.button.button == SDL_BUTTON_LEFT &&
-                    event.button.x >= rectangle.x && event.button.x <= rectangle.x + rectangle.w &&
-                    event.button.y >= rectangle.y && event.button.y <= rectangle.y + rectangle.h)
-                {
-                    dragging = true;
-                    offsetX = event.button.x - rectangle.x;
-                    offsetY = event.button.y - rectangle.y;
-                }
-            }
-            else if (event.type == SDL_MOUSEBUTTONUP)
-            {
-                if (event.button.button == SDL_BUTTON_LEFT)
-                {
-                    dragging = false;
-                }
-            }
-            else if (event.type == SDL_MOUSEMOTION)
-            {
-                if (dragging)
-                {
-                    rectangle.x = event.motion.x - offsetX;
-                    rectangle.y = event.motion.y - offsetY;
-                }
+            switch (event.type) {
+                case SDL_QUIT:
+                    quit = true;
+                    break;
+                case SDL_KEYDOWN:
+                    switch (event.key.keysym.sym) {
+                    case SDLK_F5:
+                        paused = !paused;
+                        break;
+                    case SDLK_F8:
+                        game.update(1000.0 / 120.0);
+                        break;
+                    case SDLK_F3:
+                        game.rewindHistory();
+                        break;
+                    case SDLK_F4:
+                        game.forwardHistory();
+                        break;
+                    case SDLK_F7:
+                    case SDLK_F6: {
+                     char* path = SDL_GetPrefPath("tightloop", "softbodyphysics");
+
+                     if (path)
+                     {
+                         printf("Preferred path: %s\n", path);
+                         char buf[500];
+                         snprintf(path, sizeof(buf), "%s%s", path, "dump.txt");
+                         if (event.key.keysym.sym == SDLK_F6) {
+                            game.dumpToFile(path);
+                            printf("Wrote to %s\n", path);
+                         } else {
+                            printf("Attempting read from %s\n", path);
+                            game.loadFromFile(path);
+                            printf("Read from %s\n", path);
+                         }
+                         
+                         SDL_free(path);
+                     }
+                    }
+                    break;
+                    case SDLK_ESCAPE:
+                     quit = true;
+                     break;
+                     }
+                    break;
+                case SDL_MOUSEBUTTONDOWN:
+                    if (event.button.button == SDL_BUTTON_LEFT &&
+                        event.button.x >= rectangle.x && event.button.x <= rectangle.x + rectangle.w &&
+                        event.button.y >= rectangle.y && event.button.y <= rectangle.y + rectangle.h)
+                    {
+                        dragging = true;
+                        offsetX = event.button.x - rectangle.x;
+                        offsetY = event.button.y - rectangle.y;
+                    }
+                    break;
+                case SDL_MOUSEBUTTONUP:
+                    if (event.button.button == SDL_BUTTON_LEFT)
+                    {
+                        dragging = false;
+                    }
+                    break;
+                case SDL_MOUSEMOTION:
+                    if (dragging)
+                    {
+                        rectangle.x = event.motion.x - offsetX;
+                        rectangle.y = event.motion.y - offsetY;
+                    }
+                    break;
             }
         }
 
@@ -145,16 +171,15 @@ int main(int argc, char *argv[])
 
         // printf("Elapsed milliseconds: %f\n", elapsedMilliseconds);
 
-        game.update(elapsedMilliseconds);
+        if (!paused) {
+            game.update(elapsedMilliseconds);
+        }
+
 
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        Range<PointMass> pointMasses;
-        game.getPointMasses(pointMasses);
-
-        renderPointMasses(renderer, pointMasses);
-
+        gameRenderer.render(renderer, &game);
         SDL_RenderPresent(renderer);
     }
 

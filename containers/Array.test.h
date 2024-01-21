@@ -75,8 +75,6 @@ void testInts()
     {
         assert(ints[i] == i);
     }
-
-    printf("%d %d\n", ints.size(), ints.capacity());
 }
 
 void testArrays()

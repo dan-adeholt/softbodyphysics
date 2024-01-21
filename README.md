@@ -1,6 +1,6 @@
 # Soft-body dev #
 
-This is a test project where I develop a soft-body 2D physics game in C++.
+This is a test project where I develop a soft-body 2D physics game in C++. It is heavily inspired by this video from the author of JellyCar: https://www.youtube.com/watch?v=3OmkehAJoyo
 
 I usually do full stack web development these days, but I have a background in writing fairly low-level C++ code.
 
