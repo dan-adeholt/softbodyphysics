@@ -4,14 +4,17 @@
 #include "Physics.h"
 #include "../containers/Array.h"
 #include "./Shapes.h"
+#include "../utils/Console.h"
+#include "../utils/UnitTestUtil.h"
 
-void testCase(Shape& shape1, Shape& shape2, Array<PointMass>& points, int expectedCollisions, const Range<int> counterForCollisions) {
+void testCase(Shape &shape1, Shape &shape2, Array<PointMass> &points, int expectedCollisions, const Range<int> counterForCollisions)
+{
     static Array<Shape> shapes;
-    static Array<ShapeBoundingBox> boundingBoxes;    
+    static Array<ShapeBoundingBox> boundingBoxes;
     shapes.clear();
     boundingBoxes.clear();
-    shapes.append({ shape1, shape2 });
-    
+    shapes.append({shape1, shape2});
+
     calculateBoundingBoxes(boundingBoxes, shapes, points);
 
     Range<PointMass> shape1Points = points.range(shape1);
@@ -19,39 +22,43 @@ void testCase(Shape& shape1, Shape& shape2, Array<PointMass>& points, int expect
     Range<int> collisionRange1 = counterForCollisions.slice(shape1);
     Range<int> collisionRange2 = counterForCollisions.slice(shape2);
 
-    assert(calculateCollisions(shape1Points, shape2Points, boundingBoxes[0], boundingBoxes[1], collisionRange1, collisionRange2) == expectedCollisions);
+    testExpectInt(calculateCollisions(shape1Points, shape2Points, boundingBoxes[0], boundingBoxes[1], collisionRange1, collisionRange2), expectedCollisions);
 }
 
-void testSprings() {
-    Array<Spring> springs;
+void testFindClosestLineSegmentToPoint()
+{
     Array<PointMass> points;
-    Shape shape1 = Shapes::createLine(points, springs, 100.0f, 100.0f, 100.0f, 300.0f, 1.0f);
-    PointMass& p1 = points[shape1.end - 1];
+    Shape shelf = Shapes::createTriangle(points, 50.0f, 700.0f, 800.0f, 500.0f, 800.0f, 700.0f, 0.0f);
+    Vector2 pos1(500.0, 588.0);
+    int minIndex = -1;
+    float minT = 0.0f;
+    Vector2 minPoint = {0.0f, 0.0f};
+    PointMass pointMass;
 
-    // Test that the spring is pulling the point towards the other end
-    p1.pos.y += 10.0f;
-    Range<PointMass> pointRange = points.range();
-    Range<Spring> springRange = springs.range();
-    // printf("p1.pos: %f %f\n", p1.pos.x, p1.pos.y);
-    // applySprings(pointRange, springRange, 1.0f);
-    // printf("p1.pos: %f %f\n", p1.pos.x, p1.pos.y);
-    // applySprings(pointRange, springRange, 1.0f);
-    printf("p1.pos: %f %f\n", p1.pos.x, p1.pos.y);
-    // printf("p1.pos: %f %f\n", p1.pos.x, p1.pos.y);
-    // applySprings(pointRange, springRange, 1.0f);
-    // printf("p1.pos: %f %f\n", p1.pos.x, p1.pos.y);
+    findClosestLineSegmentToPoint(points.range(shelf), pos1, minIndex, minPoint, minT);
+    testExpectInt(minIndex, 0);
 }
 
-void testCollisions() {
+void testCollisions()
+{
+    testFindClosestLineSegmentToPoint();
     Array<Spring> springs;
     Array<PointMass> points;
     Array<int> counterForCollisions;
-    // One corner of a quad is inside another quad
-    Shape shape1 = Shapes::createQuad(points, springs, 0.0f, 0.0f, 32.0f, 32.0f, 1.0f);
-    Shape shape2 = Shapes::createQuad(points, springs, 16.0f, 16.0f, 32.0f, 32.0f, 1.0f);
+
+    // One half of a quad is inside another quad
+    Shape shape1 = Shapes::createQuad(points, springs, 31.9f, 0.1f, 32.0f, 32.0f, 1.0f);
+    Shape shape2 = Shapes::createQuad(points, springs, 0.0f, 0.0f, 32.0f, 32.0f, 1.0f);
+
     counterForCollisions.fill(0, points.size());
     testCase(shape1, shape2, points, 1, counterForCollisions.range());
-    
+
+    // One corner of a quad is inside another quad
+    shape1 = Shapes::createQuad(points, springs, 0.0f, 0.0f, 32.0f, 32.0f, 1.0f);
+    shape2 = Shapes::createQuad(points, springs, 16.0f, 16.0f, 32.0f, 32.0f, 1.0f);
+    counterForCollisions.fill(0, points.size());
+    testCase(shape1, shape2, points, 1, counterForCollisions.range());
+
     // One quad is completely inside another quad
     shape1 = Shapes::createQuad(points, springs, 0.0f, 0.0f, 32.0f, 32.0f, 1.0f);
     shape2 = Shapes::createQuad(points, springs, 16.0f, 16.0f, 4.0f, 4.0f, 1.0f);

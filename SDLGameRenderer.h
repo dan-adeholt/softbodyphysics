@@ -10,8 +10,10 @@ public:
     ~SDLGameRenderer();
 
     void render(SDL_Renderer *renderer, Game* game);
+    void renderText(SDL_Renderer *renderer, const char* text, int x, int y);
 private:
-    
+    struct Impl;
+    Impl* m;    
 };
 
 #endif

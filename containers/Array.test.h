@@ -2,8 +2,9 @@
 #define __ARRAY_TEST_H
 
 #include <stdio.h>
-#include <assert.h>
 #include "./Array.h"
+#include "../utils/Console.h"
+#include "../utils/UnitTestUtil.h"
 
 int numConstructed = 0;
 int numDestructed = 0;
@@ -32,26 +33,26 @@ void testSentinelsInner()
     Array<ArraySentinel> array(2);
 
     // Capacity is 10, but no items should have been constructed.
-    assert(numConstructed == 0);
-    assert(numDestructed == 0);
+    testAssert(numConstructed == 0);
+    testAssert(numDestructed == 0);
 
     array.push(ArraySentinel());
-    assert(numConstructed == 2);
-    assert(numDestructed == 1);
-    assert(array.capacity() == 2);
-    assert(array.size() == 1);
+    testAssert(numConstructed == 2);
+    testAssert(numDestructed == 1);
+    testAssert(array.capacity() == 2);
+    testAssert(array.size() == 1);
     array.push(ArraySentinel());
-    assert(array.capacity() == 2);
-    assert(array.size() == 2);
+    testAssert(array.capacity() == 2);
+    testAssert(array.size() == 2);
     array.push(ArraySentinel());
-    assert(array.capacity() > 2);
-    assert(array.size() == 3);
+    testAssert(array.capacity() > 2);
+    testAssert(array.size() == 3);
 }
 
 void testSentinels()
 {
     testSentinelsInner();
-    assert(numConstructed == numDestructed);
+    testAssert(numConstructed == numDestructed);
 }
 
 void testInts()
@@ -59,9 +60,9 @@ void testInts()
     Array<int> ints;
     ints.push(0);
 
-    assert(ints.capacity() == 2);
-    assert(ints.size() == 1);
-    assert(ints[0] == 0);
+    testAssert(ints.capacity() == 2);
+    testAssert(ints.size() == 1);
+    testAssert(ints[0] == 0);
     ints.push(1);
     ints.push(2);
     ints.push(3);
@@ -73,13 +74,12 @@ void testInts()
 
     for (int i = 0; i < ints.size(); i++)
     {
-        assert(ints[i] == i);
+        testAssert(ints[i] == i);
     }
 }
 
 void testArrays()
 {
-    printf("Testing\n");
     testSentinels();
     testInts();
 }

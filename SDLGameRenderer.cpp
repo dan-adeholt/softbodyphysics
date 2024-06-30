@@ -3,20 +3,81 @@
 #include "containers/Range.h"
 #include "game/Physics.h"
 #include "game/Game.h"
+#include "data/BitmapFont.inl.h"
+#include "containers/Array.h"
 
 float MIN_LINE_POS = -100000;
 float MAX_LINE_POS = 1000000;
 
+struct SDLGameRenderer::Impl {
+    Impl() : texture(nullptr) {
+    }
+
+    SDL_Texture* texture; 
+};
+
 SDLGameRenderer::SDLGameRenderer() {
-    
+    m = new Impl(); 
 }
 
 SDLGameRenderer::~SDLGameRenderer() {
-    
+    delete m;
+}
+
+void SDLGameRenderer::renderText(SDL_Renderer *renderer, const char *text, int x, int y) {
+    SDL_Color color = {255, 255, 255, 255};
+    if (m->texture == nullptr) {
+        Array<uint32_t> rgba32(CHARS_WIDTH * CHARS_HEIGHT);
+        for (int i = 0; i < CHARS_WIDTH * CHARS_HEIGHT; i++) {
+            uint32_t color = BITMAP_FONT[i];
+            uint8_t alpha = color & 0xFF;
+            uint8_t r = 255 - (color >> 24) & 0xFF;
+            uint8_t g = 255 - (color >> 16) & 0xFF;
+            uint8_t b = 255 - (color >> 8) & 0xFF;
+            color = (r << 24) | (g << 16) | (b << 8) | alpha;
+            
+            rgba32.push(color);
+        }
+
+        m->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR32, SDL_TEXTUREACCESS_STATIC, CHARS_WIDTH, CHARS_HEIGHT);
+        SDL_UpdateTexture(m->texture, NULL, &rgba32[0], CHARS_WIDTH * sizeof(Uint32));
+
+        SDL_SetTextureBlendMode(m->texture, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureAlphaMod(m->texture, 255); // Full opacity
+    }
+
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+
+    SDL_Rect destRect;
+    destRect.x = x;
+    destRect.y = y;
+    destRect.w = 8;
+    destRect.h = 15;
+
+    size_t len = strlen(text);
+    for (int index = 0; index < len; index++) {
+        char c = text[index];
+        if (c == '\n') {
+            destRect.x = x;
+            destRect.y += 16;
+            continue;
+        }
+        const BitmapTexCoord& texCoord = bitmapTexCoords[c];
+        SDL_Rect srcRect;
+        srcRect.x = texCoord.x;
+        srcRect.y = texCoord.y;
+        srcRect.w = 8;
+        srcRect.h = 15;
+
+
+        int charIndex = c - 32;
+        destRect.x += 8;
+        SDL_RenderCopy(renderer, m->texture, &srcRect, &destRect);
+    }
 }
 
 void renderSprings(SDL_Renderer* renderer, Range<Spring> springs, const Range<PointMass>& points) {
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     
     for (int i = 0; i < springs.size; i++) {
         const Spring& spring = springs.data[i];
@@ -25,7 +86,7 @@ void renderSprings(SDL_Renderer* renderer, Range<Spring> springs, const Range<Po
         float currentLength = (pointA.pos - pointB.pos).length();
         float tension = fabs(1.0f - (spring.length / currentLength));
 
-        SDL_SetRenderDrawColor(renderer, 255, (int)(255 - tension * 10), (int)(255 - tension * 10), 255);
+        SDL_SetRenderDrawColor(renderer, 0, (int)(tension * 10), (int)(tension * 10), 255);
 
         // To prevent SDL taking extremely long to render degenerate lines
         if (pointA.pos.x > MIN_LINE_POS && pointA.pos.x < MAX_LINE_POS &&
@@ -72,7 +133,7 @@ void renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, Range<PointMass> 
     SDL_Rect rectangle;
     rectangle.h = 4;
     rectangle.w = 4;
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 
     for (int i = 0; i < shapes.size; i++) {
         const Shape &shape = shapes.data[i];
