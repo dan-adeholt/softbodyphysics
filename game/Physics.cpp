@@ -264,7 +264,8 @@ int calculateCollisions(
     const ShapeBoundingBox &collisionBox,
     const ShapeBoundingBox &movingBox,
     Range<int> &collisionCounterForPoints1,
-    Range<int> &collisionCounterForPoints2)
+    Range<int> &collisionCounterForPoints2,
+    double step)
 {
     int numCollisions = 0;
 
@@ -293,7 +294,10 @@ int calculateCollisions(
         PointMass &pm1 = collisionShape[(minIndex + 1) % collisionShape.size];
 
         Vector2 segmentNormal = Vector2(-pm1.pos.y + pm0.pos.y, pm1.pos.x - pm0.pos.x).normalized();
-        Vector2 impulse = calculateImpulse(pm0, pm1, segmentNormal, point, minPoint, minT);
+
+        // Since this is an impulse and not a continuously applied force, we need to divide by the step
+        // so that when the velocity and position are updated, the impulse is applied correctly.
+        Vector2 impulse = calculateImpulse(pm0, pm1, segmentNormal, point, minPoint, minT) / step;
 
         point.force += impulse;
         pm0.force -= (impulse * (1.0f - minT));
@@ -311,7 +315,8 @@ int calculateStaticCollisions(
     Range<PointMass> movingShape,
     const ShapeBoundingBox &staticBox,
     const ShapeBoundingBox &movingBox,
-    Range<int> &collisionCounterForMovingShape)
+    Range<int> &collisionCounterForMovingShape,
+    double step)
 {
     int numCollisions = 0;
 
@@ -339,7 +344,9 @@ int calculateStaticCollisions(
         Vector2 segmentDirection(pm1.pos.x - pm0.pos.x, pm1.pos.y - pm0.pos.y);
         Vector2 segmentNormal = Vector2(-segmentDirection.y, segmentDirection.x).normalized();
 
-        Vector2 impulse = calculateImpulse(pm0, pm1, segmentNormal, point, minPoint, minT);
+        // Since this is an impulse and not a continuously applied force, we need to divide by the step
+        // so that when the velocity and position are updated, the impulse is applied correctly.
+        Vector2 impulse = calculateImpulse(pm0, pm1, segmentNormal, point, minPoint, minT) / step;
         Vector2 reflection = point.velocity.reflect(segmentNormal).normalized();
         point.force += impulse;
         point.pos = minPoint + reflection * 0.01f;
@@ -378,15 +385,15 @@ void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<
     }
 }
 
-void applyGravity(Range<PointMass> &points)
+void applyGravity(Range<PointMass> &points, double timeStep)
 {
     for (int i = 0; i < points.size; i++)
     {
-        points[i].force.y += 0.05f * points[i].mass * 0.0001f;
+        points[i].force.y += 0.05f * 0.0001f;
     }
 }
 
-void applySprings(Range<PointMass> &points, Range<Spring> &springs, const Range<int> &counterForCollisions)
+void applySprings(Range<PointMass> &points, Range<Spring> &springs, const Range<int> &counterForCollisions, double step)
 {
     for (int i = 0; i < springs.size; i++)
     {

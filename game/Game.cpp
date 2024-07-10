@@ -135,18 +135,6 @@ void Game::getStaticPoints(Range<PointMass> &pointMasses) const
     pointMasses = m_impl->staticPoints.range(0, m_impl->staticPoints.size());
 }
 
-void Game::handleGravity(Range<PointMass> &points, double elapsedTimeMilliseconds)
-{
-    if (m_impl->gravityEnabled)
-    {
-        // Apply gravity
-        for (int i = 0; i < points.size; i++)
-        {
-            points[i].force.y += 1.0f * points[i].mass;
-        }
-    }
-}
-
 void sortBoundingBoxes(Array<ShapeBoundingBox> &sortedBoundingBoxes)
 {
     // Insertion sort - O(n^2), but since the movements are relatively stable it should be fine
@@ -176,7 +164,7 @@ void updateSortedBoundingBoxes(Array<ShapeBoundingBox> &sortedBoundingBoxes, Arr
     }
 }
 
-void Game::handleCollisions(Range<PointMass> &points, const Range<int> &collisionCounterForPoints)
+void Game::handleCollisions(Range<PointMass> &points, const Range<int> &collisionCounterForPoints, double step)
 {
     // For a broad phase collision detection, sort using insertion sort along a single axis
     Array<ShapeBoundingBox> &boundingBoxes = m_impl->boundingBoxes;
@@ -241,8 +229,8 @@ void Game::handleCollisions(Range<PointMass> &points, const Range<int> &collisio
                     // Check for collision
                     const Shape &shape2 = m_impl->shapes[otherBox.shapeIndex];
                     Range<int> collisionRange2 = m_impl->collisionCounterForPoints.range(shape2);
-                    calculateCollisions(m_impl->points.range(shape1), m_impl->points.range(shape2), box, otherBox, collisionRange1, collisionRange2);
-                    calculateCollisions(m_impl->points.range(shape2), m_impl->points.range(shape1), otherBox, box, collisionRange2, collisionRange1);
+                    calculateCollisions(m_impl->points.range(shape1), m_impl->points.range(shape2), box, otherBox, collisionRange1, collisionRange2, step);
+                    calculateCollisions(m_impl->points.range(shape2), m_impl->points.range(shape1), otherBox, box, collisionRange2, collisionRange1, step);
                 }
             }
             else
@@ -263,7 +251,7 @@ void Game::handleCollisions(Range<PointMass> &points, const Range<int> &collisio
             {
                 const Shape &staticShape = m_impl->staticShapes[staticBox.shapeIndex];
                 Range<int> collisionRange1 = m_impl->collisionCounterForPoints.range(shape1);
-                calculateStaticCollisions(m_impl->staticPoints.range(staticShape), m_impl->points.range(shape1), staticBox, box, collisionRange1);
+                calculateStaticCollisions(m_impl->staticPoints.range(staticShape), m_impl->points.range(shape1), staticBox, box, collisionRange1, step);
                 // Check for collision
             }
             else
@@ -402,7 +390,7 @@ void Game::setCollisionsEnabled(bool collisionsEnabled)
 }
 
 bool hires = false;
-double step = 1.0f;
+const double step = 1.0f;
 double forceStepConstant = step;
 double velocityStepConstant = 50.0f * step;
 
@@ -430,10 +418,10 @@ void Game::update(double elapsedTimeMilliseconds)
 
         if (m_impl->gravityEnabled)
         {
-            applyGravity(points);
+            applyGravity(points, step);
         }
 
-        applySprings(points, springs, collisionCounterForPoints);
+        applySprings(points, springs, collisionCounterForPoints, step);
 
         for (int i = 0; i < m_impl->staticJoints.size(); i++)
         {
@@ -453,29 +441,18 @@ void Game::update(double elapsedTimeMilliseconds)
 
         if (m_impl->collisionsEnabled)
         {
-            handleCollisions(points, collisionCounterForPoints);
+            handleCollisions(points, collisionCounterForPoints, step);
         }
 
         for (int i = 0; i < m_impl->points.size(); i++)
         {
             PointMass &point = m_impl->points[i];
-            point.velocity += (point.force / point.mass) * 1.0f;
-            if (hires)
-            {
-                point.pos.x += point.velocity.x;
-                point.pos.y += point.velocity.y;
-            }
-            else
-            {
-                point.pos.x += point.velocity.x * velocityStepConstant;
-                point.pos.y += point.velocity.y * velocityStepConstant;
-            }
+            point.velocity += (point.force / point.mass) * 1.0f * step;
+
+            point.pos.x += point.velocity.x * step;
+            point.pos.y += point.velocity.y * step;
         }
 
-        uint64_t endUpdateNanos = monotonicTimeNanos();
-        uint64_t elapsedUpdateNanos = endUpdateNanos - startUpdateNanos;
-
-        double elapsedUpdateMilliseconds = elapsedUpdateNanos / 1000000.0;
         m_impl->timeBucket -= step;
     }
 

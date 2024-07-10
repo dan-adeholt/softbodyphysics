@@ -22,7 +22,7 @@ void testCase(Shape &shape1, Shape &shape2, Array<PointMass> &points, int expect
     Range<int> collisionRange1 = counterForCollisions.slice(shape1);
     Range<int> collisionRange2 = counterForCollisions.slice(shape2);
 
-    testExpectInt(calculateCollisions(shape1Points, shape2Points, boundingBoxes[0], boundingBoxes[1], collisionRange1, collisionRange2), expectedCollisions);
+    testExpectInt(calculateCollisions(shape1Points, shape2Points, boundingBoxes[0], boundingBoxes[1], collisionRange1, collisionRange2, 1.0), expectedCollisions);
 }
 
 void testFindClosestLineSegmentToPoint()

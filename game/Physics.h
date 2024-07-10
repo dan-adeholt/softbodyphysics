@@ -141,22 +141,24 @@ int calculateCollisions(
     const ShapeBoundingBox &box1,
     const ShapeBoundingBox &box2,
     Range<int> &collisionCounterForPoints1,
-    Range<int> &collisionCounterForPoints2);
+    Range<int> &collisionCounterForPoints2,
+    double step);
 
 int calculateStaticCollisions(
     Range<PointMass> staticShape,
     Range<PointMass> movingShape,
     const ShapeBoundingBox &staticBox,
     const ShapeBoundingBox &movingBox,
-    Range<int> &collisionCounterForMovingShape);
+    Range<int> &collisionCounterForMovingShape,
+    double step);
 
 void findClosestLineSegmentToPoint(Range<PointMass> collisionShape, const Vector2 &point, int &minIndex, Vector2 &minPoint, float &minT);
 
 void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<Shape> &shapes, const Array<PointMass> &points);
 
-void applySprings(Range<PointMass> &points, Range<Spring> &springs, const Range<int> &counterForCollisions);
+void applySprings(Range<PointMass> &points, Range<Spring> &springs, const Range<int> &counterForCollisions, double step);
 
-void applyGravity(Range<PointMass> &points);
+void applyGravity(Range<PointMass> &points, double timeStep);
 
 ShapeBoundingBox calculateShapeBoundingBox(const Shape &shape, int shapeIndex, const Array<PointMass> &points);
 
