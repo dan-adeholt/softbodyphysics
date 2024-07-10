@@ -1,4 +1,5 @@
 build-osx
+build-release
 .DS_Store
 .vscode
 build

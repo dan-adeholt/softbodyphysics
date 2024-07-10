@@ -92,6 +92,7 @@ struct Shape
     int end;
     bool isStatic;
     const char *name;
+    float volume;
 
     operator Span() const
     {

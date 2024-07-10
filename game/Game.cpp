@@ -11,6 +11,7 @@
 #include <cstring>
 #include "Game.h"
 #include "../utils/Console.h"
+#include "../timer.h"
 
 #define NUM_HISTORICAL_STATES 240
 #define NUM_SHAPES 40
@@ -400,7 +401,10 @@ void Game::setCollisionsEnabled(bool collisionsEnabled)
     m_impl->collisionsEnabled = collisionsEnabled;
 }
 
-double step = 0.05f;
+bool hires = false;
+double step = 1.0f;
+double forceStepConstant = step;
+double velocityStepConstant = 50.0f * step;
 
 void Game::update(double elapsedTimeMilliseconds)
 {
@@ -412,6 +416,7 @@ void Game::update(double elapsedTimeMilliseconds)
 
     while (m_impl->timeBucket > step)
     {
+        uint64_t startUpdateNanos = monotonicTimeNanos();
         Range<PointMass> points = m_impl->points.range();
         Range<Spring> springs = m_impl->springs.range();
         m_impl->collisionCounterForPoints.fill(0, m_impl->points.size());
@@ -454,11 +459,23 @@ void Game::update(double elapsedTimeMilliseconds)
         for (int i = 0; i < m_impl->points.size(); i++)
         {
             PointMass &point = m_impl->points[i];
-            point.velocity += (point.force / point.mass) * 0.0001f;
-            point.pos.x += point.velocity.x;
-            point.pos.y += point.velocity.y;
+            point.velocity += (point.force / point.mass) * 1.0f;
+            if (hires)
+            {
+                point.pos.x += point.velocity.x;
+                point.pos.y += point.velocity.y;
+            }
+            else
+            {
+                point.pos.x += point.velocity.x * velocityStepConstant;
+                point.pos.y += point.velocity.y * velocityStepConstant;
+            }
         }
 
+        uint64_t endUpdateNanos = monotonicTimeNanos();
+        uint64_t elapsedUpdateNanos = endUpdateNanos - startUpdateNanos;
+
+        double elapsedUpdateMilliseconds = elapsedUpdateNanos / 1000000.0;
         m_impl->timeBucket -= step;
     }
 
@@ -483,7 +500,7 @@ void Game::mouseButtonDown(int x, int y)
     for (int i = 0; i < m_impl->points.size(); i++)
     {
         PointMass &point = m_impl->points[i];
-        if (point.pos.distance(Vector2(x, y)) < 10.0f)
+        if (point.pos.distance(Vector2(x, y)) < 20.0f)
         {
             StaticJoint joint = {i, Vector2(x, y)};
             m_impl->mouseJoint.pointIndex = i;

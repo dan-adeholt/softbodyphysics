@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
 
     SDLGameRenderer gameRenderer;
     Game game;
-    game.init("Colliding boxes");
+    game.init("Bridge");
     uint64_t startNanos = monotonicTimeNanos();
     bool show_demo_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -95,6 +95,9 @@ int main(int argc, char *argv[])
     testArrays();
     testCollisions();
     Console::log("Refresh rate: %dhz | Startup time: %.1lf ms\n", displayMode.refresh_rate, (monotonicTimeNanos() - programStartNanos) / 1000000.0);
+
+    SDL_RaiseWindow(window);
+
     while (!quit)
     {
         while (SDL_PollEvent(&event))

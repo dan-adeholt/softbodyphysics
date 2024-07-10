@@ -51,11 +51,18 @@ SceneDefinition scenes[] = {
 
          game->setGravityEnabled(false);
      }},
+    {"Circle", [](Game *game)
+     {
+         Shape circle = Shapes::createCircle(game->points(), game->springs(), 300.0f, 250.0f, 170.0f, 0.25f);
+         game->shapes().push(circle);
+         game->setGravityEnabled(false);
+     }},
     {"Bridge", [](Game *game)
      {
-         int numSegments = 10;
-         float x = 300.0f;
-         float y = 440.0f;
+         int numSegments = 13;
+         float x = 200.0f;
+         float y = 340.0f;
+
          Shape bridge = Shapes::createBridge(game->points(), game->springs(), x, y, 1.0f, numSegments);
          game->shapes().push(bridge);
 
@@ -63,6 +70,12 @@ SceneDefinition scenes[] = {
          game->staticJoints().push({numSegments - 1, Vector2(x + 70.0f * numSegments, y)});
          game->staticJoints().push({numSegments, Vector2(x + 70.0f * numSegments, y + 70.0f)});
          game->staticJoints().push({numSegments * 2 - 1, Vector2(x, y + 70.0f)});
+
+         //  for (int i = 0; i < 20; i++)
+         //  {
+         //      Shape circle = Shapes::createCircle(game->points(), game->springs(), 240.0f + i * 42.00f, 100.0f, 20.0f, 0.08f);
+         //      game->shapes().push(circle);
+         //  }
 
          Shape fallingBox = Shapes::createQuad(game->points(), game->springs(), 600.0f, 190.0f, 100.0f, 100.0f, 1.0f);
          game->shapes().push(fallingBox);

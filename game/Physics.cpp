@@ -295,11 +295,12 @@ int calculateCollisions(
         Vector2 segmentNormal = Vector2(-pm1.pos.y + pm0.pos.y, pm1.pos.x - pm0.pos.x).normalized();
         Vector2 impulse = calculateImpulse(pm0, pm1, segmentNormal, point, minPoint, minT);
 
-        point.force += impulse * 10000.0f;
-        pm0.force -= (impulse * (1.0f - minT)) * 10000.0f;
-        pm1.force -= (impulse * minT) * 10000.0f;
+        point.force += impulse;
+        pm0.force -= (impulse * (1.0f - minT));
+        pm1.force -= (impulse * minT);
 
-        point.pos = minPoint - segmentNormal * 0.01f;
+        Vector2 reflection = point.velocity.reflect(segmentNormal).normalized();
+        point.pos = minPoint + reflection * 0.01f;
     }
 
     return numCollisions;
@@ -339,9 +340,9 @@ int calculateStaticCollisions(
         Vector2 segmentNormal = Vector2(-segmentDirection.y, segmentDirection.x).normalized();
 
         Vector2 impulse = calculateImpulse(pm0, pm1, segmentNormal, point, minPoint, minT);
-
-        point.force += impulse * 10000.0f;
-        point.pos = minPoint - segmentNormal * 0.01f;
+        Vector2 reflection = point.velocity.reflect(segmentNormal).normalized();
+        point.force += impulse;
+        point.pos = minPoint + reflection * 0.01f;
     }
 
     return numCollisions;
@@ -381,7 +382,7 @@ void applyGravity(Range<PointMass> &points)
 {
     for (int i = 0; i < points.size; i++)
     {
-        points[i].force.y += 0.05f * points[i].mass;
+        points[i].force.y += 0.05f * points[i].mass * 0.0001f;
     }
 }
 
@@ -395,12 +396,13 @@ void applySprings(Range<PointMass> &points, Range<Spring> &springs, const Range<
 
         Vector2 offset = (point2.pos - point1.pos);
         float delta = (offset.length() - spring.length);
+
         float springForce = delta * spring.stiffness;
         Vector2 offsetNormal = offset.normalized();
 
         float dampForce = offsetNormal.dot(point2.velocity - point1.velocity) * spring.damping;
 
-        Vector2 force = offsetNormal * (springForce + dampForce) * 0.085f;
+        Vector2 force = offsetNormal * (springForce + dampForce) * 0.085f * 0.0001f;
         Vector2 diff = point2.velocity - point1.velocity;
 
         point1.force += force;

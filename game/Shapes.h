@@ -13,6 +13,8 @@ struct PointMass;
 
 namespace Shapes
 {
+    Shape createCircle(Array<PointMass> &points, Array<Spring> &springs, float x, float y, float radius, float mass);
+
     Shape createBridge(Array<PointMass> &points, Array<Spring> &springs, float x, float y, float mass, int numSegments);
     Shape createLine(Array<PointMass> &points, Array<Spring> &springs, float x0, float y0, float x1, float y1, float drag);
     Shape createQuad(Array<PointMass> &points, Array<Spring> &springs, float x, float y, float width, float height, float drag);

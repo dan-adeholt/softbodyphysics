@@ -202,9 +202,8 @@ void Console::draw(Game &game)
     for (int i = 0; i < pointMasses.size; i++)
     {
         PointMass &point = pointMasses[i];
-        sprintf(buf, "%d", i);
-        foreground->AddText(ImVec2(point.pos.x, point.pos.y + 16.0f), IM_COL32(0, 0, 0, 255), buf);
-        foreground->AddCircle(ImVec2(point.pos.x, point.pos.y), 4, IM_COL32(255, 0, 0, 255), 12, 8.0f);
+        snprintf(buf, 255, "%d", i);
+        foreground->AddCircle(ImVec2(point.pos.x, point.pos.y), 1, IM_COL32(255, 0, 0, 255), 12, 5.0f);
     }
 
     for (int i = 0; i < numPosLines; i++)

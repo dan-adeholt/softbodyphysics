@@ -3,8 +3,61 @@
 #include "./Physics.h"
 #include <math.h>
 
+int wrapIndex(int index, int size)
+{
+    if (index < 0)
+    {
+        return size + index;
+    }
+    else if (index >= size)
+    {
+        return index - size;
+    }
+
+    return index;
+}
+
 namespace Shapes
 {
+    Shape createCircle(Array<PointMass> &points, Array<Spring> &springs, float x, float y, float radius, float mass)
+    {
+        float stiffness = 3.0f;
+        float damping = 2800.9f;
+        int numSegments = 16;
+        float segmentAngle = 2 * M_PI / numSegments;
+        int startIndex = points.size();
+        int curIndex = startIndex;
+        float curAngle = 0.0f;
+
+        for (int i = 0; i < numSegments; i++)
+        {
+            points.append({
+                {x + cos(curAngle) * radius, y + sin(curAngle) * radius, mass},
+            });
+
+            curAngle += segmentAngle;
+            curIndex++;
+        }
+
+        PointMass p0 = points[startIndex];
+        PointMass p1 = points[startIndex + 3];
+        PointMass p2 = points[startIndex + 5];
+        float lengthSpring1 = p0.pos.distance(p1.pos);
+        float lengthSpring2 = p0.pos.distance(p2.pos);
+
+        for (int i = 0; i < numSegments; i++)
+        {
+            int n0 = startIndex + i;
+            int n1 = startIndex + wrapIndex(i + 3, numSegments);
+            int n2 = startIndex + wrapIndex(i + 5, numSegments);
+
+            springs.push({n0, n1, lengthSpring1, stiffness, damping});
+            springs.push({n0, n2, lengthSpring2, stiffness, damping});
+        }
+
+        return Shape{.start = startIndex, .end = curIndex, .isStatic = false, .volume = 300.0f};
+    }
+
     Shape createBridge(Array<PointMass> &points, Array<Spring> &springs, float x, float y, float mass, int numSegments)
     {
         int startIndex = points.size();
@@ -145,7 +198,7 @@ namespace Shapes
         points.append({p0, p1});
 
         const Span span = {.start = points.size() - 2, .end = points.size()};
-        springs.push({.pointA = span.start, .pointB = span.start + 1, .length = p0.pos.distance(p1.pos), .stiffness = 5.0f, .damping = 350.0f});
+        springs.push({.pointA = span.start, .pointB = span.start + 1, .length = p0.pos.distance(p1.pos), .stiffness = 0.3f, .damping = 28.9f});
 
         return Shape{.start = span.start, .end = span.end, .isStatic = false};
     }
