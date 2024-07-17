@@ -385,9 +385,9 @@ int calculateCollisions(
         // so that when the velocity and position are updated, the impulse is applied correctly.
         Vector2 impulse = calculateImpulse(pm0, pm1, segmentNormal, point, minT) / step;
 
-        point.force += impulse;
-        pm0.force -= (impulse * (1.0f - minT));
-        pm1.force -= (impulse * minT);
+        point.acceleration += impulse / point.mass;
+        pm0.acceleration -= (impulse * (1.0f - minT)) / pm0.mass;
+        pm1.acceleration -= (impulse * minT) / pm1.mass;
 
         Vector2 reflection = point.velocity.reflect(segmentNormal).normalized();
         point.pos = minPoint + reflection * 0.1f;
@@ -444,7 +444,7 @@ int calculateStaticCollisions(
         // so that when the velocity and position are updated, the impulse is applied correctly.
         Vector2 impulse = calculateImpulse(pm0, pm1, segmentNormal, point, minT) / step;
         Vector2 reflection = point.velocity.reflect(segmentNormal).normalized();
-        point.force += impulse;
+        point.acceleration += impulse;
         point.pos = minPoint + reflection * 0.1f;
     }
 
@@ -486,7 +486,7 @@ void applyGravity(Range<PointMass> &points, double timeStep)
     for (int i = 0; i < points.size; i++)
     {
         // Multiply by mass to cancel out in the subsequent force calculation
-        points[i].force.y += (0.05f * 0.003f) * points[i].mass;
+        points[i].acceleration.y += (0.05f * 0.003f);
     }
 }
 
@@ -513,8 +513,8 @@ void applySprings(Range<PointMass> &points, Range<Spring> &springs, double step)
             Vector2 force = offsetNormal * (springForce + dampForce) * 0.085f * 0.001f;
             Vector2 diff = point2.velocity - point1.velocity;
 
-            point1.force += force;
-            point2.force -= force;
+            point1.acceleration += force / point1.mass;
+            point2.acceleration -= force / point2.mass;
         }
     }
 }

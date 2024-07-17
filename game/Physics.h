@@ -66,11 +66,11 @@ public:
 
 struct PointMass
 {
-    PointMass(float x = 0.0f, float y = 0.0f, float mass = 1.0f) : mass(mass), pos(x, y), velocity(Vector2::zero()), force(Vector2::zero()) {}
+    PointMass(float x = 0.0f, float y = 0.0f, float mass = 1.0f) : mass(mass), pos(x, y), velocity(Vector2::zero()), acceleration(Vector2::zero()) {}
     float mass;
     Vector2 pos;
     Vector2 velocity;
-    Vector2 force;
+    Vector2 acceleration;
 };
 
 struct StaticJoint

@@ -413,7 +413,7 @@ void Game::update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInf
         for (int i = 0; i < m_impl->points.size(); i++)
         {
             PointMass &point = m_impl->points[i];
-            point.force = Vector2::zero();
+            point.acceleration = Vector2::zero();
         }
 
         if (m_impl->gravityEnabled)
@@ -440,7 +440,7 @@ void Game::update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInf
             PointMass &point = m_impl->points[m_impl->mouseJoint.pointIndex];
             point.pos = m_impl->mouseJoint.position;
             point.velocity = Vector2::zero();
-            point.force = Vector2::zero();
+            point.acceleration = Vector2::zero();
         }
 
         if (m_impl->collisionsEnabled)
@@ -453,7 +453,7 @@ void Game::update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInf
         for (int i = 0; i < m_impl->points.size(); i++)
         {
             PointMass &point = m_impl->points[i];
-            point.velocity += (point.force / point.mass) * step;
+            point.velocity += (point.acceleration) * step;
 
             point.pos.x += point.velocity.x * step;
             point.pos.y += point.velocity.y * step;
@@ -515,7 +515,7 @@ void Game::mouseMove(int x, int y)
         PointMass &point = m_impl->points[m_impl->mouseJoint.pointIndex];
         point.pos = Vector2(x, y);
         point.velocity = Vector2::zero();
-        point.force = Vector2::zero();
+        point.acceleration = Vector2::zero();
         m_impl->mouseJoint.position = Vector2(x, y);
     }
 }
