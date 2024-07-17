@@ -21,8 +21,8 @@ namespace Shapes
 {
     Shape createCircle(Array<PointMass> &points, Array<Spring> &springs, float x, float y, float radius, float mass)
     {
-        float stiffness = 3.0f;
-        float damping = 2800.9f;
+        float stiffness = 0.5f;
+        float damping = 1080.9f;
         int numSegments = 16;
         float segmentAngle = 2 * M_PI / numSegments;
         int startIndex = points.size();
@@ -52,10 +52,10 @@ namespace Shapes
             int n2 = startIndex + wrapIndex(i + 5, numSegments);
 
             springs.push({n0, n1, lengthSpring1, stiffness, damping});
-            springs.push({n0, n2, lengthSpring2, stiffness, damping});
+            springs.push({n2, n0, lengthSpring2, stiffness, damping});
         }
 
-        return Shape{.start = startIndex, .end = curIndex, .isStatic = false, .volume = 300.0f};
+        return Shape{.start = startIndex, .end = curIndex, .volume = 300.0f};
     }
 
     Shape createBridge(Array<PointMass> &points, Array<Spring> &springs, float x, float y, float mass, int numSegments)
@@ -66,7 +66,7 @@ namespace Shapes
         float width = 70.0f;
         float height = 70.0f;
         float diagonal = sqrt(width * width + height * height);
-        float stiffness = 0.3f;
+        float stiffness = 1.3f;
         float damping = 280.9f;
 
         for (int i = 0; i < numSegments; i++)
@@ -139,15 +139,28 @@ namespace Shapes
         //     curX += width;
         // }
 
-        return Shape{.start = startIndex, .end = curIndex, .isStatic = false};
+        return Shape{.start = startIndex, .end = curIndex};
     }
 
-    Shape createQuad(Array<PointMass> &points, Array<Spring> &springs, float x, float y, float width, float height, float mass)
+    Shape createStaticQuad(Array<PointMass> &points, float x, float y, float width, float height, float mass)
     {
         points.append({{x, y, mass},
                        {x + width, y, mass},
                        {x + width, y + height, mass},
                        {x, y + height, mass}});
+
+        const Span span = {.start = points.size() - 4, .end = points.size()};
+        const PointMass &p0 = points[span.start];
+        const PointMass &p1 = points[span.start + 1];
+        const PointMass &p2 = points[span.start + 2];
+        const PointMass &p3 = points[span.start + 3];
+
+        return Shape{.start = span.start, .end = span.end};
+    }
+
+    Shape createQuad(Array<PointMass> &points, Array<Spring> &springs, float x, float y, float width, float height, float mass)
+    {
+        Shape quad = createStaticQuad(points, x, y, width, height, mass);
 
         const Span span = {.start = points.size() - 4, .end = points.size()};
         const PointMass &p0 = points[span.start];
@@ -165,7 +178,7 @@ namespace Shapes
         springs.push({span.start, span.start + 2, p0.pos.distance(p2.pos), stiffness, damping});
         springs.push({span.start + 1, span.start + 3, p1.pos.distance(p3.pos), stiffness, damping});
 
-        return Shape{.start = span.start, .end = span.end, .isStatic = false};
+        return quad;
     }
     Shape createParallelogram(Array<PointMass> &points, float x, float y, float width, float height, float sideOffset, float mass)
     {
@@ -174,7 +187,7 @@ namespace Shapes
                        {x + width + sideOffset, y + height, mass},
                        {x + sideOffset, y + height, mass}});
 
-        return Shape{.start = points.size() - 4, .end = points.size(), .isStatic = false};
+        return Shape{.start = points.size() - 4, .end = points.size()};
     }
 
     Shape createTriangle(Array<PointMass> &points, float x0, float y0, float x1, float y1, float x2, float y2, float mass)
@@ -188,7 +201,7 @@ namespace Shapes
         const PointMass &p1 = points[span.start + 1];
         const PointMass &p2 = points[span.start + 2];
 
-        return Shape{.start = span.start, .end = span.end, .isStatic = false};
+        return Shape{.start = span.start, .end = span.end};
     }
 
     Shape createLine(Array<PointMass> &points, Array<Spring> &springs, float x0, float y0, float x1, float y1, float mass)
@@ -200,6 +213,6 @@ namespace Shapes
         const Span span = {.start = points.size() - 2, .end = points.size()};
         springs.push({.pointA = span.start, .pointB = span.start + 1, .length = p0.pos.distance(p1.pos), .stiffness = 0.3f, .damping = 28.9f});
 
-        return Shape{.start = span.start, .end = span.end, .isStatic = false};
+        return Shape{.start = span.start, .end = span.end};
     }
 }

@@ -3,6 +3,18 @@
 
 class Game;
 
+struct ConsoleProfileInfo
+{
+    double physicsTimeMillis;
+    double elapsedStepTimeMillis;
+    int numPhysicsSteps;
+    double totalPhysicsTimeMillis;
+    double renderTimeMillis;
+    double swapTimeMillis;
+    double springsTimeMillis;
+    double collisionTimeMillis;
+};
+
 class Console
 {
 public:
@@ -11,10 +23,10 @@ public:
     static void log(const char *format, ...);
     static void logFrame(float x, float y, const char *format, ...);
     static void logVectorFrame(float x, float y, float vx, float vy, const char *format, ...);
-    static void draw(Game &game);
+    static void draw(Game &game, ConsoleProfileInfo profileInfo);
 
     static bool executingTest();
-    static void stepTest(Game *game, double elapsedTimeMillis);
+    static void stepTest(Game *game, double elapsedTimeMillis, ConsoleProfileInfo &profileInfo);
 };
 
 #endif

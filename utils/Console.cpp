@@ -97,7 +97,7 @@ void Console::logVectorFrame(float x, float y, float vx, float vy, const char *f
 int selectedSceneIndex = -1;
 bool showingConsole = true;
 
-void Console::draw(Game &game)
+void Console::draw(Game &game, ConsoleProfileInfo profileInfo)
 {
     ImGuiIO &io = ImGui::GetIO();
     ImVec2 displaySize = io.DisplaySize;
@@ -169,6 +169,16 @@ void Console::draw(Game &game)
         ImGui::EndTabBar();
     }
 
+    ImGui::SeparatorText("Profile info");
+    ImGui::Text("Total Physics time: %.2lf ms", profileInfo.totalPhysicsTimeMillis);
+    ImGui::Text("Elapsed step time: %.2lf ms", profileInfo.elapsedStepTimeMillis);
+    ImGui::Text("Physics iterations: %d", profileInfo.numPhysicsSteps);
+    ImGui::Text("Physics time: %.2lf ms", profileInfo.physicsTimeMillis);
+    ImGui::Text("Render time: %.2lf ms", profileInfo.renderTimeMillis);
+    ImGui::Text("Swap time: %.2lf ms", profileInfo.swapTimeMillis);
+    ImGui::Text("Springs time: %.2lf ms", profileInfo.springsTimeMillis);
+    ImGui::Text("Collisions time: %.2lf ms", profileInfo.collisionTimeMillis);
+
     ImGui::End();
 
     ImGui::SetNextWindowSizeConstraints(ImVec2(displaySize.x, 200), ImVec2(displaySize.x, 200));
@@ -197,14 +207,14 @@ void Console::draw(Game &game)
 
     Range<PointMass> pointMasses;
     game.getDynamicPoints(pointMasses);
-    char buf[255];
 
-    for (int i = 0; i < pointMasses.size; i++)
-    {
-        PointMass &point = pointMasses[i];
-        snprintf(buf, 255, "%d", i);
-        foreground->AddCircle(ImVec2(point.pos.x, point.pos.y), 1, IM_COL32(255, 0, 0, 255), 12, 5.0f);
-    }
+    // char buffer[100];
+    // for (int i = 0; i < pointMasses.size; i++)
+    // {
+    //     PointMass &point = pointMasses[i];
+    //     snprintf(buffer, 100, "%d", i);
+    //     foreground->AddText(ImVec2(point.pos.x - 5, point.pos.y + 5), IM_COL32(0, 0, 0, 255), buffer);
+    // }
 
     for (int i = 0; i < numPosLines; i++)
     {
@@ -222,10 +232,10 @@ bool Console::executingTest()
     return curTestCase != nullptr && curTestCase->time < curTestCase->duration && curTestCase->invariantResult == nullptr;
 }
 
-void Console::stepTest(Game *game, double elapsedMilliseconds)
+void Console::stepTest(Game *game, double elapsedMilliseconds, ConsoleProfileInfo &profileInfo)
 {
     if (curTestCase != nullptr)
     {
-        curTestCase->step(game, elapsedMilliseconds);
+        curTestCase->step(game, elapsedMilliseconds, profileInfo);
     }
 }

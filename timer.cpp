@@ -3,6 +3,7 @@
 #ifdef __APPLE__
 #define HAVE_MACH_TIMER
 #include <mach/mach_time.h>
+#include "timer.h"
 #endif
 
 // Returns monotonic time in nanos, measured from the first time the function
@@ -35,4 +36,17 @@ uint64_t monotonicTimeNanos()
     } data(now);
 
     return data.scale(now);
+}
+Timer::Timer() : startNanos(monotonicTimeNanos())
+{
+}
+
+void Timer::reset()
+{
+    startNanos = monotonicTimeNanos();
+}
+
+double Timer::elapsedMillis() const
+{
+    return (monotonicTimeNanos() - startNanos) / 1000000.0;
 }

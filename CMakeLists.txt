@@ -4,6 +4,8 @@ project(SoftBodyPhysics LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+# Set the compiler flags for the debug build type
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Og -g -fno-omit-frame-pointer -finline-functions")
 
 # Disable exceptions
 if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
@@ -19,7 +21,6 @@ find_package(SDL2 REQUIRED)
 
 add_executable(SoftBodyPhysics
  main.cpp
- SDLGameRenderer.cpp
  timer.cpp
  game/Game.cpp
  game/Scenes.cpp
@@ -35,10 +36,13 @@ add_executable(SoftBodyPhysics
  imgui/imgui_tables.cpp
  imgui/imgui_impl_sdlrenderer2.cpp
  imgui/imgui_impl_sdl2.cpp
+ game/GameRenderer.cpp
+ game/GameRenderer.h
  game/Physics.test.h
  game/Physics.h
  game/PhysicsTests.h
  game/Scenes.h
+ stb_image/stb_image.cpp
  utils/Console.h
  utils/UnitTestUtil.h
  utils/MinMax.h

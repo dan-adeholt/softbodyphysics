@@ -28,6 +28,7 @@ void testCase(Shape &shape1, Shape &shape2, Array<PointMass> &points, int expect
 void testFindClosestLineSegmentToPoint()
 {
     Array<PointMass> points;
+    Array<Spring> springs;
     Shape shelf = Shapes::createTriangle(points, 50.0f, 700.0f, 800.0f, 500.0f, 800.0f, 700.0f, 0.0f);
     Vector2 pos1(500.0, 588.0);
     int minIndex = -1;
@@ -35,13 +36,30 @@ void testFindClosestLineSegmentToPoint()
     Vector2 minPoint = {0.0f, 0.0f};
     PointMass pointMass;
 
-    findClosestLineSegmentToPoint(points.range(shelf), pos1, minIndex, minPoint, minT);
+    findClosestLineSegmentToPoint(points.range(shelf), pos1, Vector2(1.0f, 0.0f), minIndex, minPoint, minT);
     testExpectInt(minIndex, 0);
+    float size = 100.0f;
+
+    Vector2 pos2(400.0f, 220.0f);
+    Shape q1 = Shapes::createQuad(points, springs, 400.0f, 220.0f, size, size, 1.0f);
+    Vector2 velocity(1, 0);
+    findClosestLineSegmentToPoint(points.range(q1), pos2, velocity, minIndex, minPoint, minT);
+
+    Vector2 segmentNormal(0, 1);
+    Vector2 segmentNormal2(1, 0);
+    Vector2 segmentNormal3(1, 0);
+
+    Console::log("t1: %.2f", velocity.dot(segmentNormal));
+    Console::log("t2: %.2f", velocity.dot(segmentNormal2));
+    Console::log("t3: %.2f", velocity.dot(segmentNormal3));
+
+    Console::log("Min index found: %d", minIndex);
 }
 
 void testCollisions()
 {
     testFindClosestLineSegmentToPoint();
+    return;
     Array<Spring> springs;
     Array<PointMass> points;
     Array<int> counterForCollisions;

@@ -60,6 +60,8 @@ public:
     float angle() const;
     float angle(const Vector2 &other) const;
     Vector2 rotate(float angle) const;
+
+    Vector2 normalVector() const;
 };
 
 struct PointMass
@@ -90,7 +92,6 @@ struct Shape
 {
     int start;
     int end;
-    bool isStatic;
     const char *name;
     float volume;
 
@@ -152,11 +153,11 @@ int calculateStaticCollisions(
     Range<int> &collisionCounterForMovingShape,
     double step);
 
-void findClosestLineSegmentToPoint(Range<PointMass> collisionShape, const Vector2 &point, int &minIndex, Vector2 &minPoint, float &minT);
+void findClosestLineSegmentToPoint(Range<PointMass> collisionShape, const Vector2 &point, const Vector2 &velocity, int &minIndex, Vector2 &minPoint, float &minT);
 
 void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<Shape> &shapes, const Array<PointMass> &points);
 
-void applySprings(Range<PointMass> &points, Range<Spring> &springs, const Range<int> &counterForCollisions, double step);
+void applySprings(Range<PointMass> &points, Range<Spring> &springs, double step);
 
 void applyGravity(Range<PointMass> &points, double timeStep);
 

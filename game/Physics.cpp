@@ -8,7 +8,7 @@
 
 float coefficentOfRestitution = 0.65f;
 
-inline Vector2 calculateImpulse(PointMass pm0, PointMass pm1, Vector2 segmentNormal, PointMass point, Vector2 minPoint, float minT)
+inline Vector2 calculateImpulse(PointMass pm0, PointMass pm1, Vector2 segmentNormal, PointMass point, float minT)
 {
     Vector2 velocityLineSegment = pm0.velocity + (pm1.velocity - pm0.velocity) * minT;
     Vector2 relativeVelocity = point.velocity - velocityLineSegment;
@@ -130,6 +130,11 @@ Vector2 Vector2::rotate(float angle) const
     return {x * cosf(angle) - y * sinf(angle), x * sinf(angle) + y * cosf(angle)};
 }
 
+Vector2 Vector2::normalVector() const
+{
+    return Vector2(-y, x);
+}
+
 Vector2 Vector2::reflect(const Vector2 &normal) const
 {
     return *this - normal * 2.0f * normal.dot();
@@ -159,6 +164,53 @@ Vector2 Vector2::normalized()
 {
     float length = sqrtf(x * x + y * y);
     return {x / length, y / length};
+}
+
+struct IntersectionResult
+{
+    Vector2 point;
+    float t;
+    int segmentIndex;
+    bool found;
+};
+
+// Function to calculate the intersection point of two line segments
+IntersectionResult lineIntersection(const Vector2 &s1, const Vector2 &s2, const Vector2 &p1, const Vector2 &p2)
+{
+    float x1 = s1.x, y1 = s1.y;
+    float x2 = s2.x, y2 = s2.y;
+    float x3 = p1.x, y3 = p1.y;
+    float x4 = p2.x, y4 = p2.y;
+
+    float denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+    if (fabsf(denom) < 1e-6f)
+    {
+        IntersectionResult res = {
+            Vector2::zero(),
+            0,
+            0,
+            false};
+        return res;
+    }
+
+    float t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+    float u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1)
+    {
+        Vector2 intersectionPoint = {
+            x1 + t * (x2 - x1),
+            y1 + t * (y2 - y1)};
+        return {intersectionPoint, t, -1, true};
+    }
+
+    IntersectionResult res = {
+        Vector2::zero(),
+        0,
+        0,
+        false};
+
+    return res; // No intersection within segments
 }
 
 int countNumCollisions(Range<PointMass> collisionShape, PointMass point, float outX)
@@ -200,7 +252,26 @@ int countNumCollisions(Range<PointMass> collisionShape, PointMass point, float o
     return numIntersections;
 }
 
-void findClosestLineSegmentToPoint(Range<PointMass> collisionShape, const Vector2 &point, int &minIndex, Vector2 &minPoint, float &minT)
+void findClosestLineSegmentToPointIntersection(Range<PointMass> collisionShape, const Vector2 &point, const Vector2 &prevPoint, int &minIndex, Vector2 &minPoint, float &minT)
+{
+    for (int i = 0; i < collisionShape.size; i++)
+    {
+        Vector2 segment0 = collisionShape[i].pos;
+        Vector2 segment1 = collisionShape[(i + 1) % collisionShape.size].pos;
+
+        IntersectionResult res = lineIntersection(segment0, segment1, point, prevPoint);
+
+        if (res.found)
+        {
+            minIndex = i;
+            minPoint = res.point;
+            minT = res.t;
+            return;
+        }
+    }
+}
+
+void findClosestLineSegmentToPoint(Range<PointMass> collisionShape, const Vector2 &point, const Vector2 &velocity, int &minIndex, Vector2 &minPoint, float &minT)
 {
     float minDistanceSquared = __FLT_MAX__;
 
@@ -213,13 +284,9 @@ void findClosestLineSegmentToPoint(Range<PointMass> collisionShape, const Vector
         Vector2 segment = segment1 - segment0;
         // Vector from A to P
         Vector2 segmentToPoint = point - segment0;
+        Vector2 segmentNormal = segment.normalVector().normalized();
 
-        if (point.y == segment0.y && point.y == segment1.y)
-        {
-            continue;
-        }
-
-        if (point.x == segment0.x && point.x == segment1.x)
+        if (fabs(segmentNormal.dot(velocity)) < 0.000001f)
         {
             continue;
         }
@@ -242,6 +309,11 @@ void findClosestLineSegmentToPoint(Range<PointMass> collisionShape, const Vector
             minPoint = closestPoint;
             minT = t;
         }
+    }
+
+    if (minDistanceSquared == __FLT_MAX__)
+    {
+        Console::log("ERROR: Failed to find line segment!");
     }
 }
 
@@ -273,10 +345,18 @@ int calculateCollisions(
     {
         PointMass &point = movingShape[i];
         Vector2 pointPos = point.pos;
+        Vector2 prevPos = point.pos - point.velocity;
 
         // First check - is the point outside the bounding box of the other shape?
         // Then extend horizontal line from point to the right,  outside of bounding box.
         if (isPointOutsideShape(point, collisionBox, collisionShape))
+        {
+            continue;
+        }
+        // If point is not moving, we need to skip it, because otherwise findClosestLineSegmentToPoint won't work
+        // (it uses velocity to determine closest point on line segment). And if it is not moving it cannot collide with anything -
+        // the other shape will collide with it.
+        else if (fabs(point.velocity.x) < 0.00001f && fabs(point.velocity.y) < 0.00001f)
         {
             continue;
         }
@@ -288,7 +368,13 @@ int calculateCollisions(
         int minIndex = -1;
         float minT = 0.0f;
         Vector2 minPoint = {0.0f, 0.0f};
-        findClosestLineSegmentToPoint(collisionShape, pointPos, minIndex, minPoint, minT);
+        // findClosestLineSegmentToPointIntersection(collisionShape, pointPos, prevPos, minIndex, minPoint, minT);
+        findClosestLineSegmentToPoint(collisionShape, pointPos, point.velocity, minIndex, minPoint, minT);
+
+        if (minIndex == -1)
+        {
+            continue;
+        }
 
         PointMass &pm0 = collisionShape[minIndex];
         PointMass &pm1 = collisionShape[(minIndex + 1) % collisionShape.size];
@@ -297,14 +383,14 @@ int calculateCollisions(
 
         // Since this is an impulse and not a continuously applied force, we need to divide by the step
         // so that when the velocity and position are updated, the impulse is applied correctly.
-        Vector2 impulse = calculateImpulse(pm0, pm1, segmentNormal, point, minPoint, minT) / step;
+        Vector2 impulse = calculateImpulse(pm0, pm1, segmentNormal, point, minT) / step;
 
         point.force += impulse;
         pm0.force -= (impulse * (1.0f - minT));
         pm1.force -= (impulse * minT);
 
         Vector2 reflection = point.velocity.reflect(segmentNormal).normalized();
-        point.pos = minPoint + reflection * 0.01f;
+        point.pos = minPoint + reflection * 0.1f;
     }
 
     return numCollisions;
@@ -337,7 +423,17 @@ int calculateStaticCollisions(
         int minIndex = -1;
         float minT = 0.0f;
         Vector2 minPoint = {0.0f, 0.0f};
-        findClosestLineSegmentToPoint(staticShape, point.pos, minIndex, minPoint, minT);
+        findClosestLineSegmentToPoint(staticShape, point.pos, point.velocity, minIndex, minPoint, minT);
+
+        if (minIndex == -1)
+        {
+            continue;
+        }
+
+        if (i == 4)
+        {
+            Console::log("minIndex: %d, minPoint: %.2f, %.2f [%.2f %.2f]", minIndex, minPoint.x, minPoint.y, point.pos.x, point.pos.y);
+        }
 
         PointMass &pm0 = staticShape[minIndex];
         PointMass &pm1 = staticShape[(minIndex + 1) % staticShape.size];
@@ -346,10 +442,10 @@ int calculateStaticCollisions(
 
         // Since this is an impulse and not a continuously applied force, we need to divide by the step
         // so that when the velocity and position are updated, the impulse is applied correctly.
-        Vector2 impulse = calculateImpulse(pm0, pm1, segmentNormal, point, minPoint, minT) / step;
+        Vector2 impulse = calculateImpulse(pm0, pm1, segmentNormal, point, minT) / step;
         Vector2 reflection = point.velocity.reflect(segmentNormal).normalized();
         point.force += impulse;
-        point.pos = minPoint + reflection * 0.01f;
+        point.pos = minPoint + reflection * 0.1f;
     }
 
     return numCollisions;
@@ -389,11 +485,12 @@ void applyGravity(Range<PointMass> &points, double timeStep)
 {
     for (int i = 0; i < points.size; i++)
     {
-        points[i].force.y += 0.05f * 0.0001f;
+        // Multiply by mass to cancel out in the subsequent force calculation
+        points[i].force.y += (0.05f * 0.003f) * points[i].mass;
     }
 }
 
-void applySprings(Range<PointMass> &points, Range<Spring> &springs, const Range<int> &counterForCollisions, double step)
+void applySprings(Range<PointMass> &points, Range<Spring> &springs, double step)
 {
     for (int i = 0; i < springs.size; i++)
     {
@@ -404,15 +501,20 @@ void applySprings(Range<PointMass> &points, Range<Spring> &springs, const Range<
         Vector2 offset = (point2.pos - point1.pos);
         float delta = (offset.length() - spring.length);
 
-        float springForce = delta * spring.stiffness;
-        Vector2 offsetNormal = offset.normalized();
+        if (offset.length() > 0.001f)
+        {
+            float springForce = delta * spring.stiffness * 5.0f;
+            springForce = min(springForce, 10000.0f);
+            Vector2 offsetNormal = offset.normalized();
 
-        float dampForce = offsetNormal.dot(point2.velocity - point1.velocity) * spring.damping;
+            float dampForce = offsetNormal.dot(point2.velocity - point1.velocity) * spring.damping;
+            dampForce = min(dampForce, 10000.0f);
 
-        Vector2 force = offsetNormal * (springForce + dampForce) * 0.085f * 0.0001f;
-        Vector2 diff = point2.velocity - point1.velocity;
+            Vector2 force = offsetNormal * (springForce + dampForce) * 0.085f * 0.001f;
+            Vector2 diff = point2.velocity - point1.velocity;
 
-        point1.force += force;
-        point2.force -= force;
+            point1.force += force;
+            point2.force -= force;
+        }
     }
 }

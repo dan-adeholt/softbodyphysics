@@ -91,7 +91,7 @@ void PhysicsTestDefinition::start(Game *game)
     time = 0;
 }
 
-void PhysicsTestDefinition::step(Game *game, double elapsedMilliseconds)
+void PhysicsTestDefinition::step(Game *game, double elapsedMilliseconds, ConsoleProfileInfo &profileInfo)
 {
     if (actionFunction != nullptr)
     {
@@ -100,7 +100,7 @@ void PhysicsTestDefinition::step(Game *game, double elapsedMilliseconds)
 
     invariantResult = invariantFunction(game, time);
 
-    game->update(elapsedMilliseconds);
+    game->update(elapsedMilliseconds, profileInfo);
     this->time++;
 }
 

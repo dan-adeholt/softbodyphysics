@@ -7,6 +7,7 @@ class Game;
 typedef void (*PhysicsTestFunction)(Game *);
 typedef const char *(*PhysicsInvariantFunction)(Game *, int);
 typedef void (*PhysicsTimeFunction)(Game *, int);
+struct ConsoleProfileInfo;
 
 class PhysicsTestDefinition
 {
@@ -18,7 +19,7 @@ public:
                           PhysicsTimeFunction actionFunction);
 
     void start(Game *game);
-    void step(Game *game, double elapsedMilliseconds);
+    void step(Game *game, double elapsedMilliseconds, ConsoleProfileInfo &profileInfo);
     void end(Game *game);
 
     const char *name;

@@ -4,7 +4,7 @@
 #include "timer.h"
 #include "game/Game.h"
 #include "./game/Physics.h"
-#include "./SDLGameRenderer.h"
+#include "./game/GameRenderer.h"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_sdlrenderer2.h"
@@ -47,13 +47,14 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    bool vsync = true;
+    bool vsync = false;
 
     if (vsync)
     {
         SDL_RenderSetVSync(renderer, 1);
     }
 
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
     SDL_DisplayMode displayMode;
     SDL_GetCurrentDisplayMode(0, &displayMode);
 
@@ -85,7 +86,6 @@ int main(int argc, char *argv[])
     SDL_Event event;
     bool quit = false;
 
-    SDLGameRenderer gameRenderer;
     Game game;
     game.init("Bridge");
     uint64_t startNanos = monotonicTimeNanos();
@@ -97,7 +97,11 @@ int main(int argc, char *argv[])
     Console::log("Refresh rate: %dhz | Startup time: %.1lf ms\n", displayMode.refresh_rate, (monotonicTimeNanos() - programStartNanos) / 1000000.0);
 
     SDL_RaiseWindow(window);
+    ConsoleProfileInfo profileInfo = {};
 
+    GameRenderer gameRenderer(renderer);
+
+    startNanos = monotonicTimeNanos();
     while (!quit)
     {
         while (SDL_PollEvent(&event))
@@ -116,7 +120,7 @@ int main(int argc, char *argv[])
                     paused = !paused;
                     break;
                 case SDLK_F8:
-                    game.update(1000.0 / 120.0);
+                    game.update(1000.0 / 120.0, profileInfo);
                     break;
                 case SDLK_F3:
                     game.rewindHistory();
@@ -196,11 +200,13 @@ int main(int argc, char *argv[])
         {
             if (Console::executingTest())
             {
-                Console::stepTest(&game, elapsedMilliseconds);
+                Console::stepTest(&game, elapsedMilliseconds, profileInfo);
             }
             else
             {
-                game.update(elapsedMilliseconds);
+                Timer totalPhysicsTimer;
+                game.update(elapsedMilliseconds, profileInfo);
+                profileInfo.totalPhysicsTimeMillis = totalPhysicsTimer.elapsedMillis();
             }
         }
 
@@ -212,20 +218,24 @@ int main(int argc, char *argv[])
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
 
-        Console::draw(game);
+        Timer renderTimer;
 
-        // Rendering
-        ImGui::Render();
         SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
 
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer);
 
-        gameRenderer.render(renderer, &game);
-        gameRenderer.renderText(renderer, "Press F5 to pause, F6 to save, F7 to load, F8 to step, F3 to rewind, F4 to forward", 10, 10);
+        gameRenderer.renderGame(renderer, game, profileInfo);
+        // gameRenderer.renderText(renderer, "Press F5 to pause, F6 to save, F7 to load, F8 to step, F3 to rewind, F4 to forward", 10, 10);
+        profileInfo.renderTimeMillis = renderTimer.elapsedMillis();
+        Timer extraDrawTimer;
+        Console::draw(game, profileInfo);
 
+        // Rendering
+        ImGui::Render();
         ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
         SDL_RenderPresent(renderer);
+        profileInfo.swapTimeMillis = extraDrawTimer.elapsedMillis();
     }
     // Cleanup
     ImGui_ImplSDLRenderer2_Shutdown();

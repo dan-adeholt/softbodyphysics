@@ -5,6 +5,7 @@ struct PointMass;
 struct Spring;
 struct Shape;
 struct StaticJoint;
+struct ConsoleProfileInfo;
 
 template <typename T>
 class Range;
@@ -27,7 +28,7 @@ public:
     void getDynamicShapes(Range<Shape> &shapes) const;
     void getStaticShapes(Range<Shape> &shapes) const;
 
-    void update(double elapsedTimeMilliseconds);
+    void update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInfo);
 
     void loadFromFile(const char *path);
     void dumpToFile(const char *path);

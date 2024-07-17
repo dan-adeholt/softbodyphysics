@@ -389,22 +389,22 @@ void Game::setCollisionsEnabled(bool collisionsEnabled)
     m_impl->collisionsEnabled = collisionsEnabled;
 }
 
-bool hires = false;
-const double step = 1.0f;
-double forceStepConstant = step;
-double velocityStepConstant = 50.0f * step;
+const double step = 0.1f;
 
-void Game::update(double elapsedTimeMilliseconds)
+void Game::update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInfo)
 {
     m_impl->timeBucket += elapsedTimeMilliseconds;
+    profileInfo.elapsedStepTimeMillis = elapsedTimeMilliseconds;
     if (m_impl->timeBucket >= step)
     {
         Console::clearFrame();
     }
 
+    Timer updateTimer;
+    int numIterations = 0;
+
     while (m_impl->timeBucket > step)
     {
-        uint64_t startUpdateNanos = monotonicTimeNanos();
         Range<PointMass> points = m_impl->points.range();
         Range<Spring> springs = m_impl->springs.range();
         m_impl->collisionCounterForPoints.fill(0, m_impl->points.size());
@@ -421,7 +421,11 @@ void Game::update(double elapsedTimeMilliseconds)
             applyGravity(points, step);
         }
 
-        applySprings(points, springs, collisionCounterForPoints, step);
+        {
+            Timer springsTimer;
+            applySprings(points, springs, step);
+            profileInfo.springsTimeMillis = springsTimer.elapsedMillis();
+        }
 
         for (int i = 0; i < m_impl->staticJoints.size(); i++)
         {
@@ -441,20 +445,32 @@ void Game::update(double elapsedTimeMilliseconds)
 
         if (m_impl->collisionsEnabled)
         {
+            Timer collisionsTimer;
             handleCollisions(points, collisionCounterForPoints, step);
+            profileInfo.collisionTimeMillis = collisionsTimer.elapsedMillis();
         }
 
         for (int i = 0; i < m_impl->points.size(); i++)
         {
             PointMass &point = m_impl->points[i];
-            point.velocity += (point.force / point.mass) * 1.0f * step;
+            point.velocity += (point.force / point.mass) * step;
 
             point.pos.x += point.velocity.x * step;
             point.pos.y += point.velocity.y * step;
         }
 
         m_impl->timeBucket -= step;
+        numIterations++;
+
+        if (updateTimer.elapsedMillis() > elapsedTimeMilliseconds * 0.5f)
+        {
+            Console::log("WARNING: Physics update cannot keep up with rendering time, dropping physics frames");
+            break;
+        }
     }
+
+    profileInfo.numPhysicsSteps = numIterations;
+    profileInfo.physicsTimeMillis = updateTimer.elapsedMillis() / numIterations;
 
     m_impl->history[m_impl->historicalIndex].staticShapes.clear();
     m_impl->history[m_impl->historicalIndex].shapes.clear();
