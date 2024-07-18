@@ -60,7 +60,6 @@ struct Game::Impl
         sortedBoundingBoxes.clear();
         sortedStaticBoundingBoxes.clear();
         mouseJoint.pointIndex = -1;
-        ;
         gravityEnabled = true;
     }
 
@@ -78,6 +77,14 @@ struct Game::Impl
     Array<ShapeBoundingBox> staticBoundingBoxes;
     Array<ShapeBoundingBox> sortedBoundingBoxes;
     Array<ShapeBoundingBox> sortedStaticBoundingBoxes;
+
+    Array<PointDerivative> rk1;
+    Array<PointDerivative> rk2;
+    Array<PointDerivative> rk3;
+    Array<PointDerivative> rk4;
+    Array<PointMass> rkTemp;
+    Array<PointDerivative> rkEmptyDerivatives;
+
     StaticJoint mouseJoint;
     bool gravityEnabled;
     bool collisionsEnabled;
@@ -389,7 +396,151 @@ void Game::setCollisionsEnabled(bool collisionsEnabled)
     m_impl->collisionsEnabled = collisionsEnabled;
 }
 
-const double step = 0.1f;
+const double step = 1.0f;
+
+void Game::performRK4Step(Range<PointMass> &initialState, Range<Spring> &springs, double dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives)
+{
+    m_impl->rkTemp.clear();
+    outDerivatives.clear();
+
+    for (int i = 0; i < initialState.size; i++)
+    {
+        PointDerivative outDerivative;
+        PointDerivative &derivative = derivatives[i];
+
+        PointMass point = initialState[i];
+        point.pos = point.pos + derivative.velocity * dt;
+        point.velocity = point.velocity + derivative.acceleration * dt;
+
+        outDerivative.velocity = point.velocity;
+        if (m_impl->gravityEnabled)
+        {
+            outDerivative.acceleration = Vector2(0.0f, 0.00015f); // Gravity
+        }
+
+        outDerivatives.push(outDerivative);
+        m_impl->rkTemp.push(point);
+    }
+
+    Range<PointMass> state = m_impl->rkTemp.range();
+    Range<PointDerivative> derivativeRange = outDerivatives.range();
+    applySpringDerivatives(state, springs, derivativeRange);
+}
+
+void Game::performRK4Integration(
+    Range<PointMass> &points,
+    Range<Spring> &springs,
+    Range<int> &collisionCounterForPoints,
+    ConsoleProfileInfo &profileInfo)
+{
+    m_impl->rkEmptyDerivatives.fill(PointDerivative(), m_impl->points.size());
+
+    performRK4Step(points, springs, 0.0, m_impl->rkEmptyDerivatives, m_impl->rk1);
+    performRK4Step(points, springs, step * 0.5, m_impl->rk1, m_impl->rk2);
+    performRK4Step(points, springs, step * 0.5, m_impl->rk2, m_impl->rk3);
+    performRK4Step(points, springs, step, m_impl->rk3, m_impl->rk4);
+
+    for (int i = 0; i < m_impl->points.size(); i++)
+    {
+        PointMass &point = m_impl->points[i];
+        PointDerivative &rk1 = m_impl->rk1[i];
+        PointDerivative &rk2 = m_impl->rk2[i];
+        PointDerivative &rk3 = m_impl->rk3[i];
+        PointDerivative &rk4 = m_impl->rk4[i];
+
+        Vector2 deltaVelocity = (rk1.velocity + (rk2.velocity + rk3.velocity) * 2.0f + rk4.velocity) * 1.0f / 6.0f;
+        Vector2 deltaAcceleration = (rk1.acceleration + (rk2.acceleration + rk3.acceleration) * 2.0f + rk4.acceleration) * 1.0f / 6.0f;
+        point.pos = point.pos + deltaVelocity * step;
+        point.velocity = point.velocity + deltaAcceleration * step;
+    }
+
+    for (int i = 0; i < m_impl->staticJoints.size(); i++)
+    {
+        StaticJoint &joint = m_impl->staticJoints[i];
+        PointMass &point = m_impl->points[joint.pointIndex];
+        point.pos = joint.position;
+        point.velocity = Vector2::zero();
+    }
+
+    if (m_impl->mouseJoint.pointIndex != -1)
+    {
+        PointMass &point = m_impl->points[m_impl->mouseJoint.pointIndex];
+        point.pos = m_impl->mouseJoint.position;
+        point.velocity = Vector2::zero();
+        point.acceleration = Vector2::zero();
+    }
+
+    for (int i = 0; i < m_impl->points.size(); i++)
+    {
+        PointMass &point = m_impl->points[i];
+        point.acceleration = Vector2::zero();
+    }
+
+    if (m_impl->collisionsEnabled)
+    {
+        Timer collisionsTimer;
+        handleCollisions(points, collisionCounterForPoints, step);
+        profileInfo.collisionTimeMillis = collisionsTimer.elapsedMillis();
+    }
+
+    for (int i = 0; i < m_impl->points.size(); i++)
+    {
+        PointMass &point = m_impl->points[i];
+        point.velocity += (point.acceleration) * step;
+
+        point.pos.x += point.velocity.x * step;
+        point.pos.y += point.velocity.y * step;
+    }
+
+    // for (int i = 0; i < m_impl->points.size(); i++)
+    // {
+    //     PointMass &point = m_impl->points[i];
+    //     point.acceleration = Vector2::zero();
+    // }
+
+    // if (m_impl->gravityEnabled)
+    // {
+    //     applyGravity(points, step);
+    // }
+
+    // {
+    //     Timer springsTimer;
+    //     applySprings(points, springs, step);
+    //     profileInfo.springsTimeMillis = springsTimer.elapsedMillis();
+    // }
+
+    // for (int i = 0; i < m_impl->staticJoints.size(); i++)
+    // {
+    //     StaticJoint &joint = m_impl->staticJoints[i];
+    //     PointMass &point = m_impl->points[joint.pointIndex];
+    //     point.pos = joint.position;
+    //     point.velocity = Vector2::zero();
+    // }
+
+    // if (m_impl->mouseJoint.pointIndex != -1)
+    // {
+    //     PointMass &point = m_impl->points[m_impl->mouseJoint.pointIndex];
+    //     point.pos = m_impl->mouseJoint.position;
+    //     point.velocity = Vector2::zero();
+    //     point.acceleration = Vector2::zero();
+    // }
+
+    // if (m_impl->collisionsEnabled)
+    // {
+    //     Timer collisionsTimer;
+    //     handleCollisions(points, collisionCounterForPoints, step);
+    //     profileInfo.collisionTimeMillis = collisionsTimer.elapsedMillis();
+    // }
+
+    // for (int i = 0; i < m_impl->points.size(); i++)
+    // {
+    //     PointMass &point = m_impl->points[i];
+    //     point.velocity += (point.acceleration) * step;
+
+    //     point.pos.x += point.velocity.x * step;
+    //     point.pos.y += point.velocity.y * step;
+    // }
+}
 
 void Game::update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInfo)
 {
@@ -410,54 +561,7 @@ void Game::update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInf
         m_impl->collisionCounterForPoints.fill(0, m_impl->points.size());
         Range<int> collisionCounterForPoints = m_impl->collisionCounterForPoints.range();
 
-        for (int i = 0; i < m_impl->points.size(); i++)
-        {
-            PointMass &point = m_impl->points[i];
-            point.acceleration = Vector2::zero();
-        }
-
-        if (m_impl->gravityEnabled)
-        {
-            applyGravity(points, step);
-        }
-
-        {
-            Timer springsTimer;
-            applySprings(points, springs, step);
-            profileInfo.springsTimeMillis = springsTimer.elapsedMillis();
-        }
-
-        for (int i = 0; i < m_impl->staticJoints.size(); i++)
-        {
-            StaticJoint &joint = m_impl->staticJoints[i];
-            PointMass &point = m_impl->points[joint.pointIndex];
-            point.pos = joint.position;
-            point.velocity = Vector2::zero();
-        }
-
-        if (m_impl->mouseJoint.pointIndex != -1)
-        {
-            PointMass &point = m_impl->points[m_impl->mouseJoint.pointIndex];
-            point.pos = m_impl->mouseJoint.position;
-            point.velocity = Vector2::zero();
-            point.acceleration = Vector2::zero();
-        }
-
-        if (m_impl->collisionsEnabled)
-        {
-            Timer collisionsTimer;
-            handleCollisions(points, collisionCounterForPoints, step);
-            profileInfo.collisionTimeMillis = collisionsTimer.elapsedMillis();
-        }
-
-        for (int i = 0; i < m_impl->points.size(); i++)
-        {
-            PointMass &point = m_impl->points[i];
-            point.velocity += (point.acceleration) * step;
-
-            point.pos.x += point.velocity.x * step;
-            point.pos.y += point.velocity.y * step;
-        }
+        performRK4Integration(points, springs, collisionCounterForPoints, profileInfo);
 
         m_impl->timeBucket -= step;
         numIterations++;

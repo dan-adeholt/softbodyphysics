@@ -6,6 +6,7 @@ struct Spring;
 struct Shape;
 struct StaticJoint;
 struct ConsoleProfileInfo;
+struct PointDerivative;
 
 template <typename T>
 class Range;
@@ -50,6 +51,12 @@ public:
     Array<StaticJoint> &staticJoints();
 
 private:
+    void performRK4Integration(Range<PointMass> &points,
+                               Range<Spring> &springs,
+                               Range<int> &collisionCounterForPoints,
+                               ConsoleProfileInfo &profileInfo);
+    void performRK4Step(Range<PointMass> &initialState, Range<Spring> &springs, double dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives);
+
     void updateAfterRewindOrForward();
     void handleCollisions(Range<PointMass> &points, const Range<int> &collisionCounterForPoints, double step);
 

@@ -73,6 +73,13 @@ struct PointMass
     Vector2 acceleration;
 };
 
+struct PointDerivative
+{
+    PointDerivative() : velocity(Vector2::zero()), acceleration(Vector2::zero()) {}
+    Vector2 velocity;
+    Vector2 acceleration;
+};
+
 struct StaticJoint
 {
     int pointIndex;
@@ -158,6 +165,7 @@ void findClosestLineSegmentToPoint(Range<PointMass> collisionShape, const Vector
 void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<Shape> &shapes, const Array<PointMass> &points);
 
 void applySprings(Range<PointMass> &points, Range<Spring> &springs, double step);
+void applySpringDerivatives(Range<PointMass> &points, Range<Spring> &springs, Range<PointDerivative> derivatives);
 
 void applyGravity(Range<PointMass> &points, double timeStep);
 

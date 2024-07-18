@@ -518,3 +518,35 @@ void applySprings(Range<PointMass> &points, Range<Spring> &springs, double step)
         }
     }
 }
+
+void applySpringDerivatives(Range<PointMass> &points, Range<Spring> &springs, Range<PointDerivative> derivatives)
+{
+    for (int i = 0; i < springs.size; i++)
+    {
+        const Spring &spring = springs[i];
+        PointMass &point1 = points[spring.pointA];
+        PointMass &point2 = points[spring.pointB];
+
+        PointDerivative &derivative1 = derivatives[spring.pointA];
+        PointDerivative &derivative2 = derivatives[spring.pointB];
+
+        Vector2 offset = (point2.pos - point1.pos);
+        float delta = (offset.length() - spring.length);
+
+        if (offset.length() > 0.001f)
+        {
+            float springForce = delta * spring.stiffness * 5.0f;
+            springForce = min(springForce, 10000.0f);
+            Vector2 offsetNormal = offset.normalized();
+
+            float dampForce = offsetNormal.dot(point2.velocity - point1.velocity) * spring.damping;
+            dampForce = min(dampForce, 10000.0f);
+
+            Vector2 force = offsetNormal * (springForce + dampForce) * 0.085f * 0.001f;
+            Vector2 diff = point2.velocity - point1.velocity;
+
+            derivative1.acceleration += force / point1.mass;
+            derivative2.acceleration -= force / point2.mass;
+        }
+    }
+}

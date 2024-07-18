@@ -228,11 +228,12 @@ int main(int argc, char *argv[])
         gameRenderer.renderGame(renderer, game, profileInfo);
         // gameRenderer.renderText(renderer, "Press F5 to pause, F6 to save, F7 to load, F8 to step, F3 to rewind, F4 to forward", 10, 10);
         profileInfo.renderTimeMillis = renderTimer.elapsedMillis();
-        Timer extraDrawTimer;
         Console::draw(game, profileInfo);
 
         // Rendering
+
         ImGui::Render();
+        Timer extraDrawTimer;
         ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
         SDL_RenderPresent(renderer);
         profileInfo.swapTimeMillis = extraDrawTimer.elapsedMillis();
