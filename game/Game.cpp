@@ -433,7 +433,10 @@ void Game::performRK4Integration(
     Range<int> &collisionCounterForPoints,
     ConsoleProfileInfo &profileInfo)
 {
-    m_impl->rkEmptyDerivatives.fill(PointDerivative(), m_impl->points.size());
+    if (m_impl->rkEmptyDerivatives.size() != points.size)
+    {
+        m_impl->rkEmptyDerivatives.fill(PointDerivative(), m_impl->points.size());
+    }
 
     performRK4Step(points, springs, 0.0, m_impl->rkEmptyDerivatives, m_impl->rk1);
     performRK4Step(points, springs, step * 0.5, m_impl->rk1, m_impl->rk2);
@@ -491,55 +494,6 @@ void Game::performRK4Integration(
         point.pos.x += point.velocity.x * step;
         point.pos.y += point.velocity.y * step;
     }
-
-    // for (int i = 0; i < m_impl->points.size(); i++)
-    // {
-    //     PointMass &point = m_impl->points[i];
-    //     point.acceleration = Vector2::zero();
-    // }
-
-    // if (m_impl->gravityEnabled)
-    // {
-    //     applyGravity(points, step);
-    // }
-
-    // {
-    //     Timer springsTimer;
-    //     applySprings(points, springs, step);
-    //     profileInfo.springsTimeMillis = springsTimer.elapsedMillis();
-    // }
-
-    // for (int i = 0; i < m_impl->staticJoints.size(); i++)
-    // {
-    //     StaticJoint &joint = m_impl->staticJoints[i];
-    //     PointMass &point = m_impl->points[joint.pointIndex];
-    //     point.pos = joint.position;
-    //     point.velocity = Vector2::zero();
-    // }
-
-    // if (m_impl->mouseJoint.pointIndex != -1)
-    // {
-    //     PointMass &point = m_impl->points[m_impl->mouseJoint.pointIndex];
-    //     point.pos = m_impl->mouseJoint.position;
-    //     point.velocity = Vector2::zero();
-    //     point.acceleration = Vector2::zero();
-    // }
-
-    // if (m_impl->collisionsEnabled)
-    // {
-    //     Timer collisionsTimer;
-    //     handleCollisions(points, collisionCounterForPoints, step);
-    //     profileInfo.collisionTimeMillis = collisionsTimer.elapsedMillis();
-    // }
-
-    // for (int i = 0; i < m_impl->points.size(); i++)
-    // {
-    //     PointMass &point = m_impl->points[i];
-    //     point.velocity += (point.acceleration) * step;
-
-    //     point.pos.x += point.velocity.x * step;
-    //     point.pos.y += point.velocity.y * step;
-    // }
 }
 
 void Game::update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInfo)
@@ -566,7 +520,7 @@ void Game::update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInf
         m_impl->timeBucket -= step;
         numIterations++;
 
-        if (updateTimer.elapsedMillis() > elapsedTimeMilliseconds * 0.5f)
+        if (updateTimer.elapsedMillis() > elapsedTimeMilliseconds)
         {
             Console::log("WARNING: Physics update cannot keep up with rendering time, dropping physics frames");
             break;
@@ -574,6 +528,7 @@ void Game::update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInf
     }
 
     profileInfo.numPhysicsSteps = numIterations;
+    profileInfo.numSprings = m_impl->springs.size();
     profileInfo.physicsTimeMillis = updateTimer.elapsedMillis() / numIterations;
 
     m_impl->history[m_impl->historicalIndex].staticShapes.clear();

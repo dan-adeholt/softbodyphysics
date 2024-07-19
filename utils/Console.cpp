@@ -173,6 +173,7 @@ void Console::draw(Game &game, ConsoleProfileInfo profileInfo)
     ImGui::Text("Total Physics time: %.2lf ms", profileInfo.totalPhysicsTimeMillis);
     ImGui::Text("Elapsed step time: %.2lf ms", profileInfo.elapsedStepTimeMillis);
     ImGui::Text("Physics iterations: %d", profileInfo.numPhysicsSteps);
+    ImGui::Text("Num springs: %d", profileInfo.numSprings);
     ImGui::Text("Physics time: %.2lf ms", profileInfo.physicsTimeMillis);
     ImGui::Text("Render time: %.2lf ms", profileInfo.renderTimeMillis);
     ImGui::Text("Swap time: %.2lf ms", profileInfo.swapTimeMillis);

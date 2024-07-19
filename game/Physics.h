@@ -3,6 +3,14 @@
 
 #include "../containers/Span.h"
 
+extern "C"
+{
+    extern float sqrtf(float __x);
+    extern float atan2f(float __y, float __x);
+    extern float sinf(float __x);
+    extern float cosf(float __x);
+}
+
 #define PI 3.141592653589793238463
 #define PI_F 3.14159265358979f
 
@@ -29,13 +37,34 @@ public:
         return x * rhs.y - y * rhs.x;
     }
 
-    Vector2 normalized();
+    Vector2 normalized()
+    {
+        float length = sqrtf(x * x + y * y);
+        return {x / length, y / length};
+    }
 
-    Vector2 reflect(const Vector2 &normal) const;
-    Vector2 operator+(const Vector2 &other) const;
-    Vector2 operator-(const Vector2 &other) const;
-    Vector2 operator*(float scalar) const;
-    Vector2 operator/(float scalar) const;
+    Vector2 reflect(const Vector2 &normal) const
+    {
+        return *this - normal * 2.0f * normal.dot();
+    }
+
+    Vector2 operator+(const Vector2 &other) const
+    {
+        return Vector2{x + other.x, y + other.y};
+    }
+
+    Vector2 operator-(const Vector2 &other) const
+    {
+        return Vector2{x - other.x, y - other.y};
+    }
+    Vector2 operator*(float scalar) const
+    {
+        return Vector2{x * scalar, y * scalar};
+    }
+    Vector2 operator/(float scalar) const
+    {
+        return Vector2{x / scalar, y / scalar};
+    }
 
     static Vector2 zero();
     static Vector2 one();
@@ -43,25 +72,87 @@ public:
     static Vector2 down();
     static Vector2 left();
     static Vector2 right();
-    static Vector2 fromAngle(float angle);
+    static Vector2 fromAngle(float angle)
+    {
+        return {cosf(angle), sinf(angle)};
+    }
 
-    static Vector2 lerp(const Vector2 &a, const Vector2 &b, float t);
+    static Vector2 lerp(const Vector2 &a, const Vector2 &b, float t)
+    {
+        return a + (b - a) * t;
+    }
 
-    void operator+=(const Vector2 &other);
-    void operator-=(const Vector2 &other);
-    void operator*=(float scalar);
-    void operator/=(float scalar);
-    bool operator==(const Vector2 &other) const;
-    bool operator!=(const Vector2 &other) const;
-    float length() const;
-    float lengthSquared() const;
-    float distance(const Vector2 &other) const;
-    float distanceSquared(const Vector2 &other) const;
-    float angle() const;
-    float angle(const Vector2 &other) const;
-    Vector2 rotate(float angle) const;
+    constexpr void operator+=(const Vector2 &other) noexcept
+    {
+        x += other.x;
+        y += other.y;
+    }
 
-    Vector2 normalVector() const;
+    constexpr void operator-=(const Vector2 &other) noexcept
+    {
+        x -= other.x;
+        y -= other.y;
+    }
+
+    constexpr void operator*=(float scalar) noexcept
+    {
+        x *= scalar;
+        y *= scalar;
+    }
+    constexpr void operator/=(float scalar) noexcept
+    {
+        x /= scalar;
+        y /= scalar;
+    }
+
+    constexpr bool operator==(const Vector2 &other) const
+    {
+        return x == other.x && y == other.y;
+    }
+
+    constexpr bool operator!=(const Vector2 &other) const
+    {
+        return x != other.x || y != other.y;
+    }
+
+    constexpr float length() const
+    {
+        return sqrtf(x * x + y * y);
+    }
+    constexpr float lengthSquared() const
+    {
+        return x * x + y * y;
+    }
+
+    float distance(const Vector2 &other) const
+    {
+        return (*this - other).length();
+    }
+
+    float distanceSquared(const Vector2 &other) const
+    {
+        return (*this - other).lengthSquared();
+    }
+
+    constexpr float angle() const
+    {
+        return atan2f(y, x);
+    }
+
+    constexpr float angle(const Vector2 &other) const
+    {
+        return atan2f(y - other.y, x - other.x);
+    }
+
+    Vector2 rotate(float angle) const
+    {
+        return {x * cosf(angle) - y * sinf(angle), x * sinf(angle) + y * cosf(angle)};
+    }
+
+    Vector2 normalVector() const
+    {
+        return Vector2(-y, x);
+    }
 };
 
 struct PointMass
@@ -164,7 +255,6 @@ void findClosestLineSegmentToPoint(Range<PointMass> collisionShape, const Vector
 
 void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<Shape> &shapes, const Array<PointMass> &points);
 
-void applySprings(Range<PointMass> &points, Range<Spring> &springs, double step);
 void applySpringDerivatives(Range<PointMass> &points, Range<Spring> &springs, Range<PointDerivative> derivatives);
 
 void applyGravity(Range<PointMass> &points, double timeStep);

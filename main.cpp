@@ -11,12 +11,22 @@
 #include "utils/Console.h"
 #include "containers/Array.test.h"
 #include "game/Physics.test.h"
+#include "game/PhysicsSIMD.h"
 
 const int WINDOW_WIDTH = 1524;
 const int WINDOW_HEIGHT = 960;
 
 int main(int argc, char *argv[])
 {
+    float vin[16], vout[16];
+    for (int i = 0; i < 16; ++i)
+        vin[i] = i;
+
+    ispc::simple(vin, vout, 16);
+
+    for (int i = 0; i < 16; ++i)
+        printf("%d: simple(%f) = %f\n", i, vin[i], vout[i]);
+
     uint64_t programStartNanos = monotonicTimeNanos();
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0)
@@ -87,7 +97,7 @@ int main(int argc, char *argv[])
     bool quit = false;
 
     Game game;
-    game.init("Bridge");
+    game.init("Circle grid");
     uint64_t startNanos = monotonicTimeNanos();
     bool show_demo_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);

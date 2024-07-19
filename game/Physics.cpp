@@ -50,122 +50,6 @@ Vector2 Vector2::right()
 {
     return {1.0f, 0.0f};
 }
-
-Vector2 Vector2::fromAngle(float angle)
-{
-    return {cosf(angle), sinf(angle)};
-}
-
-Vector2 Vector2::lerp(const Vector2 &a, const Vector2 &b, float t)
-{
-    return a + (b - a) * t;
-}
-
-void Vector2::operator+=(const Vector2 &other)
-{
-    x += other.x;
-    y += other.y;
-}
-
-void Vector2::operator-=(const Vector2 &other)
-{
-    x -= other.x;
-    y -= other.y;
-}
-
-void Vector2::operator*=(float scalar)
-{
-    x *= scalar;
-    y *= scalar;
-}
-
-void Vector2::operator/=(float scalar)
-{
-    x /= scalar;
-    y /= scalar;
-}
-
-bool Vector2::operator==(const Vector2 &other) const
-{
-    return x == other.x && y == other.y;
-}
-
-bool Vector2::operator!=(const Vector2 &other) const
-{
-    return x != other.x || y != other.y;
-}
-
-float Vector2::length() const
-{
-    return sqrtf(x * x + y * y);
-}
-
-float Vector2::lengthSquared() const
-{
-    return x * x + y * y;
-}
-
-float Vector2::distance(const Vector2 &other) const
-{
-    return (*this - other).length();
-}
-
-float Vector2::distanceSquared(const Vector2 &other) const
-{
-    return (*this - other).lengthSquared();
-}
-
-float Vector2::angle() const
-{
-    return atan2f(y, x);
-}
-
-float Vector2::angle(const Vector2 &other) const
-{
-    return atan2f(y - other.y, x - other.x);
-}
-
-Vector2 Vector2::rotate(float angle) const
-{
-    return {x * cosf(angle) - y * sinf(angle), x * sinf(angle) + y * cosf(angle)};
-}
-
-Vector2 Vector2::normalVector() const
-{
-    return Vector2(-y, x);
-}
-
-Vector2 Vector2::reflect(const Vector2 &normal) const
-{
-    return *this - normal * 2.0f * normal.dot();
-}
-
-Vector2 Vector2::operator+(const Vector2 &other) const
-{
-    return Vector2{x + other.x, y + other.y};
-}
-
-Vector2 Vector2::operator-(const Vector2 &other) const
-{
-    return Vector2{x - other.x, y - other.y};
-}
-
-Vector2 Vector2::operator*(float scalar) const
-{
-    return Vector2{x * scalar, y * scalar};
-}
-
-Vector2 Vector2::operator/(float scalar) const
-{
-    return Vector2{x / scalar, y / scalar};
-}
-
-Vector2 Vector2::normalized()
-{
-    float length = sqrtf(x * x + y * y);
-    return {x / length, y / length};
-}
-
 struct IntersectionResult
 {
     Vector2 point;
@@ -490,60 +374,31 @@ void applyGravity(Range<PointMass> &points, double timeStep)
     }
 }
 
-void applySprings(Range<PointMass> &points, Range<Spring> &springs, double step)
-{
-    for (int i = 0; i < springs.size; i++)
-    {
-        const Spring &spring = springs[i];
-        PointMass &point1 = points[spring.pointA];
-        PointMass &point2 = points[spring.pointB];
-
-        Vector2 offset = (point2.pos - point1.pos);
-        float delta = (offset.length() - spring.length);
-
-        if (offset.length() > 0.001f)
-        {
-            float springForce = delta * spring.stiffness * 5.0f;
-            springForce = min(springForce, 10000.0f);
-            Vector2 offsetNormal = offset.normalized();
-
-            float dampForce = offsetNormal.dot(point2.velocity - point1.velocity) * spring.damping;
-            dampForce = min(dampForce, 10000.0f);
-
-            Vector2 force = offsetNormal * (springForce + dampForce) * 0.085f * 0.001f;
-            Vector2 diff = point2.velocity - point1.velocity;
-
-            point1.acceleration += force / point1.mass;
-            point2.acceleration -= force / point2.mass;
-        }
-    }
-}
-
 void applySpringDerivatives(Range<PointMass> &points, Range<Spring> &springs, Range<PointDerivative> derivatives)
 {
     for (int i = 0; i < springs.size; i++)
     {
         const Spring &spring = springs[i];
-        PointMass &point1 = points[spring.pointA];
-        PointMass &point2 = points[spring.pointB];
+        PointMass point1 = points[spring.pointA];
+        PointMass point2 = points[spring.pointB];
 
         PointDerivative &derivative1 = derivatives[spring.pointA];
         PointDerivative &derivative2 = derivatives[spring.pointB];
 
         Vector2 offset = (point2.pos - point1.pos);
-        float delta = (offset.length() - spring.length);
+        float offsetLength = offset.length();
+        float delta = (offsetLength - spring.length);
 
         if (offset.length() > 0.001f)
         {
             float springForce = delta * spring.stiffness * 5.0f;
             springForce = min(springForce, 10000.0f);
-            Vector2 offsetNormal = offset.normalized();
+            Vector2 offsetNormal = offset / offsetLength;
 
             float dampForce = offsetNormal.dot(point2.velocity - point1.velocity) * spring.damping;
             dampForce = min(dampForce, 10000.0f);
 
             Vector2 force = offsetNormal * (springForce + dampForce) * 0.085f * 0.001f;
-            Vector2 diff = point2.velocity - point1.velocity;
 
             derivative1.acceleration += force / point1.mass;
             derivative2.acceleration -= force / point2.mass;

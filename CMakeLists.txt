@@ -1,11 +1,15 @@
 cmake_minimum_required(VERSION 3.10)
-project(SoftBodyPhysics LANGUAGES CXX)
+project(SoftBodyPhysics LANGUAGES CXX ISPC)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 # Set the compiler flags for the debug build type
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Og -g -fno-omit-frame-pointer -finline-functions")
+
+
+# ISPC settings for ARM (M1)
+set(CMAKE_ISPC_INSTRUCTION_SETS "neon")
 
 # Disable exceptions
 if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
@@ -18,6 +22,19 @@ set(CMAKE_INSTALL_RPATH "/Library/Frameworks")
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 
 find_package(SDL2 REQUIRED)
+
+# ISPC compilation
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o
+    COMMAND ispc ${CMAKE_CURRENT_SOURCE_DIR}/game/PhysicsSIMD.ispc
+            -o ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o
+            -h ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD_ispc.h
+            ${CMAKE_ISPC_FLAGS}
+            --target=${CMAKE_ISPC_INSTRUCTION_SETS}
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/game/PhysicsSIMD.ispc
+    COMMENT "Compiling ISPC file PhysicsSIMD.ispc"
+)
+
 
 add_executable(SoftBodyPhysics
  main.cpp
@@ -50,6 +67,7 @@ add_executable(SoftBodyPhysics
  containers/ContainerPlatform.h
  containers/Range.h
  containers/Span.h
+ ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o
  )
 target_include_directories(SoftBodyPhysics PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
 

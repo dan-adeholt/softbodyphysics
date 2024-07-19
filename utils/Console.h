@@ -13,6 +13,7 @@ struct ConsoleProfileInfo
     double swapTimeMillis;
     double springsTimeMillis;
     double collisionTimeMillis;
+    int numSprings;
 };
 
 class Console
