@@ -36,47 +36,61 @@ add_custom_command(
 )
 
 
+SET(SOURCE_FILES timer.cpp
+game/Game.cpp
+game/Scenes.cpp
+utils/Console.cpp
+containers/ContainerPlatform.cpp
+game/Shapes.cpp
+game/Physics.cpp
+game/PhysicsTests.cpp
+imgui/imgui.cpp
+imgui/imgui_demo.cpp
+imgui/imgui_draw.cpp
+imgui/imgui_widgets.cpp
+imgui/imgui_tables.cpp
+imgui/imgui_impl_sdlrenderer2.cpp
+imgui/imgui_impl_sdl2.cpp
+game/GameRenderer.cpp
+game/GameRenderer.h
+game/Physics.test.h
+game/Physics.h
+game/PhysicsTests.h
+game/Scenes.h
+stb_image/stb_image.cpp
+utils/Console.h
+utils/UnitTestUtil.h
+utils/MinMax.h
+containers/Array.h
+containers/ContainerPlatform.h
+containers/Range.h
+containers/Span.h
+${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o)
+
 add_executable(SoftBodyPhysics
  main.cpp
- timer.cpp
- game/Game.cpp
- game/Scenes.cpp
- utils/Console.cpp
- containers/ContainerPlatform.cpp
- game/Shapes.cpp
- game/Physics.cpp
- game/PhysicsTests.cpp
- imgui/imgui.cpp
- imgui/imgui_demo.cpp
- imgui/imgui_draw.cpp
- imgui/imgui_widgets.cpp
- imgui/imgui_tables.cpp
- imgui/imgui_impl_sdlrenderer2.cpp
- imgui/imgui_impl_sdl2.cpp
- game/GameRenderer.cpp
- game/GameRenderer.h
- game/Physics.test.h
- game/Physics.h
- game/PhysicsTests.h
- game/Scenes.h
- stb_image/stb_image.cpp
- utils/Console.h
- utils/UnitTestUtil.h
- utils/MinMax.h
- containers/Array.h
- containers/ContainerPlatform.h
- containers/Range.h
- containers/Span.h
- ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o
+ ${SOURCE_FILES}
  )
+
+ add_executable(PerfTest
+ perftest.cpp
+ ${SOURCE_FILES}
+ ) 
+
 target_include_directories(SoftBodyPhysics PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
+target_include_directories(PerfTest PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
 
 # add_executable(SoftBodyPhysicsTest test.main.cpp containers/ContainerPlatform.cpp game/Shapes.cpp game/Physics.cpp)
 # target_include_directories(SoftBodyPhysicsTest PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
 # Link against C standard library
 if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     target_link_libraries(SoftBodyPhysics PRIVATE c)
+    target_link_libraries(PerfTest PRIVATE c)
+
 endif()
 
 target_include_directories(SoftBodyPhysics PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_libraries(SoftBodyPhysics PRIVATE ${SDL2_LIBRARIES})
+
+target_include_directories(PerfTest PRIVATE ${SDL2_INCLUDE_DIRS})
+target_link_libraries(PerfTest PRIVATE ${SDL2_LIBRARIES})

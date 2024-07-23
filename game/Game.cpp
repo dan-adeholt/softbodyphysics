@@ -609,6 +609,35 @@ Array<StaticJoint> &Game::staticJoints()
     return m_impl->staticJoints;
 }
 
+void Game::testSpringPerformance(int iterations)
+{
+    m_impl->rkEmptyDerivatives.fill(PointDerivative(), m_impl->points.size());
+    auto points = m_impl->points.range();
+    Range<Spring> springs = m_impl->springs.range();
+    performRK4Step(points, springs, 0.0, m_impl->rkEmptyDerivatives, m_impl->rk1);
+    auto derivativeRange = m_impl->rk1.range();
+    for (int i = 0; i < iterations; i++)
+    {
+        applySpringDerivatives(points, springs, derivativeRange);
+    }
+}
+
+void Game::testRK4Performance(int iterations)
+{
+    m_impl->rkEmptyDerivatives.fill(PointDerivative(), m_impl->points.size());
+    auto points = m_impl->points.range();
+    Range<Spring> springs = m_impl->springs.range();
+
+    for (int i = 0; i < iterations; i++)
+    {
+        performRK4Step(points, springs, 0.0, m_impl->rkEmptyDerivatives, m_impl->rk1);
+    }
+
+    auto derivativeRange = m_impl->rk1.range();
+    applySpringDerivatives(points, springs, derivativeRange);
+    // performRK4Step(points, springs, 0.0, m_impl->rkEmptyDerivatives, m_impl->rk1);
+}
+
 void Game::clear()
 {
     m_impl->clear();

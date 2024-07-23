@@ -50,6 +50,10 @@ public:
     Array<Spring> &springs();
     Array<StaticJoint> &staticJoints();
 
+    void testRK4Performance(int iterations);
+
+    void testSpringPerformance(int iterations);
+
 private:
     void performRK4Integration(Range<PointMass> &points,
                                Range<Spring> &springs,
