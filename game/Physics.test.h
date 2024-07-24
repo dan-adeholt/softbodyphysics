@@ -7,7 +7,7 @@
 #include "../utils/Console.h"
 #include "../utils/UnitTestUtil.h"
 
-void testCase(Shape &shape1, Shape &shape2, Array<PointMass> &points, int expectedCollisions, const Range<int> counterForCollisions)
+void testCase(Shape &shape1, Shape &shape2, PointMasses &points, int expectedCollisions, const Range<int> counterForCollisions)
 {
     static Array<Shape> shapes;
     static Array<ShapeBoundingBox> boundingBoxes;
@@ -17,8 +17,8 @@ void testCase(Shape &shape1, Shape &shape2, Array<PointMass> &points, int expect
 
     calculateBoundingBoxes(boundingBoxes, shapes, points);
 
-    Range<PointMass> shape1Points = points.range(shape1);
-    Range<PointMass> shape2Points = points.range(shape2);
+    PointMassesRange shape1Points = points.range(shape1);
+    PointMassesRange shape2Points = points.range(shape2);
     Range<int> collisionRange1 = counterForCollisions.slice(shape1);
     Range<int> collisionRange2 = counterForCollisions.slice(shape2);
 
@@ -27,14 +27,13 @@ void testCase(Shape &shape1, Shape &shape2, Array<PointMass> &points, int expect
 
 void testFindClosestLineSegmentToPoint()
 {
-    Array<PointMass> points;
+    PointMasses points;
     Array<Spring> springs;
     Shape shelf = Shapes::createTriangle(points, 50.0f, 700.0f, 800.0f, 500.0f, 800.0f, 700.0f, 0.0f);
     Vector2 pos1(500.0, 588.0);
     int minIndex = -1;
     float minT = 0.0f;
     Vector2 minPoint = {0.0f, 0.0f};
-    PointMass pointMass;
 
     findClosestLineSegmentToPoint(points.range(shelf), pos1, Vector2(1.0f, 0.0f), minIndex, minPoint, minT);
     testExpectInt(minIndex, 0);
@@ -61,7 +60,7 @@ void testCollisions()
     testFindClosestLineSegmentToPoint();
     return;
     Array<Spring> springs;
-    Array<PointMass> points;
+    PointMasses points;
     Array<int> counterForCollisions;
 
     // One half of a quad is inside another quad

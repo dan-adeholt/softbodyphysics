@@ -20,8 +20,8 @@
 struct HistoricalState
 {
     Array<Shape> shapes;
-    Array<PointMass> staticPoints;
-    Array<PointMass> points;
+    PointMasses staticPoints;
+    PointMasses points;
     Array<Spring> springs;
     Array<StaticJoint> staticJoints;
     Array<Shape> staticShapes;
@@ -67,9 +67,9 @@ struct Game::Impl
     int historicalIndex;
     int historyRewindIndex;
     Array<Shape> shapes;
-    Array<PointMass> points;
+    PointMasses points;
     Array<Shape> staticShapes;
-    Array<PointMass> staticPoints;
+    PointMasses staticPoints;
     Array<Spring> springs;
     Array<StaticJoint> staticJoints;
     Array<int> collisionCounterForPoints;
@@ -82,7 +82,7 @@ struct Game::Impl
     Array<PointDerivative> rk2;
     Array<PointDerivative> rk3;
     Array<PointDerivative> rk4;
-    Array<PointMass> rkTemp;
+    PointMasses rkTemp;
     Array<PointDerivative> rkEmptyDerivatives;
 
     StaticJoint mouseJoint;
@@ -132,14 +132,14 @@ void Game::getSprings(Range<Spring> &springs)
     springs = m_impl->springs.range(0, m_impl->springs.size());
 }
 
-void Game::getDynamicPoints(Range<PointMass> &pointMasses) const
+void Game::getDynamicPoints(PointMassesRange &pointMasses) const
 {
-    pointMasses = m_impl->points.range(0, m_impl->points.size());
+    pointMasses = m_impl->points.range(0, m_impl->points.x.size());
 }
 
-void Game::getStaticPoints(Range<PointMass> &pointMasses) const
+void Game::getStaticPoints(PointMassesRange &pointMasses) const
 {
-    pointMasses = m_impl->staticPoints.range(0, m_impl->staticPoints.size());
+    pointMasses = m_impl->staticPoints.range(0, m_impl->staticPoints.x.size());
 }
 
 void sortBoundingBoxes(Array<ShapeBoundingBox> &sortedBoundingBoxes)
@@ -171,7 +171,7 @@ void updateSortedBoundingBoxes(Array<ShapeBoundingBox> &sortedBoundingBoxes, Arr
     }
 }
 
-void Game::handleCollisions(Range<PointMass> &points, const Range<int> &collisionCounterForPoints, double step)
+void Game::handleCollisions(PointMassesRange &points, const Range<int> &collisionCounterForPoints, double step)
 {
     // For a broad phase collision detection, sort using insertion sort along a single axis
     Array<ShapeBoundingBox> &boundingBoxes = m_impl->boundingBoxes;
@@ -290,9 +290,16 @@ void Game::loadFromFile(const char *filename)
     // Read points
     for (size_t i = 0; i < numPoints; ++i)
     {
-        PointMass point;
-        fscanf(file, "%f %f %f %f %f\n", &point.mass, &point.pos.x, &point.pos.y, &point.velocity.x, &point.velocity.y);
-        m_impl->points.push(point);
+        float x, y;
+        float velocityX, velocityY;
+        float mass;
+
+        fscanf(file, "%f %f %f %f %f\n", &mass, &x, &y, &velocityX, &velocityY);
+        m_impl->points.x.push(x);
+        m_impl->points.y.push(y);
+        m_impl->points.velocityX.push(velocityX);
+        m_impl->points.velocityY.push(velocityY);
+        m_impl->points.mass.push(mass);
     }
 
     // Read shapes
@@ -329,8 +336,13 @@ void Game::dumpToFile(const char *filename)
     // Dump points
     for (size_t i = 0; i < m_impl->points.size(); ++i)
     {
-        const PointMass &point = m_impl->points[i];
-        fprintf(file, "%f %f %f %f %f\n", point.mass, point.pos.x, point.pos.y, point.velocity.x, point.velocity.y);
+        float x = m_impl->points.x[i];
+        float y = m_impl->points.y[i];
+        float velocityX = m_impl->points.velocityX[i];
+        float velocityY = m_impl->points.velocityY[i];
+        float mass = m_impl->points.mass[i];
+
+        fprintf(file, "%f %f %f %f %f\n", mass, x, y, velocityX, velocityY);
     }
 
     // Dump shapes
@@ -398,42 +410,61 @@ void Game::setCollisionsEnabled(bool collisionsEnabled)
 
 const double step = 1.0f;
 
-void Game::performRK4Step(Range<PointMass> &initialState, Range<Spring> &springs, double dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives)
+void Game::performRK4Step(PointMassesRange &initialState, Range<Spring> &springs, double dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives)
 {
-    m_impl->rkTemp.clear();
-    outDerivatives.clear();
-
-    for (int i = 0; i < initialState.size; i++)
+    if (m_impl->rkTemp.x.size() != initialState.size())
     {
-        PointDerivative outDerivative;
-        PointDerivative &derivative = derivatives[i];
+        m_impl->rkTemp.x.fill(0.0f, initialState.size());
+        m_impl->rkTemp.y.fill(0.0f, initialState.size());
+        m_impl->rkTemp.velocityX.fill(0.0f, initialState.size());
+        m_impl->rkTemp.velocityY.fill(0.0f, initialState.size());
+    }
+    m_impl->rkTemp.mass.clear();
+    m_impl->rkTemp.mass.append(initialState.mass);
+    m_impl->rkTemp.accelerationX.fill(0.0f, initialState.size());
+    m_impl->rkTemp.accelerationY.fill(0.0f, initialState.size());
 
-        PointMass point = initialState[i];
-        point.pos = point.pos + derivative.velocity * dt;
-        point.velocity = point.velocity + derivative.acceleration * dt;
+    outDerivatives.clear();
+    PointDerivative outDerivative;
 
-        outDerivative.velocity = point.velocity;
-        if (m_impl->gravityEnabled)
-        {
-            outDerivative.acceleration = Vector2(0.0f, 0.00015f); // Gravity
-        }
+    if (m_impl->gravityEnabled)
+    {
+        outDerivative.acceleration = Vector2(0.0f, 0.00015f); // Gravity
+    }
+    outDerivatives.fill(outDerivative, initialState.size());
 
-        outDerivatives.push(outDerivative);
-        m_impl->rkTemp.push(point);
+    float *xOut = &m_impl->rkTemp.x[0];
+    float *yOut = &m_impl->rkTemp.y[0];
+    float *velXOut = &m_impl->rkTemp.velocityX[0];
+    float *velYOut = &m_impl->rkTemp.velocityY[0];
+    PointDerivative *outDerivativeOut = &outDerivatives[0];
+
+    for (int i = 0; i < initialState.size(); i++)
+    {
+        PointDerivative derivative = derivatives[i];
+        float originalVelocityX = initialState.velocityX[i];
+        float originalVelocityY = initialState.velocityY[i];
+        outDerivativeOut->velocity.x = originalVelocityX;
+        outDerivativeOut->velocity.y = originalVelocityY;
+        outDerivativeOut++;
+        *xOut++ = initialState.x[i] + derivative.velocity.x * dt;
+        *yOut++ = initialState.y[i] + derivative.velocity.y * dt;
+        *velXOut++ = originalVelocityX + derivative.acceleration.x * dt;
+        *velYOut++ = originalVelocityY + derivative.acceleration.y * dt;
     }
 
-    Range<PointMass> state = m_impl->rkTemp.range();
+    PointMassesRange state = m_impl->rkTemp.range();
     Range<PointDerivative> derivativeRange = outDerivatives.range();
     applySpringDerivatives(state, springs, derivativeRange);
 }
 
 void Game::performRK4Integration(
-    Range<PointMass> &points,
+    PointMassesRange &points,
     Range<Spring> &springs,
     Range<int> &collisionCounterForPoints,
     ConsoleProfileInfo &profileInfo)
 {
-    if (m_impl->rkEmptyDerivatives.size() != points.size)
+    if (m_impl->rkEmptyDerivatives.size() != points.size())
     {
         m_impl->rkEmptyDerivatives.fill(PointDerivative(), m_impl->points.size());
     }
@@ -445,7 +476,6 @@ void Game::performRK4Integration(
 
     for (int i = 0; i < m_impl->points.size(); i++)
     {
-        PointMass &point = m_impl->points[i];
         PointDerivative &rk1 = m_impl->rk1[i];
         PointDerivative &rk2 = m_impl->rk2[i];
         PointDerivative &rk3 = m_impl->rk3[i];
@@ -453,30 +483,35 @@ void Game::performRK4Integration(
 
         Vector2 deltaVelocity = (rk1.velocity + (rk2.velocity + rk3.velocity) * 2.0f + rk4.velocity) * 1.0f / 6.0f;
         Vector2 deltaAcceleration = (rk1.acceleration + (rk2.acceleration + rk3.acceleration) * 2.0f + rk4.acceleration) * 1.0f / 6.0f;
-        point.pos = point.pos + deltaVelocity * step;
-        point.velocity = point.velocity + deltaAcceleration * step;
+        points.x[i] += deltaVelocity.x * step;
+        points.y[i] += deltaVelocity.y * step;
+        points.velocityX[i] += deltaAcceleration.x * step;
+        points.velocityY[i] += deltaAcceleration.y * step;
     }
 
     for (int i = 0; i < m_impl->staticJoints.size(); i++)
     {
         StaticJoint &joint = m_impl->staticJoints[i];
-        PointMass &point = m_impl->points[joint.pointIndex];
-        point.pos = joint.position;
-        point.velocity = Vector2::zero();
+        points.x[joint.pointIndex] = joint.position.x;
+        points.y[joint.pointIndex] = joint.position.y;
+        points.velocityX[joint.pointIndex] = 0.0f;
+        points.velocityY[joint.pointIndex] = 0.0f;
     }
 
     if (m_impl->mouseJoint.pointIndex != -1)
     {
-        PointMass &point = m_impl->points[m_impl->mouseJoint.pointIndex];
-        point.pos = m_impl->mouseJoint.position;
-        point.velocity = Vector2::zero();
-        point.acceleration = Vector2::zero();
+        points.x[m_impl->mouseJoint.pointIndex] = m_impl->mouseJoint.position.x;
+        points.y[m_impl->mouseJoint.pointIndex] = m_impl->mouseJoint.position.y;
+        points.velocityX[m_impl->mouseJoint.pointIndex] = 0.0f;
+        points.velocityY[m_impl->mouseJoint.pointIndex] = 0.0f;
+        points.accelerationX[m_impl->mouseJoint.pointIndex] = 0.0f;
+        points.accelerationY[m_impl->mouseJoint.pointIndex] = 0.0f;
     }
 
-    for (int i = 0; i < m_impl->points.size(); i++)
+    for (int i = 0; i < points.size(); i++)
     {
-        PointMass &point = m_impl->points[i];
-        point.acceleration = Vector2::zero();
+        points.accelerationX[i] = 0.0f;
+        points.accelerationY[i] = 0.0f;
     }
 
     if (m_impl->collisionsEnabled)
@@ -486,13 +521,13 @@ void Game::performRK4Integration(
         profileInfo.collisionTimeMillis = collisionsTimer.elapsedMillis();
     }
 
-    for (int i = 0; i < m_impl->points.size(); i++)
+    for (int i = 0; i < points.size(); i++)
     {
-        PointMass &point = m_impl->points[i];
-        point.velocity += (point.acceleration) * step;
+        points.velocityX[i] += (points.accelerationX[i]) * step;
+        points.velocityY[i] += (points.accelerationY[i]) * step;
 
-        point.pos.x += point.velocity.x * step;
-        point.pos.y += point.velocity.y * step;
+        points.x[i] += points.velocityX[i] * step;
+        points.y[i] += points.velocityY[i] * step;
     }
 }
 
@@ -510,7 +545,7 @@ void Game::update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInf
 
     while (m_impl->timeBucket > step)
     {
-        Range<PointMass> points = m_impl->points.range();
+        PointMassesRange points = m_impl->points.range();
         Range<Spring> springs = m_impl->springs.range();
         m_impl->collisionCounterForPoints.fill(0, m_impl->points.size());
         Range<int> collisionCounterForPoints = m_impl->collisionCounterForPoints.range();
@@ -551,8 +586,9 @@ void Game::mouseButtonDown(int x, int y)
     Console::log("Mouse down: %d %d", x, y);
     for (int i = 0; i < m_impl->points.size(); i++)
     {
-        PointMass &point = m_impl->points[i];
-        if (point.pos.distance(Vector2(x, y)) < 20.0f)
+        float px = m_impl->points.x[i];
+        float py = m_impl->points.y[i];
+        if (Vector2::vec2distance((float)x, (float)y, px, py) < 20.0f)
         {
             StaticJoint joint = {i, Vector2(x, y)};
             m_impl->mouseJoint.pointIndex = i;
@@ -571,11 +607,14 @@ void Game::mouseMove(int x, int y)
 {
     if (m_impl->mouseJoint.pointIndex != -1)
     {
-        PointMass &point = m_impl->points[m_impl->mouseJoint.pointIndex];
-        point.pos = Vector2(x, y);
-        point.velocity = Vector2::zero();
-        point.acceleration = Vector2::zero();
-        m_impl->mouseJoint.position = Vector2(x, y);
+        int i = m_impl->mouseJoint.pointIndex;
+        m_impl->points.x[i] = (float)x;
+        m_impl->points.y[i] = (float)y;
+        m_impl->points.velocityX[i] = 0.0f;
+        m_impl->points.velocityY[i] = 0.0f;
+        m_impl->points.accelerationX[i] = 0.0f;
+        m_impl->points.accelerationY[i] = 0.0f;
+        m_impl->mouseJoint.position = Vector2((float)x, (float)y);
     }
 }
 
@@ -589,12 +628,12 @@ Array<Shape> &Game::staticShapes()
     return m_impl->staticShapes;
 }
 
-Array<PointMass> &Game::points()
+PointMasses &Game::points()
 {
     return m_impl->points;
 }
 
-Array<PointMass> &Game::staticPoints()
+PointMasses &Game::staticPoints()
 {
     return m_impl->staticPoints;
 }

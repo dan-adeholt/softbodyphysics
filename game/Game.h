@@ -1,7 +1,8 @@
 #ifndef __GAME_H
 #define __GAME_H
 
-struct PointMass;
+struct PointMassesRange;
+struct PointMasses;
 struct Spring;
 struct Shape;
 struct StaticJoint;
@@ -23,8 +24,8 @@ public:
     void clear();
     void init(const char *sceneType);
     void getSprings(Range<Spring> &springs);
-    void getDynamicPoints(Range<PointMass> &pointMasses) const;
-    void getStaticPoints(Range<PointMass> &pointMasses) const;
+    void getDynamicPoints(PointMassesRange &pointMasses) const;
+    void getStaticPoints(PointMassesRange &pointMasses) const;
 
     void getDynamicShapes(Range<Shape> &shapes) const;
     void getStaticShapes(Range<Shape> &shapes) const;
@@ -45,24 +46,23 @@ public:
 
     Array<Shape> &shapes();
     Array<Shape> &staticShapes();
-    Array<PointMass> &points();
-    Array<PointMass> &staticPoints();
+    PointMasses &points();
+    PointMasses &staticPoints();
     Array<Spring> &springs();
     Array<StaticJoint> &staticJoints();
 
     void testRK4Performance(int iterations);
-
     void testSpringPerformance(int iterations);
 
 private:
-    void performRK4Integration(Range<PointMass> &points,
+    void performRK4Integration(PointMassesRange &points,
                                Range<Spring> &springs,
                                Range<int> &collisionCounterForPoints,
                                ConsoleProfileInfo &profileInfo);
-    void performRK4Step(Range<PointMass> &initialState, Range<Spring> &springs, double dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives);
+    void performRK4Step(PointMassesRange &initialState, Range<Spring> &springs, double dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives);
 
     void updateAfterRewindOrForward();
-    void handleCollisions(Range<PointMass> &points, const Range<int> &collisionCounterForPoints, double step);
+    void handleCollisions(PointMassesRange &points, const Range<int> &collisionCounterForPoints, double step);
 
     struct Impl;
     Impl *m_impl;

@@ -19,7 +19,7 @@ int wrapIndex(int index, int size)
 
 namespace Shapes
 {
-    Shape createCircle(Array<PointMass> &points, Array<Spring> &springs, float x, float y, float radius, float mass)
+    Shape createCircle(PointMasses &points, Array<Spring> &springs, float x, float y, float radius, float mass)
     {
         float stiffness = 0.5f;
         float damping = 1080.9f;
@@ -31,19 +31,22 @@ namespace Shapes
 
         for (int i = 0; i < numSegments; i++)
         {
-            points.append({
-                {x + cos(curAngle) * radius, y + sin(curAngle) * radius, mass},
-            });
+            points.push(
+                x + cos(curAngle) * radius, y + sin(curAngle) * radius, mass);
 
             curAngle += segmentAngle;
             curIndex++;
         }
 
-        PointMass p0 = points[startIndex];
-        PointMass p1 = points[startIndex + 3];
-        PointMass p2 = points[startIndex + 5];
-        float lengthSpring1 = p0.pos.distance(p1.pos);
-        float lengthSpring2 = p0.pos.distance(p2.pos);
+        float p0x = points.x[startIndex];
+        float p0y = points.y[startIndex];
+        float p1x = points.x[startIndex + 3];
+        float p1y = points.y[startIndex + 3];
+        float p2x = points.x[startIndex + 5];
+        float p2y = points.y[startIndex + 5];
+
+        float lengthSpring1 = Vector2::vec2distance(p0x, p0y, p1x, p1y);
+        float lengthSpring2 = Vector2::vec2distance(p0x, p0y, p2x, p2y);
 
         for (int i = 0; i < numSegments; i++)
         {
@@ -58,7 +61,7 @@ namespace Shapes
         return Shape{.start = startIndex, .end = curIndex, .volume = 300.0f};
     }
 
-    Shape createBridge(Array<PointMass> &points, Array<Spring> &springs, float x, float y, float mass, int numSegments)
+    Shape createBridge(PointMasses &points, Array<Spring> &springs, float x, float y, float mass, int numSegments)
     {
         int startIndex = points.size();
         int curIndex = startIndex;
@@ -71,9 +74,7 @@ namespace Shapes
 
         for (int i = 0; i < numSegments; i++)
         {
-            points.append({
-                {curX, y, mass},
-            });
+            points.push(curX, y, mass);
 
             curX += width;
             curIndex++;
@@ -83,9 +84,7 @@ namespace Shapes
 
         for (int i = 0; i < numSegments; i++)
         {
-            points.append({
-                {curX, y + height, mass},
-            });
+            points.push(curX, y + height, mass);
 
             curX -= width;
             curIndex++;
@@ -103,7 +102,7 @@ namespace Shapes
                 // Top bar
                 springs.push({topIndex - 1, topIndex, width, stiffness, damping});
                 // Bottom bar
-                springs.push({bottomIndex - 1, bottomIndex, width, stiffness, damping});
+                springs.push({bottomIndex + 1, bottomIndex, width, stiffness, damping});
 
                 // Diagonal 1
                 springs.push({topIndex, bottomIndex + 1, diagonal, stiffness, damping});
@@ -142,76 +141,73 @@ namespace Shapes
         return Shape{.start = startIndex, .end = curIndex};
     }
 
-    Shape createStaticQuad(Array<PointMass> &points, float x, float y, float width, float height, float mass)
+    Shape createStaticQuad(PointMasses &points, float x, float y, float width, float height, float mass)
     {
-        points.append({{x, y, mass},
-                       {x + width, y, mass},
-                       {x + width, y + height, mass},
-                       {x, y + height, mass}});
+        points.push(x, y, mass);
+        points.push(x + width, y, mass);
+        points.push(x + width, y + height, mass);
+        points.push(x, y + height, mass);
 
         const Span span = {.start = points.size() - 4, .end = points.size()};
-        const PointMass &p0 = points[span.start];
-        const PointMass &p1 = points[span.start + 1];
-        const PointMass &p2 = points[span.start + 2];
-        const PointMass &p3 = points[span.start + 3];
 
         return Shape{.start = span.start, .end = span.end};
     }
 
-    Shape createQuad(Array<PointMass> &points, Array<Spring> &springs, float x, float y, float width, float height, float mass)
+    Shape createQuad(PointMasses &points, Array<Spring> &springs, float x, float y, float width, float height, float mass)
     {
         Shape quad = createStaticQuad(points, x, y, width, height, mass);
 
         const Span span = {.start = points.size() - 4, .end = points.size()};
-        const PointMass &p0 = points[span.start];
-        const PointMass &p1 = points[span.start + 1];
-        const PointMass &p2 = points[span.start + 2];
-        const PointMass &p3 = points[span.start + 3];
+        float p0x = points.x[span.start];
+        float p0y = points.y[span.start];
+        float p1x = points.x[span.start + 1];
+        float p1y = points.y[span.start + 1];
+        float p2x = points.x[span.start + 2];
+        float p2y = points.y[span.start + 2];
+        float p3x = points.x[span.start + 3];
+        float p3y = points.y[span.start + 3];
 
         float stiffness = 0.3f;
         float damping = 28.9f;
 
-        springs.push({span.start, span.start + 1, p0.pos.distance(p1.pos), stiffness, damping});
-        springs.push({span.start + 1, span.start + 2, p1.pos.distance(p2.pos), stiffness, damping});
-        springs.push({span.start + 2, span.start + 3, p2.pos.distance(p3.pos), stiffness, damping});
-        springs.push({span.start + 3, span.start, p3.pos.distance(p0.pos), stiffness, damping});
-        springs.push({span.start, span.start + 2, p0.pos.distance(p2.pos), stiffness, damping});
-        springs.push({span.start + 1, span.start + 3, p1.pos.distance(p3.pos), stiffness, damping});
+        springs.push({span.start, span.start + 1, Vector2::vec2distance(p0x, p0y, p1x, p1y), stiffness, damping});
+        springs.push({span.start + 1, span.start + 2, Vector2::vec2distance(p1x, p1y, p2x, p2y), stiffness, damping});
+        springs.push({span.start + 2, span.start + 3, Vector2::vec2distance(p2x, p2y, p3x, p3y), stiffness, damping});
+        springs.push({span.start + 3, span.start, Vector2::vec2distance(p3x, p3y, p0x, p0y), stiffness, damping});
+        springs.push({span.start, span.start + 2, Vector2::vec2distance(p0x, p0y, p2x, p2y), stiffness, damping});
+        springs.push({span.start + 1, span.start + 3, Vector2::vec2distance(p1x, p1y, p3x, p3y), stiffness, damping});
 
         return quad;
     }
-    Shape createParallelogram(Array<PointMass> &points, float x, float y, float width, float height, float sideOffset, float mass)
+    Shape createParallelogram(PointMasses &points, float x, float y, float width, float height, float sideOffset, float mass)
     {
-        points.append({{x, y, mass},
-                       {x + width, y, mass},
-                       {x + width + sideOffset, y + height, mass},
-                       {x + sideOffset, y + height, mass}});
+        points.push(x, y, mass);
+        points.push(x + width, y, mass);
+        points.push(x + width + sideOffset, y + height, mass);
+        points.push(x + sideOffset, y + height, mass);
 
         return Shape{.start = points.size() - 4, .end = points.size()};
     }
 
-    Shape createTriangle(Array<PointMass> &points, float x0, float y0, float x1, float y1, float x2, float y2, float mass)
+    Shape createTriangle(PointMasses &points, float x0, float y0, float x1, float y1, float x2, float y2, float mass)
     {
-        points.append({{x0, y0, mass},
-                       {x1, y1, mass},
-                       {x2, y2, mass}});
+        points.push(x0, y0, mass);
+        points.push(x1, y1, mass);
+        points.push(x2, y2, mass);
 
         const Span span = {.start = points.size() - 3, .end = points.size()};
-        const PointMass &p0 = points[span.start];
-        const PointMass &p1 = points[span.start + 1];
-        const PointMass &p2 = points[span.start + 2];
 
         return Shape{.start = span.start, .end = span.end};
     }
 
-    Shape createLine(Array<PointMass> &points, Array<Spring> &springs, float x0, float y0, float x1, float y1, float mass)
+    Shape createLine(PointMasses &points, Array<Spring> &springs, float x0, float y0, float x1, float y1, float mass)
     {
-        PointMass p0 = {x0, y0, mass};
-        PointMass p1 = {x1, y1, mass};
-        points.append({p0, p1});
+        points.push(x0, y0, mass);
+        points.push(x1, y1, mass);
 
         const Span span = {.start = points.size() - 2, .end = points.size()};
-        springs.push({.pointA = span.start, .pointB = span.start + 1, .length = p0.pos.distance(p1.pos), .stiffness = 0.3f, .damping = 28.9f});
+        float lineLength = Vector2::vec2distance(x0, y0, x1, y1);
+        springs.push({.pointA = span.start, .pointB = span.start + 1, .length = lineLength, .stiffness = 0.3f, .damping = 28.9f});
 
         return Shape{.start = span.start, .end = span.end};
     }

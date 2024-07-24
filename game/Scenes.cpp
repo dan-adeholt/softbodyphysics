@@ -8,30 +8,6 @@
 #include <cstring>
 #include <math.h>
 
-void rotateShape(Shape &shape, Array<PointMass> &points, float deg)
-{
-    ShapeBoundingBox box = calculateShapeBoundingBox(shape, 0, points);
-
-    float width = box.width();
-    float height = box.height();
-    Vector2 center = box.center();
-
-    for (PointMass &point : points.range(shape))
-    {
-        // Rotate point.pos.x and point.pos.y by 20 degrees
-        point.pos.x -= center.x;
-        point.pos.y -= center.y;
-
-        float x = point.pos.x;
-        float y = point.pos.y;
-        point.pos.x = (point.pos.x * cos(deg)) - (point.pos.y * sin(deg));
-        point.pos.y = (point.pos.x * sin(deg)) + (point.pos.y * cos(deg));
-
-        point.pos.x += center.x;
-        point.pos.y += center.y;
-    }
-}
-
 SceneDefinition scenes[] = {
     {"Colliding boxes", [](Game *game)
      {
@@ -44,9 +20,10 @@ SceneDefinition scenes[] = {
          firstBox.name = "Moving box";
          secondBox.name = "Static box";
 
-         for (PointMass &point : game->points().range(firstBox))
+         PointMassesRange firstBoxPoints = game->points().range(firstBox);
+         for (float &xVelocity : firstBoxPoints.velocityX)
          {
-             point.velocity.x = 0.1f;
+             xVelocity = 0.1f;
          }
 
          game->setGravityEnabled(false);
@@ -127,9 +104,9 @@ SceneDefinition scenes[] = {
      {
          Shape fallingBox = Shapes::createQuad(game->points(), game->springs(), 400.0f, 140.0f, 100.0f, 100.0f, 1.0f);
 
-         for (PointMass &point : game->points().range(fallingBox))
+         for (float &mass : game->points().range(fallingBox).mass)
          {
-             point.mass = 1.0f;
+             mass = 1.0f;
          }
 
          StaticJoint joint = {0, Vector2(400.0f, 140.0f)};
@@ -143,14 +120,14 @@ SceneDefinition scenes[] = {
          Shape fallingBox = Shapes::createQuad(game->points(), game->springs(), 400.0f, 40.0f, 100.0f, 100.0f, 1.0f);
          Shape shelf = Shapes::createTriangle(game->staticPoints(), 50.0f, 700.0f, 800.0f, 500.0f, 800.0f, 700.0f, 0.0f);
 
-         for (PointMass &point : game->points().range(fallingBox))
+         for (float &mass : game->points().range(fallingBox).mass)
          {
-             point.mass = 1.0f;
+             mass = 1.0f;
          }
 
-         for (PointMass &point : game->staticPoints().range(shelf))
+         for (float &mass : game->staticPoints().range(shelf).mass)
          {
-             point.mass = 10000000.0f;
+             mass = 10000000.0f;
          }
 
          game->shapes().push(fallingBox);

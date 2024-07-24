@@ -206,7 +206,7 @@ void Console::draw(Game &game, ConsoleProfileInfo profileInfo)
 
     ImDrawList *foreground = ImGui::GetForegroundDrawList();
 
-    Range<PointMass> pointMasses;
+    PointMassesRange pointMasses;
     game.getDynamicPoints(pointMasses);
 
     // char buffer[100];

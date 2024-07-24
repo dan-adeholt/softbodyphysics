@@ -97,54 +97,58 @@ AtlasCoordinate blackColor(0, 0, 15, 15);
 AtlasCoordinate circle(17, 1, 13, 13);
 AtlasCoordinate springData(50, 0, 3, 512);
 
-void addCircle(Array<Vertex> &vertices, const Vector2 &pos, SDL_Color color)
+void addCircle(Array<Vertex> &vertices, float x, float y, SDL_Color color)
 {
     float size = circle.w * 0.5f;
-    Vector2 offset = pos - Vector2(size * 0.5f, size * 0.5f);
+    float cx = x - size * 0.5f;
+    float cy = y - size * 0.5f;
 
     vertices.push({color,
-                   {offset.x, offset.y},
+                   {cx, cy},
                    circle.topLeft});
     vertices.push({color,
-                   {offset.x + size, offset.y},
+                   {cx + size, cy},
                    circle.topRight});
     vertices.push({color,
-                   {offset.x + size, offset.y + size},
+                   {cx + size, cy + size},
                    circle.bottomRight});
     vertices.push({color,
-                   {offset.x + size, offset.y + size},
+                   {cx + size, cy + size},
                    circle.bottomRight});
     vertices.push({color,
-                   {offset.x, offset.y + size},
+                   {cx, cy + size},
                    circle.bottomLeft});
     vertices.push({color,
-                   {offset.x, offset.y},
+                   {cx, cy},
                    circle.topLeft});
 }
 
-void addLine(Array<Vertex> &vertices, const Vector2 &p0, const Vector2 &p1, SDL_Color color)
+void addLine(Array<Vertex> &vertices, float p0x, float p0y, float p1x, float p1y, SDL_Color color)
 {
     float lineWidth = 1.0f;
-    Vector2 dir = p1 - p0;
-    Vector2 normal = dir.normalVector().normalized();
-    normal *= lineWidth * 0.5f;
+    float dx = p1x - p0x;
+    float dy = p1y - p0y;
+    float length = Vector2::vec2length(dx, dy);
+    float nx = (-dy / length) * lineWidth * 0.5f;
+    float ny = (dx / length) * lineWidth * 0.5f;
+
     vertices.push({color,
-                   {p0.x + normal.x, p0.y + normal.y},
+                   {p0x + nx, p0y + ny},
                    blackColor.topRight});
     vertices.push({color,
-                   {p1.x + normal.x, p1.y + normal.y},
+                   {p1x + nx, p1y + ny},
                    blackColor.bottomRight});
     vertices.push({color,
-                   {p1.x - normal.x, p1.y - normal.y},
+                   {p1x - nx, p1y - ny},
                    blackColor.bottomLeft});
     vertices.push({color,
-                   {p1.x - normal.x, p1.y - normal.y},
+                   {p1x - nx, p1y - ny},
                    blackColor.bottomLeft});
     vertices.push({color,
-                   {p0.x - normal.x, p0.y - normal.y},
+                   {p0x - nx, p0y - ny},
                    blackColor.topLeft});
     vertices.push({color,
-                   {p0.x + normal.x, p0.y + normal.y},
+                   {p0x + nx, p0y + ny},
                    blackColor.topRight});
 }
 
@@ -153,7 +157,7 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
     m->vertices.clear();
 
     Range<Shape> shapes;
-    Range<PointMass> pointMasses;
+    PointMassesRange pointMasses;
 
     game.getStaticShapes(shapes);
     game.getStaticPoints(pointMasses);
@@ -163,14 +167,13 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
     game.getDynamicShapes(shapes);
     game.getDynamicPoints(pointMasses);
     renderShapes(renderer, shapes, pointMasses);
-
     Range<Spring> springs;
     game.getSprings(springs);
     renderSprings(renderer, springs, pointMasses);
-    for (int i = 0; i < pointMasses.size; i++)
+
+    for (int i = 0; i < pointMasses.size(); i++)
     {
-        PointMass &point = pointMasses[i];
-        addCircle(m->vertices, point.pos, {255, 255, 255, 255});
+        addCircle(m->vertices, pointMasses.x[i], pointMasses.y[i], {255, 255, 255, 255});
     }
 
     Vector2 offset(700, 20);
@@ -189,77 +192,90 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
                           m->vertices.size(), nullptr, 0, 0);
 }
 
-void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, Range<PointMass> pointMasses)
+void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, PointMassesRange &pointMasses)
 {
     for (int i = 0; i < shapes.size; i++)
     {
         const Shape &shape = shapes.data[i];
-        PointMass firstPoint = pointMasses[shape.start];
-        PointMass p0 = firstPoint;
+
+        float startX = pointMasses.x[shape.start];
+        float startY = pointMasses.y[shape.start];
+        float x = startX;
+        float y = startY;
 
         for (int pointIndex = shape.start + 1; pointIndex < shape.end; pointIndex++)
         {
-            const PointMass &p1 = pointMasses[pointIndex];
+            float nextX = pointMasses.x[pointIndex];
+            float nextY = pointMasses.y[pointIndex];
 
-            if (isnan(p0.pos.x) || isnan(p0.pos.y) || isnan(p1.pos.x) || isnan(p1.pos.y))
+            if (isnan(x) || isnan(y) || isnan(nextX) || isnan(nextY))
             {
                 continue;
             }
-            addLine(m->vertices, p0.pos, p1.pos, {255, 255, 255, 255});
-            p0 = p1;
+
+            addLine(m->vertices, x, y, nextX, nextY, {255, 255, 255, 255});
+            x = nextX;
+            y = nextY;
         }
 
-        addLine(m->vertices, p0.pos, firstPoint.pos, {255, 255, 255, 255});
+        addLine(m->vertices, x, y, startX, startY, {255, 255, 255, 255});
     }
 }
 
-inline void addSpring(Array<Vertex> &vertices, const Vector2 &p0, const Vector2 &p1, float springLength, SDL_Color color)
+inline void addSpring(Array<Vertex> &vertices, float p0x, float p0y, float p1x, float p1y, float springLength, SDL_Color color)
 {
     AtlasCoordinate springDataMod(springData.x, springData.y, springData.w, min(512.0f, springLength));
 
-    float lineWidth = 3.0f;
-    Vector2 dir = p1 - p0;
-    Vector2 normal = dir.normalVector().normalized();
-    normal *= lineWidth * 0.5f;
+    float lineWidth = 1.5f;
+
+    float dx = p1x - p0x;
+    float dy = p1y - p0y;
+    float vecLength = Vector2::vec2length(dx, dy);
+    float normalX = (-dy / vecLength) * lineWidth;
+    float normalY = (dx / vecLength) * lineWidth;
+
     vertices.push({color,
-                   {p0.x + normal.x, p0.y + normal.y},
+                   {p0x + normalX, p0y + normalY},
                    springDataMod.topRight});
     vertices.push({color,
-                   {p1.x + normal.x, p1.y + normal.y},
+                   {p1x + normalX, p1y + normalY},
                    springDataMod.bottomRight});
     vertices.push({color,
-                   {p1.x - normal.x, p1.y - normal.y},
+                   {p1x - normalX, p1y - normalY},
                    springDataMod.bottomLeft});
     vertices.push({color,
-                   {p1.x - normal.x, p1.y - normal.y},
+                   {p1x - normalX, p1y - normalY},
                    springDataMod.bottomLeft});
     vertices.push({color,
-                   {p0.x - normal.x, p0.y - normal.y},
+                   {p0x - normalX, p0y - normalY},
                    springDataMod.topLeft});
     vertices.push({color,
-                   {p0.x + normal.x, p0.y + normal.y},
+                   {p0x + normalX, p0y + normalY},
                    springDataMod.topRight});
 }
 
-void GameRenderer::renderSprings(SDL_Renderer *renderer, Range<Spring> springs, const Range<PointMass> &points)
+void GameRenderer::renderSprings(SDL_Renderer *renderer, Range<Spring> springs, const PointMassesRange &points)
 {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 
     for (int i = 0; i < springs.size; i++)
     {
         const Spring &spring = springs.data[i];
-        const PointMass &pointA = points[spring.pointA];
-        const PointMass &pointB = points[spring.pointB];
-        float currentLength = (pointA.pos - pointB.pos).length();
+        float x0 = points.x[spring.pointA];
+        float y0 = points.y[spring.pointA];
+        float x1 = points.x[spring.pointB];
+        float y1 = points.y[spring.pointB];
+        float currentLength = Vector2::vec2length(x1 - x0, y1 - y0);
+
         float tension = fabs(1.0f - (spring.length / currentLength));
 
         // To prevent SDL taking extremely long to render degenerate lines
-        if (pointA.pos.x > MIN_LINE_POS && pointA.pos.x < MAX_LINE_POS &&
-            pointA.pos.y > MIN_LINE_POS && pointA.pos.y < MAX_LINE_POS &&
-            pointB.pos.x > MIN_LINE_POS && pointB.pos.x < MAX_LINE_POS &&
-            pointB.pos.y > MIN_LINE_POS && pointB.pos.y < MAX_LINE_POS)
+        if (x0 > MIN_LINE_POS && x0 < MAX_LINE_POS &&
+            y0 > MIN_LINE_POS && y0 < MAX_LINE_POS &&
+            x1 > MIN_LINE_POS && x1 < MAX_LINE_POS &&
+            y1 > MIN_LINE_POS && y1 < MAX_LINE_POS)
         {
-            addSpring(m->vertices, pointA.pos, pointB.pos, spring.length, {255, 255, 255, 255});
+            addSpring(m->vertices, x0, y0, x1, y1, spring.length, {255, 255, 255, 255});
         }
     }
 }

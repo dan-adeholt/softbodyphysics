@@ -8,7 +8,7 @@ struct ConsoleProfileInfo;
 template <typename T>
 class Range;
 struct Shape;
-struct PointMass;
+struct PointMassesRange;
 struct Spring;
 
 struct GameRenderer
@@ -19,8 +19,8 @@ struct GameRenderer
     void renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfileInfo &profileInfo);
 
 private:
-    void renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, Range<PointMass> pointMasses);
-    void renderSprings(SDL_Renderer *renderer, Range<Spring> springs, const Range<PointMass> &points);
+    void renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, PointMassesRange &pointMasses);
+    void renderSprings(SDL_Renderer *renderer, Range<Spring> springs, const PointMassesRange &points);
 
     // Disable copy constructor and assignment
     GameRenderer(const GameRenderer &);

@@ -13,16 +13,17 @@ public:
     Array() : m_size(0), m_capacity(0), m_data(nullptr) {}
     Array(const Array<T> &list) : m_size(list.size()), m_capacity(list.capacity()), m_data(reinterpret_cast<T *>(new char[sizeof(T) * list.size()]))
     {
-        int i = 0;
-        for (const T &element : list)
+        for (int i = 0; i < list.size(); i++)
         {
-            new (&m_data[i++]) T(element);
+            auto &ref = list[i];
+            new (&m_data[i++]) T(ref);
         }
     }
 
-    Array(const std::initializer_list<T>& list) : m_size(list.size()), m_capacity(list.size()), m_data(reinterpret_cast<T *>(new char[sizeof(T) * list.size()])) {
+    Array(const std::initializer_list<T> &list) : m_size(list.size()), m_capacity(list.size()), m_data(reinterpret_cast<T *>(new char[sizeof(T) * list.size()]))
+    {
         int i = 0;
-        for (const T& element : list)
+        for (const T &element : list)
         {
             new (&m_data[i++]) T(element);
         }
@@ -35,7 +36,7 @@ public:
         clearAndFree();
     }
 
-    T &operator[](int index) { return m_data[index]; }
+    inline T &operator[](int index) { return m_data[index]; }
     inline const T &operator[](int index) const { return m_data[index]; }
 
     inline int size() const { return m_size; }
@@ -61,6 +62,16 @@ public:
         return this->range(0, m_size);
     }
 
+    void append(const Range<T> &other)
+    {
+        reserve(m_size + other.size);
+
+        for (int i = 0; i < other.size; i++)
+        {
+            new (&m_data[m_size++]) T(other[i]);
+        }
+    }
+
     void append(const Array<T> &other)
     {
         reserve(m_size + other.size());
@@ -79,7 +90,7 @@ public:
         {
             new (&m_data[m_size++]) T(element);
         }
-    }    
+    }
 
     void push(const T &element)
     {
@@ -146,7 +157,6 @@ public:
         }
     }
 
-    
 private:
     int m_size;
     int m_capacity;
