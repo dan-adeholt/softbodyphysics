@@ -134,12 +134,12 @@ void Game::getSprings(Range<Spring> &springs)
 
 void Game::getDynamicPoints(PointMassesRange &pointMasses) const
 {
-    pointMasses = m_impl->points.range(0, m_impl->points.x.size());
+    pointMasses = m_impl->points.range(0, m_impl->points.size());
 }
 
 void Game::getStaticPoints(PointMassesRange &pointMasses) const
 {
-    pointMasses = m_impl->staticPoints.range(0, m_impl->staticPoints.x.size());
+    pointMasses = m_impl->staticPoints.range(0, m_impl->staticPoints.size());
 }
 
 void sortBoundingBoxes(Array<ShapeBoundingBox> &sortedBoundingBoxes)
@@ -295,11 +295,10 @@ void Game::loadFromFile(const char *filename)
         float mass;
 
         fscanf(file, "%f %f %f %f %f\n", &mass, &x, &y, &velocityX, &velocityY);
-        m_impl->points.x.push(x);
-        m_impl->points.y.push(y);
-        m_impl->points.velocityX.push(velocityX);
-        m_impl->points.velocityY.push(velocityY);
+        m_impl->points.pos.push({x, y});
+        m_impl->points.velocity.push({velocityX, velocityY});
         m_impl->points.mass.push(mass);
+        m_impl->points.acceleration.push({0.0f, 0.0f});
     }
 
     // Read shapes
@@ -336,13 +335,12 @@ void Game::dumpToFile(const char *filename)
     // Dump points
     for (size_t i = 0; i < m_impl->points.size(); ++i)
     {
-        float x = m_impl->points.x[i];
-        float y = m_impl->points.y[i];
-        float velocityX = m_impl->points.velocityX[i];
-        float velocityY = m_impl->points.velocityY[i];
+        Vector2 pos = m_impl->points.pos[i];
+
+        Vector2 velocity = m_impl->points.velocity[i];
         float mass = m_impl->points.mass[i];
 
-        fprintf(file, "%f %f %f %f %f\n", mass, x, y, velocityX, velocityY);
+        fprintf(file, "%f %f %f %f %f\n", mass, pos.x, pos.y, velocity.x, velocity.y);
     }
 
     // Dump shapes
@@ -412,17 +410,14 @@ const double step = 1.0f;
 
 void Game::performRK4Step(PointMassesRange &initialState, Range<Spring> &springs, double dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives)
 {
-    if (m_impl->rkTemp.x.size() != initialState.size())
+    if (m_impl->rkTemp.pos.size() != initialState.size())
     {
-        m_impl->rkTemp.x.fill(0.0f, initialState.size());
-        m_impl->rkTemp.y.fill(0.0f, initialState.size());
-        m_impl->rkTemp.velocityX.fill(0.0f, initialState.size());
-        m_impl->rkTemp.velocityY.fill(0.0f, initialState.size());
+        m_impl->rkTemp.pos.fill(Vector2(), initialState.size());
+        m_impl->rkTemp.velocity.fill(Vector2(), initialState.size());
     }
     m_impl->rkTemp.mass.clear();
     m_impl->rkTemp.mass.append(initialState.mass);
-    m_impl->rkTemp.accelerationX.fill(0.0f, initialState.size());
-    m_impl->rkTemp.accelerationY.fill(0.0f, initialState.size());
+    m_impl->rkTemp.acceleration.fill(Vector2(), initialState.size());
 
     outDerivatives.clear();
     PointDerivative outDerivative;
@@ -433,24 +428,18 @@ void Game::performRK4Step(PointMassesRange &initialState, Range<Spring> &springs
     }
     outDerivatives.fill(outDerivative, initialState.size());
 
-    float *xOut = &m_impl->rkTemp.x[0];
-    float *yOut = &m_impl->rkTemp.y[0];
-    float *velXOut = &m_impl->rkTemp.velocityX[0];
-    float *velYOut = &m_impl->rkTemp.velocityY[0];
+    Vector2 *posOut = &m_impl->rkTemp.pos[0];
+    Vector2 *velOut = &m_impl->rkTemp.velocity[0];
     PointDerivative *outDerivativeOut = &outDerivatives[0];
 
     for (int i = 0; i < initialState.size(); i++)
     {
         PointDerivative derivative = derivatives[i];
-        float originalVelocityX = initialState.velocityX[i];
-        float originalVelocityY = initialState.velocityY[i];
-        outDerivativeOut->velocity.x = originalVelocityX;
-        outDerivativeOut->velocity.y = originalVelocityY;
-        outDerivativeOut++;
-        *xOut++ = initialState.x[i] + derivative.velocity.x * dt;
-        *yOut++ = initialState.y[i] + derivative.velocity.y * dt;
-        *velXOut++ = originalVelocityX + derivative.acceleration.x * dt;
-        *velYOut++ = originalVelocityY + derivative.acceleration.y * dt;
+        Vector2 originalVelocity = initialState.velocity[i];
+        outDerivativeOut->velocity = originalVelocity;
+        *outDerivativeOut++;
+        *posOut++ = initialState.pos[i] + derivative.velocity * dt;
+        *velOut++ = initialState.velocity[i] + derivative.acceleration * dt;
     }
 
     PointMassesRange state = m_impl->rkTemp.range();
@@ -483,35 +472,27 @@ void Game::performRK4Integration(
 
         Vector2 deltaVelocity = (rk1.velocity + (rk2.velocity + rk3.velocity) * 2.0f + rk4.velocity) * 1.0f / 6.0f;
         Vector2 deltaAcceleration = (rk1.acceleration + (rk2.acceleration + rk3.acceleration) * 2.0f + rk4.acceleration) * 1.0f / 6.0f;
-        points.x[i] += deltaVelocity.x * step;
-        points.y[i] += deltaVelocity.y * step;
-        points.velocityX[i] += deltaAcceleration.x * step;
-        points.velocityY[i] += deltaAcceleration.y * step;
+        points.pos[i] += deltaVelocity * step;
+        points.velocity[i] += deltaAcceleration * step;
     }
 
     for (int i = 0; i < m_impl->staticJoints.size(); i++)
     {
         StaticJoint &joint = m_impl->staticJoints[i];
-        points.x[joint.pointIndex] = joint.position.x;
-        points.y[joint.pointIndex] = joint.position.y;
-        points.velocityX[joint.pointIndex] = 0.0f;
-        points.velocityY[joint.pointIndex] = 0.0f;
+        points.pos[joint.pointIndex] = joint.position;
+        points.velocity[joint.pointIndex] = Vector2();
     }
 
     if (m_impl->mouseJoint.pointIndex != -1)
     {
-        points.x[m_impl->mouseJoint.pointIndex] = m_impl->mouseJoint.position.x;
-        points.y[m_impl->mouseJoint.pointIndex] = m_impl->mouseJoint.position.y;
-        points.velocityX[m_impl->mouseJoint.pointIndex] = 0.0f;
-        points.velocityY[m_impl->mouseJoint.pointIndex] = 0.0f;
-        points.accelerationX[m_impl->mouseJoint.pointIndex] = 0.0f;
-        points.accelerationY[m_impl->mouseJoint.pointIndex] = 0.0f;
+        points.pos[m_impl->mouseJoint.pointIndex] = m_impl->mouseJoint.position;
+        points.velocity[m_impl->mouseJoint.pointIndex] = Vector2();
+        points.acceleration[m_impl->mouseJoint.pointIndex] = Vector2();
     }
 
     for (int i = 0; i < points.size(); i++)
     {
-        points.accelerationX[i] = 0.0f;
-        points.accelerationY[i] = 0.0f;
+        points.acceleration[i] = Vector2();
     }
 
     if (m_impl->collisionsEnabled)
@@ -523,11 +504,8 @@ void Game::performRK4Integration(
 
     for (int i = 0; i < points.size(); i++)
     {
-        points.velocityX[i] += (points.accelerationX[i]) * step;
-        points.velocityY[i] += (points.accelerationY[i]) * step;
-
-        points.x[i] += points.velocityX[i] * step;
-        points.y[i] += points.velocityY[i] * step;
+        points.velocity[i] += (points.acceleration[i]) * step;
+        points.pos[i] += points.velocity[i] * step;
     }
 }
 
@@ -586,9 +564,8 @@ void Game::mouseButtonDown(int x, int y)
     Console::log("Mouse down: %d %d", x, y);
     for (int i = 0; i < m_impl->points.size(); i++)
     {
-        float px = m_impl->points.x[i];
-        float py = m_impl->points.y[i];
-        if (Vector2::vec2distance((float)x, (float)y, px, py) < 20.0f)
+        Vector2 pos = m_impl->points.pos[i];
+        if (Vector2::vec2distance((float)x, (float)y, pos.x, pos.y) < 20.0f)
         {
             StaticJoint joint = {i, Vector2(x, y)};
             m_impl->mouseJoint.pointIndex = i;
@@ -608,12 +585,9 @@ void Game::mouseMove(int x, int y)
     if (m_impl->mouseJoint.pointIndex != -1)
     {
         int i = m_impl->mouseJoint.pointIndex;
-        m_impl->points.x[i] = (float)x;
-        m_impl->points.y[i] = (float)y;
-        m_impl->points.velocityX[i] = 0.0f;
-        m_impl->points.velocityY[i] = 0.0f;
-        m_impl->points.accelerationX[i] = 0.0f;
-        m_impl->points.accelerationY[i] = 0.0f;
+        m_impl->points.pos[i] = Vector2((float)x, (float)y);
+        m_impl->points.velocity[i] = Vector2();
+        m_impl->points.acceleration[i] = Vector2();
         m_impl->mouseJoint.position = Vector2((float)x, (float)y);
     }
 }

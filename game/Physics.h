@@ -174,16 +174,13 @@ struct PointMassesRange
 {
     int size()
     {
-        return this->x.size;
+        return this->pos.size;
     }
 
-    Range<float> x;
-    Range<float> y;
+    Range<Vector2> pos;
     Range<float> mass;
-    Range<float> velocityX;
-    Range<float> velocityY;
-    Range<float> accelerationX;
-    Range<float> accelerationY;
+    Range<Vector2> velocity;
+    Range<Vector2> acceleration;
 };
 
 struct PointMasses
@@ -194,40 +191,32 @@ struct PointMasses
 
     void clear()
     {
-        x.clear();
-        y.clear();
+        pos.clear();
         mass.clear();
-        velocityX.clear();
-        velocityY.clear();
-        accelerationX.clear();
-        accelerationY.clear();
+        velocity.clear();
+        acceleration.clear();
     }
 
     void append(const PointMasses &other)
     {
-        x.append(other.x);
-        y.append(other.y);
+        pos.append(other.pos);
         mass.append(other.mass);
-        velocityX.append(other.velocityX);
-        velocityY.append(other.velocityY);
-        accelerationX.append(other.accelerationX);
-        accelerationY.append(other.accelerationY);
+        velocity.append(other.velocity);
+        acceleration.append(other.acceleration);
     }
 
     void push(float x, float y, float mass = 1.0f, float velocityX = 0.0f, float velocityY = 0.0f)
     {
-        this->x.push(x);
-        this->y.push(y);
+        this->pos.push({x, y});
+
         this->mass.push(mass);
-        this->velocityX.push(velocityX);
-        this->velocityY.push(velocityY);
-        this->accelerationX.push(0.0f);
-        this->accelerationY.push(0.0f);
+        this->velocity.push({velocityX, velocityY});
+        this->acceleration.push({0.0f, 0.0f});
     }
 
     int size()
     {
-        return x.size();
+        return pos.size();
     }
 
     PointMassesRange range(Span span) const
@@ -238,13 +227,10 @@ struct PointMasses
     PointMassesRange range(int start, int end) const
     {
         return {
-            x.range(start, end),
-            y.range(start, end),
+            pos.range(start, end),
             mass.range(start, end),
-            velocityX.range(start, end),
-            velocityY.range(start, end),
-            accelerationX.range(start, end),
-            accelerationY.range(start, end)};
+            velocity.range(start, end),
+            acceleration.range(start, end)};
     }
 
     PointMassesRange range() const
@@ -254,27 +240,21 @@ struct PointMasses
 
     void reserve(int size)
     {
-        x.reserve(size);
-        y.reserve(size);
+        pos.reserve(size);
         mass.reserve(size);
-        velocityX.reserve(size);
-        velocityY.reserve(size);
-        accelerationX.reserve(size);
-        accelerationY.reserve(size);
+        velocity.reserve(size);
+        acceleration.reserve(size);
     }
 
     int size() const
     {
-        return x.size();
+        return pos.size();
     }
 
-    Array<float> x;
-    Array<float> y;
+    Array<Vector2> pos;
     Array<float> mass;
-    Array<float> velocityX;
-    Array<float> velocityY;
-    Array<float> accelerationX;
-    Array<float> accelerationY;
+    Array<Vector2> velocity;
+    Array<Vector2> acceleration;
 };
 
 struct PointDerivative
@@ -369,8 +349,6 @@ void findClosestLineSegmentToPoint(PointMassesRange collisionShape, const Vector
 void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<Shape> &shapes, const PointMasses &points);
 
 void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives);
-
-void applyGravity(PointMassesRange &points, double timeStep);
 
 ShapeBoundingBox calculateShapeBoundingBox(const Shape &shape, int shapeIndex, const PointMasses &points);
 

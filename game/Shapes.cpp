@@ -38,15 +38,12 @@ namespace Shapes
             curIndex++;
         }
 
-        float p0x = points.x[startIndex];
-        float p0y = points.y[startIndex];
-        float p1x = points.x[startIndex + 3];
-        float p1y = points.y[startIndex + 3];
-        float p2x = points.x[startIndex + 5];
-        float p2y = points.y[startIndex + 5];
+        Vector2 p0 = points.pos[startIndex];
+        Vector2 p1 = points.pos[startIndex + 3];
+        Vector2 p2 = points.pos[startIndex + 5];
 
-        float lengthSpring1 = Vector2::vec2distance(p0x, p0y, p1x, p1y);
-        float lengthSpring2 = Vector2::vec2distance(p0x, p0y, p2x, p2y);
+        float lengthSpring1 = Vector2::vec2distance(p0.x, p0.y, p1.x, p1.y);
+        float lengthSpring2 = Vector2::vec2distance(p0.x, p0.y, p2.x, p2.y);
 
         for (int i = 0; i < numSegments; i++)
         {
@@ -158,24 +155,20 @@ namespace Shapes
         Shape quad = createStaticQuad(points, x, y, width, height, mass);
 
         const Span span = {.start = points.size() - 4, .end = points.size()};
-        float p0x = points.x[span.start];
-        float p0y = points.y[span.start];
-        float p1x = points.x[span.start + 1];
-        float p1y = points.y[span.start + 1];
-        float p2x = points.x[span.start + 2];
-        float p2y = points.y[span.start + 2];
-        float p3x = points.x[span.start + 3];
-        float p3y = points.y[span.start + 3];
+        Vector2 p0 = points.pos[span.start];
+        Vector2 p1 = points.pos[span.start + 1];
+        Vector2 p2 = points.pos[span.start + 2];
+        Vector2 p3 = points.pos[span.start + 3];
 
         float stiffness = 0.3f;
         float damping = 28.9f;
 
-        springs.push({span.start, span.start + 1, Vector2::vec2distance(p0x, p0y, p1x, p1y), stiffness, damping});
-        springs.push({span.start + 1, span.start + 2, Vector2::vec2distance(p1x, p1y, p2x, p2y), stiffness, damping});
-        springs.push({span.start + 2, span.start + 3, Vector2::vec2distance(p2x, p2y, p3x, p3y), stiffness, damping});
-        springs.push({span.start + 3, span.start, Vector2::vec2distance(p3x, p3y, p0x, p0y), stiffness, damping});
-        springs.push({span.start, span.start + 2, Vector2::vec2distance(p0x, p0y, p2x, p2y), stiffness, damping});
-        springs.push({span.start + 1, span.start + 3, Vector2::vec2distance(p1x, p1y, p3x, p3y), stiffness, damping});
+        springs.push({span.start, span.start + 1, Vector2::vec2distance(p0.x, p0.y, p1.x, p1.y), stiffness, damping});
+        springs.push({span.start + 1, span.start + 2, Vector2::vec2distance(p1.x, p1.y, p2.x, p2.y), stiffness, damping});
+        springs.push({span.start + 2, span.start + 3, Vector2::vec2distance(p2.x, p2.y, p3.x, p3.y), stiffness, damping});
+        springs.push({span.start + 3, span.start, Vector2::vec2distance(p3.x, p3.y, p0.x, p0.y), stiffness, damping});
+        springs.push({span.start, span.start + 2, Vector2::vec2distance(p0.x, p0.y, p2.x, p2.y), stiffness, damping});
+        springs.push({span.start + 1, span.start + 3, Vector2::vec2distance(p1.x, p1.y, p3.x, p3.y), stiffness, damping});
 
         return quad;
     }

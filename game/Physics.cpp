@@ -103,32 +103,29 @@ int countNumCollisions(PointMassesRange collisionShape, float pointX, float poin
     int numIntersections = 0;
 
     // Check intersections between (point.pos.x, point.pos.y) -> (outX, point.pos.y) and each line segment in shape1
-    for (int i = 0; i < collisionShape.x.size; i++)
+    for (int i = 0; i < collisionShape.size(); i++)
     {
-
-        float x0 = collisionShape.x[i];
-        float y0 = collisionShape.y[i];
-        float x1 = collisionShape.x[(i + 1) % collisionShape.x.size];
-        float y1 = collisionShape.y[(i + 1) % collisionShape.x.size];
+        Vector2 p0 = collisionShape.pos[i];
+        Vector2 p1 = collisionShape.pos[(i + 1) % collisionShape.size()];
 
         // If point is outside line segments vertical range, it can never intersect since line is horziontal
-        if ((pointY < y0 && pointY < y1) || (pointY > y0 && pointY > y1))
+        if ((pointY < p0.y && pointY < p1.y) || (pointY > p0.y && pointY > p1.y))
         {
             continue;
         }
-        else if (x0 == x1)
+        else if (p0.x == p1.x)
         {
-            if (pointX <= x1 && outX >= x1)
+            if (pointX <= p1.x && outX >= p1.x)
             {
                 numIntersections++;
             }
         }
         else
         {
-            float m = (y1 - y0) / (x1 - x0);
-            float intersectionX = x0 + (pointY - y0) / m;
+            float m = (p1.y - p0.y) / (p1.x - p0.x);
+            float intersectionX = p0.x + (pointY - p0.y) / m;
             if ((intersectionX >= pointX && intersectionX <= outX) &&
-                ((intersectionX >= x0 && intersectionX <= x1) || (intersectionX >= x1 && intersectionX <= x0)))
+                ((intersectionX >= p0.x && intersectionX <= p1.x) || (intersectionX >= p1.x && intersectionX <= p0.x)))
             {
                 numIntersections++;
             }
@@ -141,16 +138,11 @@ int countNumCollisions(PointMassesRange collisionShape, float pointX, float poin
 void findClosestLineSegmentToPoint(PointMassesRange collisionShape, const Vector2 &point, const Vector2 &velocity, int &minIndex, Vector2 &minPoint, float &minT)
 {
     float minDistanceSquared = __FLT_MAX__;
-    int collisionShapeSize = collisionShape.x.size;
+    int collisionShapeSize = collisionShape.pos.size;
     for (int i = 0; i < collisionShapeSize; i++)
     {
-        float segment0X = collisionShape.x[i];
-        float segment0Y = collisionShape.y[i];
-        float segment1X = collisionShape.x[(i + 1) % collisionShapeSize];
-        float segment1Y = collisionShape.y[(i + 1) % collisionShapeSize];
-
-        Vector2 segment0 = {segment0X, segment0Y};
-        Vector2 segment1 = {segment1X, segment1Y};
+        Vector2 segment0 = collisionShape.pos[i];
+        Vector2 segment1 = collisionShape.pos[(i + 1) % collisionShapeSize];
 
         // Vector from A to B
         Vector2 segment = segment1 - segment0;
@@ -213,23 +205,21 @@ int calculateCollisions(
 {
     int numCollisions = 0;
 
-    for (int i = 0; i < movingShape.x.size; i++)
+    for (int i = 0; i < movingShape.pos.size; i++)
     {
-        float pointX = movingShape.x[i];
-        float pointY = movingShape.y[i];
-        float pointVelocityX = movingShape.velocityX[i];
-        float pointVelocityY = movingShape.velocityY[i];
+        Vector2 pointPos = movingShape.pos[i];
+        Vector2 pointVelocity = movingShape.velocity[i];
 
         // First check - is the point outside the bounding box of the other shape?
         // Then extend horizontal line from point to the right,  outside of bounding box.
-        if (isPointOutsideShape(pointX, pointY, collisionBox, collisionShape))
+        if (isPointOutsideShape(pointPos.x, pointPos.y, collisionBox, collisionShape))
         {
             continue;
         }
         // If point is not moving, we need to skip it, because otherwise findClosestLineSegmentToPoint won't work
         // (it uses velocity to determine closest point on line segment). And if it is not moving it cannot collide with anything -
         // the other shape will collide with it.
-        else if (fabs(pointVelocityX) < 0.00001f && fabs(pointVelocityY) < 0.00001f)
+        else if (fabs(pointVelocity.x) < 0.00001f && fabs(pointVelocity.y) < 0.00001f)
         {
             continue;
         }
@@ -241,8 +231,6 @@ int calculateCollisions(
         int minIndex = -1;
         float minT = 0.0f;
         Vector2 minPoint = {0.0f, 0.0f};
-        Vector2 pointPos = {pointX, pointY};
-        Vector2 pointVelocity = {pointVelocityX, pointVelocityY};
         findClosestLineSegmentToPoint(collisionShape, pointPos, pointVelocity, minIndex, minPoint, minT);
         float pointMass = movingShape.mass[i];
         if (minIndex == -1)
@@ -253,35 +241,27 @@ int calculateCollisions(
         // PointMass &pm0 = collisionShape[minIndex];
         // PointMass &pm1 = collisionShape[(minIndex + 1) % collisionShape.size];
         // inline Vector2 calculateImpulse(float pm0VelX, float pm0VelY, float pm0Mass, float pm1VelX, float pm1VelY, float pm1Mass, float segmentNormalX, float segmentNormalY, float pointVelX, float pointVelY, float pointMass, float minT)
-        float pm0VelX = collisionShape.velocityX[minIndex];
-        float pm0VelY = collisionShape.velocityY[minIndex];
+        Vector2 pm0Vel = collisionShape.velocity[minIndex];
         float pm0Mass = collisionShape.mass[minIndex];
-        float pm1VelX = collisionShape.velocityX[(minIndex + 1) % collisionShape.x.size];
-        float pm1VelY = collisionShape.velocityY[(minIndex + 1) % collisionShape.x.size];
-        float pm1Mass = collisionShape.mass[(minIndex + 1) % collisionShape.x.size];
-        float pm0PosX = collisionShape.x[minIndex];
-        float pm0PosY = collisionShape.y[minIndex];
-        float pm1PosX = collisionShape.x[(minIndex + 1) % collisionShape.x.size];
-        float pm1PosY = collisionShape.y[(minIndex + 1) % collisionShape.x.size];
+        Vector2 pm1Vel = collisionShape.velocity[(minIndex + 1) % collisionShape.pos.size];
+        float pm1Mass = collisionShape.mass[(minIndex + 1) % collisionShape.pos.size];
+        Vector2 pm0Pos = collisionShape.pos[minIndex];
+        Vector2 pm1Pos = collisionShape.pos[(minIndex + 1) % collisionShape.pos.size];
 
-        Vector2 segmentNormal = Vector2(-pm1PosY + pm0PosY, pm1PosX - pm0PosX).normalized();
+        Vector2 segmentNormal = Vector2(-pm1Pos.y + pm0Pos.y, pm1Pos.x - pm0Pos.x).normalized();
 
         // Since this is an impulse and not a continuously applied force, we need to divide by the step
         // so that when the velocity and position are updated, the impulse is applied correctly.
-        Vector2 impulse = calculateImpulse(pm0VelX, pm0VelY, pm0Mass, pm1VelX, pm1VelY, pm1Mass, segmentNormal, pointVelocityX, pointVelocityY, pointMass, minT) / step;
-        movingShape.accelerationX[i] += impulse.x / pointMass;
-        movingShape.accelerationY[i] += impulse.y / pointMass;
+        Vector2 impulse = calculateImpulse(pm0Vel.x, pm0Vel.y, pm0Mass, pm1Vel.x, pm1Vel.y, pm1Mass, segmentNormal, pointVelocity.x, pointVelocity.y, pointMass, minT) / step;
+        movingShape.acceleration[i] += impulse / pointMass;
 
         Vector2 pm0Acceleration = (impulse * (1.0f - minT)) / pm0Mass;
-        collisionShape.accelerationX[minIndex] -= pm0Acceleration.x;
-        collisionShape.accelerationY[minIndex] -= pm0Acceleration.y;
+        collisionShape.acceleration[minIndex] -= pm0Acceleration;
         Vector2 pm1Acceleration = (impulse * minT) / pm1Mass;
-        collisionShape.accelerationX[(minIndex + 1) % collisionShape.x.size] -= pm1Acceleration.x;
-        collisionShape.accelerationY[(minIndex + 1) % collisionShape.x.size] -= pm1Acceleration.y;
+        collisionShape.acceleration[(minIndex + 1) % collisionShape.pos.size] -= pm1Acceleration;
 
         Vector2 reflection = pointVelocity.reflect(segmentNormal).normalized();
-        movingShape.x[i] = minPoint.x + reflection.x * 0.1f;
-        movingShape.y[i] = minPoint.y + reflection.y * 0.1f;
+        movingShape.pos[i] = minPoint + reflection * 0.1f;
     }
 
     return numCollisions;
@@ -297,19 +277,17 @@ int calculateStaticCollisions(
 {
     int numCollisions = 0;
 
-    for (int i = 0; i < movingShape.x.size; i++)
+    for (int i = 0; i < movingShape.pos.size; i++)
     {
-        float pointX = movingShape.x[i];
-        float pointY = movingShape.y[i];
+        Vector2 point = movingShape.pos[i];
 
         // First check - is the point outside the bounding box of the other shape?
         // Then extend horizontal line from point to the right,  outside of bounding box.
-        if (isPointOutsideShape(pointX, pointY, staticBox, staticShape))
+        if (isPointOutsideShape(point.x, point.y, staticBox, staticShape))
         {
             continue;
         }
-        float pointVelocityX = movingShape.velocityX[i];
-        float pointVelocityY = movingShape.velocityY[i];
+        Vector2 velocity = movingShape.velocity[i];
 
         numCollisions++;
         collisionCounterForMovingShape[i]++;
@@ -317,9 +295,6 @@ int calculateStaticCollisions(
         int minIndex = -1;
         float minT = 0.0f;
         Vector2 minPoint = {0.0f, 0.0f};
-        Vector2 point = {pointX, pointY};
-        Vector2 velocity = {pointVelocityX, pointVelocityY};
-
         findClosestLineSegmentToPoint(staticShape, point, velocity, minIndex, minPoint, minT);
 
         if (minIndex == -1)
@@ -328,31 +303,25 @@ int calculateStaticCollisions(
         }
 
         float pointMass = movingShape.mass[i];
-        int nextIndex = (minIndex + 1) % staticShape.x.size;
+        int nextIndex = (minIndex + 1) % staticShape.pos.size;
 
-        float pm0X = staticShape.x[minIndex];
-        float pm0Y = staticShape.y[minIndex];
-        float pm0VelX = staticShape.velocityX[minIndex];
-        float pm0VelY = staticShape.velocityY[minIndex];
+        Vector2 pm0 = staticShape.pos[minIndex];
+        Vector2 pm0Vel = staticShape.velocity[minIndex];
         float pm0Mass = staticShape.mass[minIndex];
 
-        float pm1X = staticShape.x[nextIndex];
-        float pm1Y = staticShape.y[nextIndex];
-        float pm1VelX = staticShape.velocityX[nextIndex];
-        float pm1VelY = staticShape.velocityY[nextIndex];
+        Vector2 pm1 = staticShape.pos[nextIndex];
+        Vector2 pm1Vel = staticShape.velocity[nextIndex];
         float pm1Mass = staticShape.mass[nextIndex];
 
-        Vector2 segmentDirection(pm1X - pm0X, pm1Y - pm0Y);
+        Vector2 segmentDirection(pm1.x - pm0.x, pm1.y - pm0.y);
         Vector2 segmentNormal = Vector2(-segmentDirection.y, segmentDirection.x).normalized();
 
         // Since this is an impulse and not a continuously applied force, we need to divide by the step
         // so that when the velocity and position are updated, the impulse is applied correctly.
-        Vector2 impulse = calculateImpulse(pm0VelX, pm0VelY, pm0Mass, pm1VelX, pm1VelY, pm1Mass, segmentNormal, pointVelocityX, pointVelocityY, pointMass, minT) / step;
+        Vector2 impulse = calculateImpulse(pm0Vel.x, pm0Vel.y, pm0Mass, pm1Vel.x, pm1Vel.y, pm1Mass, segmentNormal, velocity.x, velocity.y, pointMass, minT) / step;
         Vector2 reflection = velocity.reflect(segmentNormal).normalized();
-        movingShape.accelerationX[i] += impulse.x / pointMass;
-        movingShape.accelerationY[i] += impulse.y / pointMass;
-        movingShape.x[i] = minPoint.x + reflection.x * 0.1f;
-        movingShape.y[i] = minPoint.y + reflection.y * 0.1f;
+        movingShape.acceleration[i] += impulse / pointMass;
+        movingShape.pos[i] = minPoint + reflection * 0.1f;
     }
 
     return numCollisions;
@@ -361,20 +330,20 @@ int calculateStaticCollisions(
 ShapeBoundingBox calculateShapeBoundingBox(const Shape &shape, int shapeIndex, const PointMasses &points)
 {
     const PointMassesRange &range = points.range(shape.start, shape.end);
-    float minX = range.x[0];
-    float maxX = range.x[0];
-    float minY = range.y[0];
-    float maxY = range.y[0];
+    Vector2 pos = range.pos[0];
+    float minX = pos.x;
+    float maxX = pos.x;
+    float minY = pos.y;
+    float maxY = pos.y;
 
-    for (int j = 0; j < range.x.size; j++)
+    for (int j = 1; j < range.pos.size; j++)
     {
-        float x = range.x[j];
-        float y = range.y[j];
+        Vector2 otherPos = range.pos[j];
 
-        minX = min(minX, x);
-        maxX = max(maxX, x);
-        minY = min(minY, y);
-        maxY = max(maxY, y);
+        minX = min(minX, otherPos.x);
+        maxX = max(maxX, otherPos.x);
+        minY = min(minY, otherPos.y);
+        maxY = max(maxY, otherPos.y);
     }
 
     return {shapeIndex, minX, minY, maxX, maxY};
@@ -390,15 +359,6 @@ void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<
     }
 }
 
-void applyGravity(PointMassesRange &points, double timeStep)
-{
-    for (int i = 0; i < points.y.size; i++)
-    {
-        // Multiply by mass to cancel out in the subsequent force calculation
-        points.accelerationY[i] += (0.05f * 0.003f);
-    }
-}
-
 float springFactor = 0.085f * 0.001f;
 
 void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives)
@@ -407,47 +367,36 @@ void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Ra
     {
         const Spring &spring = springs[i];
 
-        float x1 = points.x[spring.pointA];
-        float y1 = points.y[spring.pointA];
-        float x2 = points.x[spring.pointB];
-        float y2 = points.y[spring.pointB];
+        Vector2 p0 = points.pos[spring.pointA];
+        Vector2 p1 = points.pos[spring.pointB];
 
         PointDerivative &derivative1 = derivatives[spring.pointA];
         PointDerivative &derivative2 = derivatives[spring.pointB];
 
-        float dx = x2 - x1;
-        float dy = y2 - y1;
-        float offsetLength = Vector2::vec2length(dx, dy);
+        Vector2 direction = p1 - p0;
+        float offsetLength = direction.length();
         float delta = (offsetLength - spring.length);
 
         if (offsetLength > 0.001f)
         {
             float springForce = delta * spring.stiffness * 5.0f;
             springForce = min(springForce, 10000.0f);
-            float dxn = dx / offsetLength;
-            float dyn = dy / offsetLength;
+            Vector2 directionNormalized = direction / offsetLength;
 
-            float v1x = points.velocityX[spring.pointA];
-            float v1y = points.velocityY[spring.pointA];
-            float v2x = points.velocityX[spring.pointB];
-            float v2y = points.velocityY[spring.pointB];
-            float dvx = v2x - v1x;
-            float dvy = v2y - v1y;
-
-            float dampForce = Vector2::vec2dot(dxn, dyn, dvx, dvy) * spring.damping;
+            Vector2 v0 = points.velocity[spring.pointA];
+            Vector2 v1 = points.velocity[spring.pointB];
+            Vector2 dv = v1 - v0;
+            float dampForce = directionNormalized.dot(dv * spring.damping);
             dampForce = min(dampForce, 10000.0f);
             float combinedForce = springForce + dampForce;
-            float forceX = dxn * combinedForce * springFactor;
-            float forceY = dyn * combinedForce * springFactor;
+            
+            Vector2 force = directionNormalized * combinedForce * springFactor;
 
             float p1Mass = points.mass[spring.pointA];
             float p2Mass = points.mass[spring.pointB];
 
-            derivative1.acceleration.x += forceX / p1Mass;
-            derivative1.acceleration.y += forceY / p1Mass,
-
-                derivative2.acceleration.x -= forceX / p2Mass;
-            derivative2.acceleration.y -= forceY / p2Mass;
+            derivative1.acceleration += force / p1Mass;
+            derivative2.acceleration -= force / p2Mass;
         }
     }
 }

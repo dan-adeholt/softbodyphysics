@@ -26,10 +26,12 @@ PhysicsTestDefinition tests[] = {
             Shape &lineShape = game->shapes()[0];
             int p1Index = lineShape.end - 1;
             PointMasses &points = game->points();
-            points.y[p1Index] += 100.0f;
-            points.x[p1Index] += 100.0f;
-            points.velocityX[p1Index] = 0.0f;
-            points.velocityY[p1Index] = 0.0f;
+            Vector2 &p1 = points.pos[p1Index];
+            p1.x += 100.0f;
+            p1.y += 100.0f;
+            Vector2 &v1 = points.velocity[p1Index];
+            v1.x = 0.0f;
+            v1.y = 0.0f;
         },
         [](Game *game, int time)
         {
@@ -38,7 +40,9 @@ PhysicsTestDefinition tests[] = {
             int p0Index = lineShape.start;
             int p1Index = lineShape.end - 1;
 
-            float angle = atan2(points.y[p1Index] - points.y[p0Index], points.x[p1Index] - points.x[p0Index]);
+            Vector2 p0 = points.pos[p0Index];
+            Vector2 p1 = points.pos[p1Index];
+            float angle = atan2(p1.y - p0.y, p1.x - p0.x);
             float validAngle = 0.89;
 
             if (fabs(angle - validAngle) > 0.01)

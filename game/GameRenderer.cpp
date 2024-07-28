@@ -173,7 +173,8 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
 
     for (int i = 0; i < pointMasses.size(); i++)
     {
-        addCircle(m->vertices, pointMasses.x[i], pointMasses.y[i], {255, 255, 255, 255});
+        Vector2 pos = pointMasses.pos[i];
+        addCircle(m->vertices, pos.x, pos.y, {255, 255, 255, 255});
     }
 
     Vector2 offset(700, 20);
@@ -198,27 +199,23 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, Poi
     {
         const Shape &shape = shapes.data[i];
 
-        float startX = pointMasses.x[shape.start];
-        float startY = pointMasses.y[shape.start];
-        float x = startX;
-        float y = startY;
+        Vector2 startPos = pointMasses.pos[shape.start];
+        Vector2 pos = startPos;
 
         for (int pointIndex = shape.start + 1; pointIndex < shape.end; pointIndex++)
         {
-            float nextX = pointMasses.x[pointIndex];
-            float nextY = pointMasses.y[pointIndex];
+            Vector2 nextPos = pointMasses.pos[pointIndex];
 
-            if (isnan(x) || isnan(y) || isnan(nextX) || isnan(nextY))
+            if (isnan(pos.x) || isnan(pos.y) || isnan(nextPos.x) || isnan(nextPos.y))
             {
                 continue;
             }
 
-            addLine(m->vertices, x, y, nextX, nextY, {255, 255, 255, 255});
-            x = nextX;
-            y = nextY;
+            addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, {255, 255, 255, 255});
+            pos = nextPos;
         }
 
-        addLine(m->vertices, x, y, startX, startY, {255, 255, 255, 255});
+        addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, {255, 255, 255, 255});
     }
 }
 
@@ -261,21 +258,20 @@ void GameRenderer::renderSprings(SDL_Renderer *renderer, Range<Spring> springs, 
     for (int i = 0; i < springs.size; i++)
     {
         const Spring &spring = springs.data[i];
-        float x0 = points.x[spring.pointA];
-        float y0 = points.y[spring.pointA];
-        float x1 = points.x[spring.pointB];
-        float y1 = points.y[spring.pointB];
-        float currentLength = Vector2::vec2length(x1 - x0, y1 - y0);
+        Vector2 p0 = points.pos[spring.pointA];
+        Vector2 p1 = points.pos[spring.pointB];
+        Vector2 direction = p1 - p0;
+        float currentLength = direction.length();
 
         float tension = fabs(1.0f - (spring.length / currentLength));
 
         // To prevent SDL taking extremely long to render degenerate lines
-        if (x0 > MIN_LINE_POS && x0 < MAX_LINE_POS &&
-            y0 > MIN_LINE_POS && y0 < MAX_LINE_POS &&
-            x1 > MIN_LINE_POS && x1 < MAX_LINE_POS &&
-            y1 > MIN_LINE_POS && y1 < MAX_LINE_POS)
+        if (p0.x > MIN_LINE_POS && p0.x < MAX_LINE_POS &&
+            p0.y > MIN_LINE_POS && p0.y < MAX_LINE_POS &&
+            p1.x > MIN_LINE_POS && p1.x < MAX_LINE_POS &&
+            p1.y > MIN_LINE_POS && p1.y < MAX_LINE_POS)
         {
-            addSpring(m->vertices, x0, y0, x1, y1, spring.length, {255, 255, 255, 255});
+            addSpring(m->vertices, p0.x, p0.y, p1.x, p1.y, spring.length, {255, 255, 255, 255});
         }
     }
 }

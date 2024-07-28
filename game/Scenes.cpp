@@ -21,9 +21,9 @@ SceneDefinition scenes[] = {
          secondBox.name = "Static box";
 
          PointMassesRange firstBoxPoints = game->points().range(firstBox);
-         for (float &xVelocity : firstBoxPoints.velocityX)
+         for (Vector2 &velocity : firstBoxPoints.velocity)
          {
-             xVelocity = 0.1f;
+             velocity.x = 0.1f;
          }
 
          game->setGravityEnabled(false);
