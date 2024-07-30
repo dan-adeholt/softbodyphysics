@@ -7,6 +7,7 @@
 #include <math.h>
 
 float coefficentOfRestitution = 0.65f;
+// Function to compute the length of a 2D vector using NEON intrinsics
 
 inline Vector2 calculateImpulse(float pm0VelX, float pm0VelY, float pm0Mass, float pm1VelX, float pm1VelY, float pm1Mass, Vector2 segmentNormal, float pointVelX, float pointVelY, float pointMass, float minT)
 {
@@ -367,30 +368,30 @@ void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Ra
     {
         const Spring &spring = springs[i];
 
-        Vector2 p0 = points.pos[spring.pointA];
-        Vector2 p1 = points.pos[spring.pointB];
+        Vector2 p0(points.pos[spring.pointA]);
+        Vector2 p1(points.pos[spring.pointB]);
 
         PointDerivative &derivative1 = derivatives[spring.pointA];
         PointDerivative &derivative2 = derivatives[spring.pointB];
 
-        Vector2 direction = p1 - p0;
+        Vector2 direction(p1 - p0);
         float offsetLength = direction.length();
         float delta = (offsetLength - spring.length);
 
         if (offsetLength > 0.001f)
         {
-            float springForce = delta * spring.stiffness * 5.0f;
+            float springForce = delta * spring.stiffness;
             springForce = min(springForce, 10000.0f);
             Vector2 directionNormalized = direction / offsetLength;
 
             Vector2 v0 = points.velocity[spring.pointA];
             Vector2 v1 = points.velocity[spring.pointB];
-            Vector2 dv = v1 - v0;
+            Vector2 dv(v1 - v0);
             float dampForce = directionNormalized.dot(dv * spring.damping);
             dampForce = min(dampForce, 10000.0f);
-            float combinedForce = springForce + dampForce;
-            
-            Vector2 force = directionNormalized * combinedForce * springFactor;
+            float combinedForce = (springForce + dampForce) * springFactor;
+
+            Vector2 force(directionNormalized * combinedForce);
 
             float p1Mass = points.mass[spring.pointA];
             float p2Mass = points.mass[spring.pointB];

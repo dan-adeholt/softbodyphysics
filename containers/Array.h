@@ -102,6 +102,14 @@ public:
         new (&m_data[m_size++]) T(element);
     }
 
+    void pop()
+    {
+        if (m_size > 0)
+        {
+            m_data[--m_size].~T();
+        }
+    }
+
     void clear()
     {
         // We cannot just call delete[] on the underlying storage

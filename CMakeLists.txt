@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
-project(SoftBodyPhysics LANGUAGES CXX ISPC)
+#project(SoftBodyPhysics LANGUAGES CXX ISPC)
+project(SoftBodyPhysics LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,16 +25,16 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 find_package(SDL2 REQUIRED)
 
 # ISPC compilation
-add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o
-    COMMAND ispc ${CMAKE_CURRENT_SOURCE_DIR}/game/PhysicsSIMD.ispc
-            -o ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o
-            -h ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD_ispc.h
-            ${CMAKE_ISPC_FLAGS}
-            --target=${CMAKE_ISPC_INSTRUCTION_SETS}
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/game/PhysicsSIMD.ispc
-    COMMENT "Compiling ISPC file PhysicsSIMD.ispc"
-)
+# add_custom_command(
+#     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o
+#     COMMAND ispc ${CMAKE_CURRENT_SOURCE_DIR}/game/PhysicsSIMD.ispc
+#             -o ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o
+#             -h ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD_ispc.h
+#             ${CMAKE_ISPC_FLAGS}
+#             --target=${CMAKE_ISPC_INSTRUCTION_SETS}
+#     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/game/PhysicsSIMD.ispc
+#     COMMENT "Compiling ISPC file PhysicsSIMD.ispc"
+# )
 
 
 SET(SOURCE_FILES timer.cpp
@@ -51,12 +52,14 @@ imgui/imgui_widgets.cpp
 imgui/imgui_tables.cpp
 imgui/imgui_impl_sdlrenderer2.cpp
 imgui/imgui_impl_sdl2.cpp
+tasks/Scheduler.cpp
 game/GameRenderer.cpp
 game/GameRenderer.h
 game/Physics.test.h
 game/Physics.h
 game/PhysicsTests.h
 game/Scenes.h
+tasks/Scheduler.h
 stb_image/stb_image.cpp
 utils/Console.h
 utils/UnitTestUtil.h
@@ -65,7 +68,8 @@ containers/Array.h
 containers/ContainerPlatform.h
 containers/Range.h
 containers/Span.h
-${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o)
+# ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o
+)
 
 add_executable(SoftBodyPhysics
  main.cpp

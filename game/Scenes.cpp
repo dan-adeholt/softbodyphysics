@@ -13,8 +13,8 @@ SceneDefinition scenes[] = {
      {
          float size = 100.0f;
          Vector2 box2Pos(700.0f, 290.0f);
-         game->shapes().push(Shapes::createQuad(game->points(), game->springs(), 400.0f, 220.0f, size, size, 1.0f));
-         game->shapes().push(Shapes::createQuad(game->points(), game->springs(), 700.0f, 220.0f, size, size, 1.0f));
+         game->shapes().push(Shapes::createQuad(game->nextShapeIndex(), game->points(), game->springs(), 400.0f, 220.0f, size, size, 1.0f));
+         game->shapes().push(Shapes::createQuad(game->nextShapeIndex(), game->points(), game->springs(), 700.0f, 220.0f, size, size, 1.0f));
          Shape &firstBox = game->shapes()[0];
          Shape &secondBox = game->shapes()[1];
          firstBox.name = "Moving box";
@@ -33,20 +33,20 @@ SceneDefinition scenes[] = {
          //  Shape fallingBox = Shapes::createQuad(game->points(), game->springs(), 400.0f, 40.0f, 100.0f, 100.0f, 1.0f);
          //  game->shapes().push(fallingBox);
 
-         Shape circle = Shapes::createCircle(game->points(), game->springs(), 600.0f, 350.0f, 110.0f, 0.2f);
+         Shape circle = Shapes::createCircle(game->nextShapeIndex(), game->points(), game->springs(), 600.0f, 350.0f, 110.0f, 0.2f);
          game->shapes().push(circle);
          //  game->setGravityEnabled(false);
 
-         Shape side1 = Shapes::createStaticQuad(game->staticPoints(), 149.0f, 90.0f, 50.0f, 600.0f, 1.0f);
+         Shape side1 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 149.0f, 90.0f, 50.0f, 600.0f, 1.0f);
          game->staticShapes().push(side1);
 
-         Shape side2 = Shapes::createStaticQuad(game->staticPoints(), 1099.0f, 90.0f, 50.0f, 600.0f, 1.0f);
+         Shape side2 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 1099.0f, 90.0f, 50.0f, 600.0f, 1.0f);
          game->staticShapes().push(side2);
 
-         Shape side3 = Shapes::createStaticQuad(game->staticPoints(), 149.0f, 690.0f, 1000.0f, 50.0f, 1.0f);
+         Shape side3 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 149.0f, 690.0f, 1000.0f, 50.0f, 1.0f);
          game->staticShapes().push(side3);
 
-         Shape side4 = Shapes::createStaticQuad(game->staticPoints(), 149.0f, 40.0f, 1000.0f, 50.0f, 1.0f);
+         Shape side4 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 149.0f, 40.0f, 1000.0f, 50.0f, 1.0f);
          game->staticShapes().push(side4);
      }},
     {"Circle grid", [](Game *game)
@@ -57,7 +57,7 @@ SceneDefinition scenes[] = {
          {
              for (int x = 0; x < 25; x++)
              {
-                 Shape circle = Shapes::createCircle(game->points(), game->springs(), spacing + x * spacing, spacing * 2 + y * spacing, size, 0.25f);
+                 Shape circle = Shapes::createCircle(game->nextShapeIndex(), game->points(), game->springs(), spacing + x * spacing, spacing * 2 + y * spacing, size, 0.25f);
                  game->shapes().push(circle);
              }
          }
@@ -77,7 +77,7 @@ SceneDefinition scenes[] = {
          float x = 200.0f;
          float y = 340.0f;
 
-         Shape bridge = Shapes::createBridge(game->points(), game->springs(), x, y, 1.0f, numSegments);
+         Shape bridge = Shapes::createBridge(game->nextShapeIndex(), game->points(), game->springs(), x, y, 1.0f, numSegments);
          game->shapes().push(bridge);
 
          game->staticJoints().push({0, Vector2(x, y)});
@@ -85,15 +85,15 @@ SceneDefinition scenes[] = {
          game->staticJoints().push({numSegments, Vector2(x + 70.0f * numSegments, y + 70.0f)});
          game->staticJoints().push({numSegments * 2 - 1, Vector2(x, y + 70.0f)});
 
-         Shape side1 = Shapes::createStaticQuad(game->staticPoints(), 149.0f, 90.0f, 50.0f, 600.0f, 1.0f);
+         Shape side1 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 149.0f, 90.0f, 50.0f, 600.0f, 1.0f);
          game->staticShapes().push(side1);
 
-         Shape side2 = Shapes::createStaticQuad(game->staticPoints(), 1110.0f, 90.0f, 50.0f, 600.0f, 1.0f);
+         Shape side2 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 1110.0f, 90.0f, 50.0f, 600.0f, 1.0f);
          game->staticShapes().push(side2);
 
          for (int i = 0; i < 10; i++)
          {
-             Shape circle = Shapes::createCircle(game->points(), game->springs(), 440.0f + i * 55.0f, 50.0f, 40.0f, 0.25f);
+             Shape circle = Shapes::createCircle(game->nextShapeIndex(), game->points(), game->springs(), 440.0f + i * 55.0f, 50.0f, 40.0f, 0.25f);
              game->shapes().push(circle);
          }
 
@@ -102,7 +102,7 @@ SceneDefinition scenes[] = {
      }},
     {"Box", [](Game *game)
      {
-         Shape fallingBox = Shapes::createQuad(game->points(), game->springs(), 400.0f, 140.0f, 100.0f, 100.0f, 1.0f);
+         Shape fallingBox = Shapes::createQuad(game->nextShapeIndex(), game->points(), game->springs(), 400.0f, 140.0f, 100.0f, 100.0f, 1.0f);
 
          for (float &mass : game->points().range(fallingBox).mass)
          {
@@ -117,8 +117,8 @@ SceneDefinition scenes[] = {
      }},
     {"Falling box with shelf", [](Game *game)
      {
-         Shape fallingBox = Shapes::createQuad(game->points(), game->springs(), 400.0f, 40.0f, 100.0f, 100.0f, 1.0f);
-         Shape shelf = Shapes::createTriangle(game->staticPoints(), 50.0f, 700.0f, 800.0f, 500.0f, 800.0f, 700.0f, 0.0f);
+         Shape fallingBox = Shapes::createQuad(game->nextShapeIndex(), game->points(), game->springs(), 400.0f, 40.0f, 100.0f, 100.0f, 1.0f);
+         Shape shelf = Shapes::createTriangle(game->nextStaticShapeIndex(), game->staticPoints(), 50.0f, 700.0f, 800.0f, 500.0f, 800.0f, 700.0f, 0.0f);
 
          for (float &mass : game->points().range(fallingBox).mass)
          {
@@ -135,7 +135,7 @@ SceneDefinition scenes[] = {
      }},
     {"Line spring", [](Game *game)
      {
-         Shape shape = Shapes::createLine(game->points(), game->springs(), 400.0f, 100.0f, 700.0f, 500.0f, 1.0f);
+         Shape shape = Shapes::createLine(game->nextShapeIndex(), game->points(), game->springs(), 400.0f, 100.0f, 700.0f, 500.0f, 1.0f);
          StaticJoint joint = {0, Vector2(400.0f, 100.0f)};
          game->staticJoints().push(joint);
          game->shapes().push(shape);

@@ -44,6 +44,10 @@ public:
     void mouseButtonUp(int x, int y);
     void mouseMove(int x, int y);
 
+    int nextShapeIndex();
+
+    int nextStaticShapeIndex();
+
     Array<Shape> &shapes();
     Array<Shape> &staticShapes();
     PointMasses &points();
@@ -55,11 +59,13 @@ public:
     void testSpringPerformance(int iterations);
 
 private:
+    void performThreadedSpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives);
+
     void performRK4Integration(PointMassesRange &points,
                                Range<Spring> &springs,
                                Range<int> &collisionCounterForPoints,
                                ConsoleProfileInfo &profileInfo);
-    void performRK4Step(PointMassesRange &initialState, Range<Spring> &springs, double dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives);
+    void performRK4Step(PointMassesRange &initialState, Range<Spring> &springs, double dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo);
 
     void updateAfterRewindOrForward();
     void handleCollisions(PointMassesRange &points, const Range<int> &collisionCounterForPoints, double step);

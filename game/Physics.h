@@ -277,6 +277,7 @@ struct Spring
     float length;
     float stiffness;
     float damping;
+    int shapeIndex;
 };
 
 struct Shape

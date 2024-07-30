@@ -29,7 +29,7 @@ void testFindClosestLineSegmentToPoint()
 {
     PointMasses points;
     Array<Spring> springs;
-    Shape shelf = Shapes::createTriangle(points, 50.0f, 700.0f, 800.0f, 500.0f, 800.0f, 700.0f, 0.0f);
+    Shape shelf = Shapes::createTriangle(0, points, 50.0f, 700.0f, 800.0f, 500.0f, 800.0f, 700.0f, 0.0f);
     Vector2 pos1(500.0, 588.0);
     int minIndex = -1;
     float minT = 0.0f;
@@ -40,7 +40,7 @@ void testFindClosestLineSegmentToPoint()
     float size = 100.0f;
 
     Vector2 pos2(400.0f, 220.0f);
-    Shape q1 = Shapes::createQuad(points, springs, 400.0f, 220.0f, size, size, 1.0f);
+    Shape q1 = Shapes::createQuad(1, points, springs, 400.0f, 220.0f, size, size, 1.0f);
     Vector2 velocity(1, 0);
     findClosestLineSegmentToPoint(points.range(q1), pos2, velocity, minIndex, minPoint, minT);
 
@@ -64,39 +64,39 @@ void testCollisions()
     Array<int> counterForCollisions;
 
     // One half of a quad is inside another quad
-    Shape shape1 = Shapes::createQuad(points, springs, 31.9f, 0.1f, 32.0f, 32.0f, 1.0f);
-    Shape shape2 = Shapes::createQuad(points, springs, 0.0f, 0.0f, 32.0f, 32.0f, 1.0f);
+    Shape shape1 = Shapes::createQuad(0, points, springs, 31.9f, 0.1f, 32.0f, 32.0f, 1.0f);
+    Shape shape2 = Shapes::createQuad(1, points, springs, 0.0f, 0.0f, 32.0f, 32.0f, 1.0f);
 
     counterForCollisions.fill(0, points.size());
     testCase(shape1, shape2, points, 1, counterForCollisions.range());
 
     // One corner of a quad is inside another quad
-    shape1 = Shapes::createQuad(points, springs, 0.0f, 0.0f, 32.0f, 32.0f, 1.0f);
-    shape2 = Shapes::createQuad(points, springs, 16.0f, 16.0f, 32.0f, 32.0f, 1.0f);
+    shape1 = Shapes::createQuad(2, points, springs, 0.0f, 0.0f, 32.0f, 32.0f, 1.0f);
+    shape2 = Shapes::createQuad(3, points, springs, 16.0f, 16.0f, 32.0f, 32.0f, 1.0f);
     counterForCollisions.fill(0, points.size());
     testCase(shape1, shape2, points, 1, counterForCollisions.range());
 
     // One quad is completely inside another quad
-    shape1 = Shapes::createQuad(points, springs, 0.0f, 0.0f, 32.0f, 32.0f, 1.0f);
-    shape2 = Shapes::createQuad(points, springs, 16.0f, 16.0f, 4.0f, 4.0f, 1.0f);
+    shape1 = Shapes::createQuad(4, points, springs, 0.0f, 0.0f, 32.0f, 32.0f, 1.0f);
+    shape2 = Shapes::createQuad(5, points, springs, 16.0f, 16.0f, 4.0f, 4.0f, 1.0f);
     counterForCollisions.fill(0, points.size());
     testCase(shape1, shape2, points, 4, counterForCollisions.range());
 
     // One quad is completely inside a parallelogram
-    shape1 = Shapes::createParallelogram(points, 0.0f, 0.0f, 32.0f, 32.0f, 10.0f, 1.0f);
-    shape2 = Shapes::createQuad(points, springs, 16.0f, 16.0f, 4.0f, 4.0f, 1.0f);
+    shape1 = Shapes::createParallelogram(6, points, 0.0f, 0.0f, 32.0f, 32.0f, 10.0f, 1.0f);
+    shape2 = Shapes::createQuad(7, points, springs, 16.0f, 16.0f, 4.0f, 4.0f, 1.0f);
     counterForCollisions.fill(0, points.size());
     testCase(shape1, shape2, points, 4, counterForCollisions.range());
 
     // One corner of a triangle is inside another triangle
-    shape1 = Shapes::createTriangle(points, 10.0f, 0.0f, 16.0f, 5.0f, 5.0f, 10.0f, 1.0f);
-    shape2 = Shapes::createTriangle(points, 10.0f, 3.0f, 11.0f, 13.0f, 7.0f, 16.0f, 1.0f);
+    shape1 = Shapes::createTriangle(8, points, 10.0f, 0.0f, 16.0f, 5.0f, 5.0f, 10.0f, 1.0f);
+    shape2 = Shapes::createTriangle(9, points, 10.0f, 3.0f, 11.0f, 13.0f, 7.0f, 16.0f, 1.0f);
     counterForCollisions.fill(0, points.size());
     testCase(shape1, shape2, points, 1, counterForCollisions.range());
 
     // Two triangles close to eachother, but not intersecting
-    shape1 = Shapes::createTriangle(points, 10.0f, 0.0f, 16.0f, 5.0f, 5.0f, 10.0f, 1.0f);
-    shape2 = Shapes::createTriangle(points, 16.0f, 6.0f, 11.0f, 13.0f, 7.0f, 16.0f, 1.0f);
+    shape1 = Shapes::createTriangle(10, points, 10.0f, 0.0f, 16.0f, 5.0f, 5.0f, 10.0f, 1.0f);
+    shape2 = Shapes::createTriangle(11, points, 16.0f, 6.0f, 11.0f, 13.0f, 7.0f, 16.0f, 1.0f);
     counterForCollisions.fill(0, points.size());
     testCase(shape1, shape2, points, 0, counterForCollisions.range());
 }
