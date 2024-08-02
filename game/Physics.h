@@ -272,6 +272,9 @@ struct StaticJoint
 
 struct Spring
 {
+    Spring() : pointA(0), pointB(0), length(0.0f), stiffness(0.0f), damping(0.0f), shapeIndex(0) {}
+    Spring(int pointA, int pointB, float length, float stiffness, float damping, int shapeIndex)
+        : pointA(pointA), pointB(pointB), length(length), stiffness(stiffness), damping(damping), shapeIndex(shapeIndex) {}
     int pointA;
     int pointB;
     float length;

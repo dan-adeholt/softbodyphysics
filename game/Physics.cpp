@@ -376,18 +376,20 @@ void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Ra
 
         Vector2 direction(p1 - p0);
         float offsetLength = direction.length();
-        float delta = (offsetLength - spring.length);
 
         if (offsetLength > 0.001f)
         {
-            float springForce = delta * spring.stiffness;
+            float delta = (offsetLength - spring.length);
+
+            float springDamping = spring.damping;
+            float springStiffness = spring.stiffness;
+
+            float springForce = delta * springStiffness;
             springForce = min(springForce, 10000.0f);
             Vector2 directionNormalized = direction / offsetLength;
 
-            Vector2 v0 = points.velocity[spring.pointA];
-            Vector2 v1 = points.velocity[spring.pointB];
-            Vector2 dv(v1 - v0);
-            float dampForce = directionNormalized.dot(dv * spring.damping);
+            Vector2 dv(points.velocity[spring.pointB] - points.velocity[spring.pointA]);
+            float dampForce = directionNormalized.dot(dv * springDamping);
             dampForce = min(dampForce, 10000.0f);
             float combinedForce = (springForce + dampForce) * springFactor;
 

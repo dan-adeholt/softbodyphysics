@@ -51,8 +51,8 @@ namespace Shapes
             int n1 = startIndex + wrapIndex(i + 3, numSegments);
             int n2 = startIndex + wrapIndex(i + 5, numSegments);
 
-            springs.push({n0, n1, lengthSpring1, stiffness, damping, shapeIndex});
-            springs.push({n2, n0, lengthSpring2, stiffness, damping, shapeIndex});
+            springs.push(Spring(n0, n1, lengthSpring1, stiffness, damping, shapeIndex));
+            springs.push(Spring(n2, n0, lengthSpring2, stiffness, damping, shapeIndex));
         }
 
         return Shape{.start = startIndex, .end = curIndex, .volume = 300.0f};
@@ -92,19 +92,19 @@ namespace Shapes
             int topIndex = startIndex + i;
             int bottomIndex = startIndex + numSegments * 2 - i - 1;
 
-            springs.push({topIndex, bottomIndex, height, stiffness, damping, shapeIndex});
+            springs.push(Spring(topIndex, bottomIndex, height, stiffness, damping, shapeIndex));
 
             if (i > 0)
             {
                 // Top bar
-                springs.push({topIndex - 1, topIndex, width, stiffness, damping, shapeIndex});
+                springs.push(Spring(topIndex - 1, topIndex, width, stiffness, damping, shapeIndex));
                 // Bottom bar
-                springs.push({bottomIndex + 1, bottomIndex, width, stiffness, damping, shapeIndex});
+                springs.push(Spring(bottomIndex + 1, bottomIndex, width, stiffness, damping, shapeIndex));
 
                 // Diagonal 1
-                springs.push({topIndex, bottomIndex + 1, diagonal, stiffness, damping, shapeIndex});
+                springs.push(Spring(topIndex, bottomIndex + 1, diagonal, stiffness, damping, shapeIndex));
                 // Diagonal 2
-                springs.push({bottomIndex, topIndex - 1, diagonal, stiffness, damping, shapeIndex});
+                springs.push(Spring(bottomIndex, topIndex - 1, diagonal, stiffness, damping, shapeIndex));
             }
         }
 
@@ -138,12 +138,12 @@ namespace Shapes
         float stiffness = 1.5f;
         float damping = 28.9f;
 
-        springs.push({span.start, span.start + 1, Vector2::vec2distance(p0.x, p0.y, p1.x, p1.y), stiffness, damping, shapeIndex});
-        springs.push({span.start + 1, span.start + 2, Vector2::vec2distance(p1.x, p1.y, p2.x, p2.y), stiffness, damping, shapeIndex});
-        springs.push({span.start + 2, span.start + 3, Vector2::vec2distance(p2.x, p2.y, p3.x, p3.y), stiffness, damping, shapeIndex});
-        springs.push({span.start + 3, span.start, Vector2::vec2distance(p3.x, p3.y, p0.x, p0.y), stiffness, damping, shapeIndex});
-        springs.push({span.start, span.start + 2, Vector2::vec2distance(p0.x, p0.y, p2.x, p2.y), stiffness, damping, shapeIndex});
-        springs.push({span.start + 1, span.start + 3, Vector2::vec2distance(p1.x, p1.y, p3.x, p3.y), stiffness, damping, shapeIndex});
+        springs.push(Spring(span.start, span.start + 1, Vector2::vec2distance(p0.x, p0.y, p1.x, p1.y), stiffness, damping, shapeIndex));
+        springs.push(Spring(span.start + 1, span.start + 2, Vector2::vec2distance(p1.x, p1.y, p2.x, p2.y), stiffness, damping, shapeIndex));
+        springs.push(Spring(span.start + 2, span.start + 3, Vector2::vec2distance(p2.x, p2.y, p3.x, p3.y), stiffness, damping, shapeIndex));
+        springs.push(Spring(span.start + 3, span.start, Vector2::vec2distance(p3.x, p3.y, p0.x, p0.y), stiffness, damping, shapeIndex));
+        springs.push(Spring(span.start, span.start + 2, Vector2::vec2distance(p0.x, p0.y, p2.x, p2.y), stiffness, damping, shapeIndex));
+        springs.push(Spring(span.start + 1, span.start + 3, Vector2::vec2distance(p1.x, p1.y, p3.x, p3.y), stiffness, damping, shapeIndex));
 
         return quad;
     }
@@ -175,7 +175,7 @@ namespace Shapes
 
         const Span span = {.start = points.size() - 2, .end = points.size()};
         float lineLength = Vector2::vec2distance(x0, y0, x1, y1);
-        springs.push({.pointA = span.start, .pointB = span.start + 1, .length = lineLength, .stiffness = 1.5f, .damping = 28.9f, .shapeIndex = shapeIndex});
+        springs.push(Spring(span.start, span.start + 1, lineLength, 1.5f, 28.9f, shapeIndex));
 
         return Shape{.start = span.start, .end = span.end};
     }

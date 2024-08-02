@@ -172,7 +172,7 @@ void updateSortedBoundingBoxes(Array<ShapeBoundingBox> &sortedBoundingBoxes, Arr
     }
 }
 
-void Game::handleCollisions(PointMassesRange &points, const Range<int> &collisionCounterForPoints, double step)
+void Game::handleCollisions(PointMassesRange &points, const Range<int> &collisionCounterForPoints, double step, ConsoleProfileInfo &profileInfo)
 {
     // For a broad phase collision detection, sort using insertion sort along a single axis
     Array<ShapeBoundingBox> &boundingBoxes = m_impl->boundingBoxes;
@@ -180,40 +180,47 @@ void Game::handleCollisions(PointMassesRange &points, const Range<int> &collisio
     Array<ShapeBoundingBox> &sortedBoundingBoxes = m_impl->sortedBoundingBoxes;
     Array<ShapeBoundingBox> &sortedStaticBoundingBoxes = m_impl->sortedStaticBoundingBoxes;
 
-    calculateBoundingBoxes(boundingBoxes, m_impl->shapes, m_impl->points);
-    calculateBoundingBoxes(staticBoundingBoxes, m_impl->staticShapes, m_impl->staticPoints);
-
-    if (m_impl->sortedBoundingBoxes.size() == 0)
     {
-        for (int i = 0; i < boundingBoxes.size(); i++)
+        Timer boundingBoxTimer;
+        calculateBoundingBoxes(boundingBoxes, m_impl->shapes, m_impl->points);
+        calculateBoundingBoxes(staticBoundingBoxes, m_impl->staticShapes, m_impl->staticPoints);
+
+        if (m_impl->sortedBoundingBoxes.size() == 0)
         {
-            ShapeBoundingBox &box = boundingBoxes[i];
-            Shape &shape = m_impl->shapes[box.shapeIndex];
-            sortedBoundingBoxes.push(box);
+            for (int i = 0; i < boundingBoxes.size(); i++)
+            {
+                ShapeBoundingBox &box = boundingBoxes[i];
+                Shape &shape = m_impl->shapes[box.shapeIndex];
+                sortedBoundingBoxes.push(box);
+            }
         }
-    }
-    else
-    {
-        updateSortedBoundingBoxes(sortedBoundingBoxes, boundingBoxes);
-    }
-
-    if (m_impl->sortedStaticBoundingBoxes.size() == 0)
-    {
-        for (int i = 0; i < staticBoundingBoxes.size(); i++)
+        else
         {
-            ShapeBoundingBox &box = staticBoundingBoxes[i];
-            Shape &shape = m_impl->staticShapes[box.shapeIndex];
-            sortedStaticBoundingBoxes.push(box);
+            updateSortedBoundingBoxes(sortedBoundingBoxes, boundingBoxes);
         }
-    }
-    else
-    {
-        updateSortedBoundingBoxes(sortedStaticBoundingBoxes, staticBoundingBoxes);
+
+        if (m_impl->sortedStaticBoundingBoxes.size() == 0)
+        {
+            for (int i = 0; i < staticBoundingBoxes.size(); i++)
+            {
+                ShapeBoundingBox &box = staticBoundingBoxes[i];
+                Shape &shape = m_impl->staticShapes[box.shapeIndex];
+                sortedStaticBoundingBoxes.push(box);
+            }
+        }
+
+        else
+        {
+            updateSortedBoundingBoxes(sortedStaticBoundingBoxes, staticBoundingBoxes);
+        }
+
+        sortBoundingBoxes(sortedBoundingBoxes);
+        sortBoundingBoxes(sortedStaticBoundingBoxes);
+        profileInfo.boundingBoxTimeMillis = boundingBoxTimer.elapsedMillis();
     }
 
-    sortBoundingBoxes(sortedBoundingBoxes);
-    sortBoundingBoxes(sortedStaticBoundingBoxes);
-
+    profileInfo.numBboxes = sortedBoundingBoxes.size();
+    profileInfo.numBbboxChecks = 0;
     int staticIndex = 0;
     // Insertion sort - O(n^2), but since the movements are relatively stable it should be fine
     // TODO: Pre-sort using something better the first time it is run
@@ -226,6 +233,7 @@ void Game::handleCollisions(PointMassesRange &points, const Range<int> &collisio
         for (int j = i + 1; j < sortedBoundingBoxes.size(); j++)
         {
             const ShapeBoundingBox &otherBox = sortedBoundingBoxes[j];
+            profileInfo.numBbboxChecks++;
 
             if (otherBox.x1 < box.x2)
             {
@@ -438,7 +446,7 @@ void Game::performRK4Step(PointMassesRange &initialState, Range<Spring> &springs
         PointDerivative derivative = derivatives[i];
         Vector2 originalVelocity = initialState.velocity[i];
         outDerivativeOut->velocity = originalVelocity;
-        *outDerivativeOut++;
+        outDerivativeOut++;
         *posOut++ = initialState.pos[i] + derivative.velocity * dt;
         *velOut++ = initialState.velocity[i] + derivative.acceleration * dt;
     }
@@ -467,17 +475,17 @@ void springJob(void *data)
 
 void Game::performThreadedSpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives)
 {
-    SpringJobData springRanges[Scheduler::numThreads];
-    Task tasks[Scheduler::numThreads];
-    int batchSize = springs.size / Scheduler::numThreads;
+    SpringJobData springRanges[Scheduler::numTasks];
+    Task tasks[Scheduler::numTasks];
+    int batchSize = springs.size / Scheduler::numTasks;
 
     int curStart = 0;
 
-    int numThreads = Scheduler::numThreads;
+    int numThreads = Scheduler::numTasks;
 
     // Ensure that no job chunks span across the same shape, because that would
     // cause point mass calculations from different threads to interfere with each other
-    for (int i = 0; i < Scheduler::numThreads; i++)
+    for (int i = 0; i < Scheduler::numTasks; i++)
     {
         int curEnd = min(curStart + batchSize, springs.size);
         int curShapeIndex = springs[curEnd - 1].shapeIndex;
@@ -503,9 +511,7 @@ void Game::performThreadedSpringDerivatives(PointMassesRange &points, Range<Spri
         }
     }
 
-    CompletionToken token;
-    Scheduler::instance->schedule(tasks, Scheduler::numThreads, token);
-    token.wait();
+    Scheduler::instance->schedule(tasks, Scheduler::numTasks);
 }
 
 void Game::performRK4Integration(
@@ -559,7 +565,7 @@ void Game::performRK4Integration(
     if (m_impl->collisionsEnabled)
     {
         Timer collisionsTimer;
-        handleCollisions(points, collisionCounterForPoints, step);
+        handleCollisions(points, collisionCounterForPoints, step, profileInfo);
         profileInfo.collisionTimeMillis = collisionsTimer.elapsedMillis();
     }
 

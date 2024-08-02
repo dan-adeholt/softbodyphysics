@@ -178,6 +178,9 @@ void Console::draw(Game &game, ConsoleProfileInfo profileInfo)
     ImGui::Text("Render time: %.2lf ms", profileInfo.renderTimeMillis);
     ImGui::Text("Swap time: %.2lf ms", profileInfo.swapTimeMillis);
     ImGui::Text("Springs time: %.2lf ms", profileInfo.springsTimeMillis);
+    ImGui::Text("Bounding box time: %.2lf ms", profileInfo.boundingBoxTimeMillis);
+    ImGui::Text("Num bboxes: %d", profileInfo.numBboxes);
+    ImGui::Text("Num bbox checks: %d", profileInfo.numBbboxChecks);
     ImGui::Text("Collisions time: %.2lf ms", profileInfo.collisionTimeMillis);
 
     ImGui::End();

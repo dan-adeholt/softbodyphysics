@@ -3,26 +3,12 @@
 
 // I don't like this include, but do it for now to avoid heap allocs
 #include <pthread.h>
-
-struct CompletionToken;
+#include <semaphore.h>
 
 struct Task
 {
     void (*function)(void *);
     void *data;
-    CompletionToken *token;
-};
-
-struct Mutex
-{
-    pthread_mutex_t mutex;
-    Mutex();
-
-    ~Mutex();
-
-    void lock();
-
-    void unlock();
 };
 
 typedef void (*ThreadFunction)(void *);
@@ -43,32 +29,9 @@ struct Thread
     Thread(void *(*function)(void *), int threadIndex, Scheduler *scheduler);
     ~Thread();
 
+    static void setCpu(int threadIndex);
+
 private:
-    void setCpu(int threadIndex);
-};
-
-struct Condition
-{
-    pthread_cond_t condition;
-    Condition();
-    ~Condition();
-    void wait(Mutex &mutex);
-
-    void signal();
-
-    void broadcast();
-};
-
-struct CompletionToken
-{
-    Mutex mutex;
-    Condition condition;
-    int pendingTasks;
-
-    CompletionToken() : pendingTasks(0) {}
-
-    void wait();
-    void reset();
 };
 
 template <typename T>
@@ -80,17 +43,19 @@ public:
     static Scheduler *instance;
 
     void start();
-    void schedule(Task *tasks, int numTasks, CompletionToken &token);
+    void schedule(Task *tasks, int numTasks);
 
-    static int numThreads;
+    static int numTasks;
 
-public:
     Scheduler();
     ~Scheduler();
 
     static void *workerThread(void *data);
-    void runWorkerThreadIteration();
+    void runWorkerThreadIteration(int index);
 
+private:
+    static int numThreads;
+    bool isRunning();
     struct Impl;
     Impl *m;
 };

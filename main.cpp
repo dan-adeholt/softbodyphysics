@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
     bool quit = false;
 
     Game game;
-    game.init("Circle grid");
+    game.init("Collision grid");
     uint64_t startNanos = monotonicTimeNanos();
     bool show_demo_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);

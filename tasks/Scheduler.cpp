@@ -1,6 +1,113 @@
 #include "Scheduler.h"
 #include "../containers/Array.h"
 #include <stdio.h>
+#include <assert.h>
+
+#ifdef __APPLE__
+#include <mach/mach.h>
+#include <mach/thread_policy.h>
+#else
+#include <sched.h>
+#endif
+
+#if defined(_MSC_VER)
+#include <intrin.h>
+#elif defined(__GNUC__) || defined(__clang__)
+#endif
+
+int get_current_cpu()
+{
+#ifdef __APPLE__
+    pthread_t thread = pthread_self();
+    mach_port_t mach_thread = pthread_mach_thread_np(thread);
+
+    thread_affinity_policy_data_t policy_data;
+    mach_msg_type_number_t count = THREAD_AFFINITY_POLICY_COUNT;
+    boolean_t get_default = false;
+
+    kern_return_t result = thread_policy_get(mach_thread,
+                                             THREAD_AFFINITY_POLICY,
+                                             (thread_policy_t)&policy_data,
+                                             &count,
+                                             &get_default);
+
+    assert(result == KERN_SUCCESS);
+
+    return policy_data.affinity_tag;
+#else
+    return sched_getcpu();
+#endif
+}
+
+void portable_yield()
+{
+#if defined(_WIN32) || defined(_WIN64)
+#if defined(_M_IX86) || defined(_M_X64)
+    _mm_pause();
+#elif defined(_M_ARM) || defined(_M_ARM64)
+    __yield();
+#else
+    SwitchToThread();
+#endif
+#elif defined(__unix__) || defined(__unix) || defined(__APPLE__) || defined(__MACH__)
+#if defined(__i386__) || defined(__x86_64__)
+    _mm_pause();
+#elif defined(__arm__) || defined(__aarch64__)
+#if defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_8A__) || __ARM_ARCH >= 7
+    __asm__ volatile("yield" ::: "memory");
+#else
+    __asm__ volatile("nop" ::: "memory");
+#endif
+#else
+    sched_yield();
+#endif
+#else
+    // Fallback for unsupported platforms
+    for (volatile int i = 0; i < 100; ++i)
+    {
+    }
+#endif
+}
+
+template <typename T>
+class Atomic
+{
+private:
+    volatile T value;
+
+public:
+    Atomic(T initial = T()) : value(initial) {}
+
+    T load() const
+    {
+        return __atomic_load_n(&value, __ATOMIC_SEQ_CST);
+    }
+
+    void store(T desired)
+    {
+        __atomic_store_n(&value, desired, __ATOMIC_SEQ_CST);
+    }
+
+    T exchange(T desired)
+    {
+        return __atomic_exchange_n(&value, desired, __ATOMIC_SEQ_CST);
+    }
+
+    bool compare_exchange_strong(T &expected, T desired)
+    {
+        return __atomic_compare_exchange_n(&value, &expected, desired, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+    }
+
+    T fetch_sub(T operand)
+    {
+        return __atomic_fetch_sub(&value, operand, __ATOMIC_SEQ_CST);
+    }
+
+    T fetch_add(T operand)
+    {
+        return __atomic_fetch_add(&value, operand, __ATOMIC_SEQ_CST);
+    }
+};
 
 #ifdef _WIN32
 #include <windows.h>
@@ -31,27 +138,25 @@ int getPhysicalCoreCount()
 #else
 #include <sched.h>
 #endif
+#include <cassert>
 #endif
 
 Scheduler *Scheduler::instance(new Scheduler());
 
-int Scheduler::numThreads(8);
+int Scheduler::numThreads(7);
+int Scheduler::numTasks(8);
 
 struct Scheduler::Impl
 {
+    Array<Atomic<bool>> threadReady;
+    Atomic<bool> threadStop;
     Array<Task> tasks;
     Array<Thread *> threads;
-
-    bool stop;
-    Mutex queueMutex;
-    Condition queueCondition;
 };
 
 Scheduler::Scheduler()
 {
-
     m = new Impl;
-    m->stop = false;
 }
 
 void Scheduler::start()
@@ -60,33 +165,34 @@ void Scheduler::start()
     {
         Thread *t = new Thread(&Scheduler::workerThread, i, this);
         m->threads.push(t);
+        m->threadReady.push(false);
+        m->tasks.push(Task());
     }
+
+    m->threadStop.store(false);
 }
 
-void Scheduler::schedule(Task *tasks, int numTasks, CompletionToken &token)
+void Scheduler::schedule(Task *tasks, int numTasks)
 {
-    token.reset();
-    token.mutex.lock();
-    token.pendingTasks += numTasks;
-    token.mutex.unlock();
+    assert(numTasks <= Scheduler::numThreads);
 
-    m->queueMutex.lock();
-    for (int i = 0; i < numTasks; i++)
+    for (int i = 1; i < numTasks; i++)
     {
         Task task = tasks[i];
-        task.token = &token;
-        m->tasks.push(task);
+        m->tasks[i - 1] = task;
+        m->threadReady[i - 1].store(true);
     }
 
-    m->queueCondition.broadcast();
-    m->queueMutex.unlock();
+    tasks[0].function(tasks[0].data);
+
+    while (isRunning())
+    {
+        portable_yield();
+    }
 }
 
 Scheduler::~Scheduler()
 {
-    m->stop = true;
-    m->queueCondition.broadcast();
-
     for (int i = 0; i < m->threads.size(); i++)
     {
         delete m->threads[i];
@@ -99,67 +205,45 @@ void *Scheduler::workerThread(void *data)
 {
     Thread::ThreadData *threadData = (Thread::ThreadData *)data;
     int threadIndex = threadData->threadIndex;
-
     Scheduler *scheduler = threadData->scheduler;
-    scheduler->runWorkerThreadIteration();
+    scheduler->runWorkerThreadIteration(threadIndex);
     return nullptr;
 }
 
-void Scheduler::runWorkerThreadIteration()
+void Scheduler::runWorkerThreadIteration(int index)
 {
+    Thread::setCpu(index);
+
     while (true)
     {
-        m->queueMutex.lock();
-        while (m->tasks.size() == 0 && !m->stop)
+        while (m->threadReady[index].load() == false)
         {
-            m->queueCondition.wait(m->queueMutex);
+            if (m->threadStop.load())
+            {
+                return;
+            }
+            portable_yield();
         }
 
-        if (m->stop && m->tasks.size() == 0)
-        {
-            m->queueMutex.unlock();
-            break;
-        }
-
-        // Wrong priority order, but not important now
-        Task task = m->tasks[m->tasks.size() - 1];
-        m->tasks.pop();
-        m->queueMutex.unlock();
-
+        Task task = m->tasks[index];
         task.function(task.data);
-        task.token->mutex.lock();
-
-        task.token->pendingTasks--;
-        int numPendingTasks = task.token->pendingTasks;
-
-        if (numPendingTasks == 0)
-        {
-            task.token->condition.broadcast();
-        }
-
-        task.token->mutex.unlock();
+        m->threadReady[index].store(false);
     }
 }
 
-Mutex::Mutex()
+bool Scheduler::isRunning()
 {
-    pthread_mutex_init(&mutex, NULL);
+    for (int i = 0; i < m->threads.size(); i++)
+    {
+        if (m->threadReady[i].load())
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
-Mutex::~Mutex()
-{
-    pthread_mutex_destroy(&mutex);
-}
-
-void Mutex::lock()
-{
-    pthread_mutex_lock(&mutex);
-}
-
-void Mutex::unlock()
-{
-    pthread_mutex_unlock(&mutex);
-}
 
 Thread::Thread(void *(*function)(void *), int index, Scheduler *scheduler)
 {
@@ -180,60 +264,17 @@ void Thread::setCpu(int threadIndex)
 {
 #ifdef _WIN32
     // Windows: Set thread affinity
-    DWORD_PTR mask = 1 << threadIndex;
+    DWORD_PTR mask = 1 << (threadIndex + 1);
     SetThreadAffinityMask(GetCurrentThread(), mask);
 #elif __APPLE__
     // macOS: Set thread affinity
-    thread_affinity_policy_data_t policy = {threadIndex};
+    thread_affinity_policy_data_t policy = {threadIndex + 1};
     thread_policy_set(pthread_mach_thread_np(pthread_self()), THREAD_AFFINITY_POLICY, (thread_policy_t)&policy, THREAD_AFFINITY_POLICY_COUNT);
 #else
     // Linux: Set thread affinity
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(threadIndex, &cpuset);
+    CPU_SET(threadIndex + 1, &cpuset);
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 #endif
-}
-
-Condition::Condition()
-{
-    pthread_cond_init(&condition, NULL);
-}
-
-Condition::~Condition()
-{
-    pthread_cond_destroy(&condition);
-}
-
-void Condition::wait(Mutex &mutex)
-{
-    pthread_cond_wait(&condition, &mutex.mutex);
-}
-
-void Condition::signal()
-
-{
-    pthread_cond_signal(&condition);
-}
-
-void Condition::broadcast()
-{
-    pthread_cond_broadcast(&condition);
-}
-
-void CompletionToken::wait()
-{
-    mutex.lock();
-    while (pendingTasks > 0)
-    {
-        condition.wait(mutex);
-    }
-    mutex.unlock();
-}
-
-void CompletionToken::reset()
-{
-    mutex.lock();
-    pendingTasks = 0;
-    mutex.unlock();
 }

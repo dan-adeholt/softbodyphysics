@@ -49,13 +49,45 @@ SceneDefinition scenes[] = {
          Shape side4 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 149.0f, 40.0f, 1000.0f, 50.0f, 1.0f);
          game->staticShapes().push(side4);
      }},
+    {"Collision grid", [](Game *game)
+     {
+         float size = 7.0f;
+         float spacing = (size + 1.0f) * 2.0f;
+         for (int y = 0; y < 45; y++)
+         {
+             for (int x = 0; x < 75; x++)
+             {
+                 Shape quad = Shapes::createQuad(game->nextShapeIndex(), game->points(), game->springs(), spacing + x * spacing, spacing * 2 + y * spacing + x * 0.01f, size, size, 0.25f);
+                 game->shapes().push(quad);
+
+                 if (x < 10)
+                 {
+                     for (int i = 0; i < 4; i++)
+                     {
+                         game->points().velocity[game->points().size() - 1 - i].x = 0.15f;
+                     }
+                 }
+             }
+         }
+
+         game->setGravityEnabled(false);
+
+         Shape side1 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 1.0f, 0.0f, 4.0f, 755.0f, 1.0f);
+         game->staticShapes().push(side1);
+
+         Shape side2 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 1214.0f, 0.0f, 4.0f, 755.0f, 1.0f);
+         game->staticShapes().push(side2);
+
+         Shape side3 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 1.0f, 755.0f, 1217.0f, 4.0f, 1.0f);
+         game->staticShapes().push(side3);
+     }},
     {"Circle grid", [](Game *game)
      {
          float size = 15.0f;
          float spacing = (size + 4.0f) * 2.0f;
-         for (int y = 0; y < 25; y++)
+         for (int y = 0; y < 45; y++)
          {
-             for (int x = 0; x < 25; x++)
+             for (int x = 0; x < 45; x++)
              {
                  Shape circle = Shapes::createCircle(game->nextShapeIndex(), game->points(), game->springs(), spacing + x * spacing, spacing * 2 + y * spacing, size, 0.25f);
                  game->shapes().push(circle);
