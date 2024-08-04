@@ -506,12 +506,12 @@ void Game::performThreadedSpringDerivatives(PointMassesRange &points, Range<Spri
         curStart = curEnd;
         if (curStart == springs.size)
         {
-            numThreads--;
+            numThreads = i + 1;
             break;
         }
     }
 
-    Scheduler::instance->schedule(tasks, Scheduler::numTasks);
+    Scheduler::instance->schedule(tasks, numThreads);
 }
 
 void Game::performRK4Integration(

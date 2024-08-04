@@ -174,7 +174,7 @@ void Scheduler::start()
 
 void Scheduler::schedule(Task *tasks, int numTasks)
 {
-    assert(numTasks <= Scheduler::numThreads);
+    assert(numTasks <= Scheduler::numTasks);
 
     for (int i = 1; i < numTasks; i++)
     {
@@ -243,7 +243,6 @@ bool Scheduler::isRunning()
 
     return false;
 }
-
 
 Thread::Thread(void *(*function)(void *), int index, Scheduler *scheduler)
 {

@@ -204,6 +204,7 @@ int calculateCollisions(
     Range<int> &collisionCounterForPoints2,
     double step)
 {
+
     int numCollisions = 0;
 
     for (int i = 0; i < movingShape.pos.size; i++)
