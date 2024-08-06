@@ -116,6 +116,19 @@ Game::~Game()
     delete m_impl;
 }
 
+struct SpringJobData
+{
+    Range<Spring> springs;
+    PointMassesRange points;
+    Range<PointDerivative> derivatives;
+};
+
+void springJob(void *data)
+{
+    SpringJobData *jobData = (SpringJobData *)data;
+    applySpringDerivatives(jobData->points, jobData->springs, jobData->derivatives);
+}
+
 float terminalVelocity = 1000.0f;
 
 void Game::getDynamicShapes(Range<Shape> &shapes) const
@@ -417,18 +430,15 @@ void Game::setCollisionsEnabled(bool collisionsEnabled)
 
 const double step = 1.0f;
 
-void Game::performRK4Step(PointMassesRange &initialState, Range<Spring> &springs, double dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo)
+void Game::prepareRK4Step(PointMassesRange &initialState, Range<Spring> &springs, double dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo)
 {
     if (m_impl->rkTemp.pos.size() != initialState.size())
     {
         m_impl->rkTemp.pos.fill(Vector2(), initialState.size());
         m_impl->rkTemp.velocity.fill(Vector2(), initialState.size());
     }
-    m_impl->rkTemp.mass.clear();
-    m_impl->rkTemp.mass.append(initialState.mass);
+    m_impl->rkTemp.mass.replace(initialState.mass);
     m_impl->rkTemp.acceleration.fill(Vector2(), initialState.size());
-
-    outDerivatives.clear();
     PointDerivative outDerivative;
 
     if (m_impl->gravityEnabled)
@@ -441,40 +451,38 @@ void Game::performRK4Step(PointMassesRange &initialState, Range<Spring> &springs
     Vector2 *velOut = &m_impl->rkTemp.velocity[0];
     PointDerivative *outDerivativeOut = &outDerivatives[0];
 
-    for (int i = 0; i < initialState.size(); i++)
+    Task tasks[Scheduler::numTasks];
+    int batchSize = initialState.size() / Scheduler::numTasks;
+    int curStart = 0;
+
+    PointDerivative *inDerivative = &derivatives[0];
+    Vector2 *posIn = &initialState.pos[0];
+    Vector2 *posOutEnd = posOut + initialState.size();
+    Vector2 *velIn = &initialState.velocity[0];
+
+    while (posOut != posOutEnd)
     {
-        PointDerivative derivative = derivatives[i];
-        Vector2 originalVelocity = initialState.velocity[i];
+        PointDerivative derivative = *inDerivative++;
+        Vector2 originalVelocity = *velIn++;
+        Vector2 originalPos = *posIn++;
         outDerivativeOut->velocity = originalVelocity;
         outDerivativeOut++;
-        *posOut++ = initialState.pos[i] + derivative.velocity * dt;
-        *velOut++ = initialState.velocity[i] + derivative.acceleration * dt;
+        *posOut++ = originalPos + derivative.velocity * dt;
+        *velOut++ = originalVelocity + derivative.acceleration * dt;
     }
+}
 
-    PointMassesRange state = m_impl->rkTemp.range();
+void Game::updateRK4Springs(Range<Spring> &springs, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo)
+{
+    PointMassesRange pointsRange = m_impl->rkTemp.range();
     Range<PointDerivative> derivativeRange = outDerivatives.range();
 
+    performThreadedSpringDerivatives(pointsRange, springs, derivativeRange, profileInfo);
+}
+
+void Game::performThreadedSpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, ConsoleProfileInfo &profileInfo)
+{
     Timer springsTimer;
-    performThreadedSpringDerivatives(state, springs, derivativeRange);
-
-    // applySpringDerivatives(state, springs, derivativeRange);
-    profileInfo.springsTimeMillis += springsTimer.elapsedMillis();
-}
-struct SpringJobData
-{
-    Range<Spring> springs;
-    PointMassesRange points;
-    Range<PointDerivative> derivatives;
-};
-
-void springJob(void *data)
-{
-    SpringJobData *jobData = (SpringJobData *)data;
-    applySpringDerivatives(jobData->points, jobData->springs, jobData->derivatives);
-}
-
-void Game::performThreadedSpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives)
-{
     SpringJobData springRanges[Scheduler::numTasks];
     Task tasks[Scheduler::numTasks];
     int batchSize = springs.size / Scheduler::numTasks;
@@ -512,12 +520,15 @@ void Game::performThreadedSpringDerivatives(PointMassesRange &points, Range<Spri
     }
 
     Scheduler::instance->schedule(tasks, numThreads);
+
+    profileInfo.springsTimeMillis += springsTimer.elapsedMillis();
 }
 
 void Game::performRK4Integration(
     PointMassesRange &points,
     Range<Spring> &springs,
     Range<int> &collisionCounterForPoints,
+    bool updateCollisions,
     ConsoleProfileInfo &profileInfo)
 {
     if (m_impl->rkEmptyDerivatives.size() != points.size())
@@ -525,10 +536,14 @@ void Game::performRK4Integration(
         m_impl->rkEmptyDerivatives.fill(PointDerivative(), m_impl->points.size());
     }
 
-    performRK4Step(points, springs, 0.0, m_impl->rkEmptyDerivatives, m_impl->rk1, profileInfo);
-    performRK4Step(points, springs, step * 0.5, m_impl->rk1, m_impl->rk2, profileInfo);
-    performRK4Step(points, springs, step * 0.5, m_impl->rk2, m_impl->rk3, profileInfo);
-    performRK4Step(points, springs, step, m_impl->rk3, m_impl->rk4, profileInfo);
+    prepareRK4Step(points, springs, 0.0, m_impl->rkEmptyDerivatives, m_impl->rk1, profileInfo);
+    updateRK4Springs(springs, m_impl->rk1, profileInfo);
+    prepareRK4Step(points, springs, step * 0.5, m_impl->rk1, m_impl->rk2, profileInfo);
+    updateRK4Springs(springs, m_impl->rk2, profileInfo);
+    prepareRK4Step(points, springs, step * 0.5, m_impl->rk2, m_impl->rk3, profileInfo);
+    updateRK4Springs(springs, m_impl->rk3, profileInfo);
+    prepareRK4Step(points, springs, step, m_impl->rk3, m_impl->rk4, profileInfo);
+    updateRK4Springs(springs, m_impl->rk4, profileInfo);
 
     for (int i = 0; i < m_impl->points.size(); i++)
     {
@@ -557,22 +572,20 @@ void Game::performRK4Integration(
         points.acceleration[m_impl->mouseJoint.pointIndex] = Vector2();
     }
 
-    for (int i = 0; i < points.size(); i++)
+    if (m_impl->collisionsEnabled && updateCollisions)
     {
-        points.acceleration[i] = Vector2();
-    }
-
-    if (m_impl->collisionsEnabled)
-    {
+        for (int i = 0; i < points.size(); i++)
+        {
+            points.acceleration[i] = Vector2();
+        }
         Timer collisionsTimer;
         handleCollisions(points, collisionCounterForPoints, step, profileInfo);
         profileInfo.collisionTimeMillis = collisionsTimer.elapsedMillis();
-    }
-
-    for (int i = 0; i < points.size(); i++)
-    {
-        points.velocity[i] += (points.acceleration[i]) * step;
-        points.pos[i] += points.velocity[i] * step;
+        for (int i = 0; i < points.size(); i++)
+        {
+            points.velocity[i] += (points.acceleration[i]) * step;
+            points.pos[i] += points.velocity[i] * step;
+        }
     }
 }
 
@@ -595,7 +608,8 @@ void Game::update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInf
         m_impl->collisionCounterForPoints.fill(0, m_impl->points.size());
         Range<int> collisionCounterForPoints = m_impl->collisionCounterForPoints.range();
 
-        performRK4Integration(points, springs, collisionCounterForPoints, profileInfo);
+        bool updateCollisions = numIterations % 8 == 0;
+        performRK4Integration(points, springs, collisionCounterForPoints, updateCollisions, profileInfo);
 
         m_impl->timeBucket -= step;
         numIterations++;
@@ -706,11 +720,11 @@ void Game::testSpringPerformance(int iterations)
     m_impl->rkEmptyDerivatives.fill(PointDerivative(), m_impl->points.size());
     auto points = m_impl->points.range();
     Range<Spring> springs = m_impl->springs.range();
-    performRK4Step(points, springs, 0.0, m_impl->rkEmptyDerivatives, m_impl->rk1, profileInfo);
+    prepareRK4Step(points, springs, 0.0, m_impl->rkEmptyDerivatives, m_impl->rk1, profileInfo);
     auto derivativeRange = m_impl->rk1.range();
     for (int i = 0; i < iterations; i++)
     {
-        performThreadedSpringDerivatives(points, springs, derivativeRange);
+        performThreadedSpringDerivatives(points, springs, derivativeRange, profileInfo);
     }
 }
 
@@ -721,14 +735,11 @@ void Game::testRK4Performance(int iterations)
     auto points = m_impl->points.range();
     Range<Spring> springs = m_impl->springs.range();
 
+    printf("Points size: %d\n", points.mass.size);
     for (int i = 0; i < iterations; i++)
     {
-        performRK4Step(points, springs, 0.0, m_impl->rkEmptyDerivatives, m_impl->rk1, profileInfo);
+        prepareRK4Step(points, springs, 0.0, m_impl->rkEmptyDerivatives, m_impl->rk1, profileInfo);
     }
-
-    auto derivativeRange = m_impl->rk1.range();
-    performThreadedSpringDerivatives(points, springs, derivativeRange);
-    // performRK4Step(points, springs, 0.0, m_impl->rkEmptyDerivatives, m_impl->rk1);
 }
 
 void Game::clear()

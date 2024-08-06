@@ -5,6 +5,7 @@
 #include "./Range.h"
 #include "./Span.h"
 #include <initializer_list>
+#include <string.h>
 
 template <typename T>
 class Array
@@ -16,7 +17,7 @@ public:
         for (int i = 0; i < list.size(); i++)
         {
             auto &ref = list[i];
-            new (&m_data[i++]) T(ref);
+            new (&m_data[i]) T(ref);
         }
     }
 
@@ -79,6 +80,33 @@ public:
         for (int i = 0; i < other.size(); i++)
         {
             new (&m_data[m_size++]) T(other[i]);
+        }
+    }
+
+    void replace(const Range<T> &other)
+    {
+        reserve(other.size);
+        for (int i = m_size; i < m_size + other.size; i++)
+        {
+            m_data[i].~T();
+        }
+
+        for (int i = 0; i < other.size; i++)
+        {
+            new (&m_data[i]) T(other[i]);
+        }
+    }
+
+    void replace(const Array<T> &other)
+    {
+        reserve(other.size());
+        for (int i = m_size; i < m_size + other.size; i++)
+        {
+            m_data[i].~T();
+        }
+        for (int i = 0; i < other.size(); i++)
+        {
+            new (&m_data[i]) T(other[i]);
         }
     }
 
@@ -159,6 +187,14 @@ public:
     {
         reserve(size);
         m_size = size;
+        for (int i = 0; i < m_size; i++)
+        {
+            m_data[i] = element;
+        }
+    }
+
+    void fill(const T &element)
+    {
         for (int i = 0; i < m_size; i++)
         {
             m_data[i] = element;

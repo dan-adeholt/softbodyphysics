@@ -96,12 +96,18 @@ SceneDefinition scenes[] = {
 
          game->setGravityEnabled(false);
 
-         //  Shape side1 = Shapes::createStaticQuad(game->staticPoints(), 149.0f, 90.0f, 50.0f, 600.0f, 1.0f);
 
-         //  game->staticShapes().push(side1);
+        //  Shape side1 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 1.0f, 2.0f, 10.0f, 730.0f, 1.0f);
 
-         //  Shape side2 = Shapes::createStaticQuad(game->staticPoints(), 1099.0f, 90.0f, 50.0f, 600.0f, 1.0f);
-         //  game->staticShapes().push(side2);
+        //  game->staticShapes().push(side1);
+
+        //  Shape side2 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 1200.0f, 2.0f, 10.0f, 730.0f, 1.0f);
+
+        //  game->staticShapes().push(side2);
+
+        //  Shape side3 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 1.0f, 735.0f, 1200.0f, 10.0f, 1.0f);
+
+        //  game->staticShapes().push(side3);
      }},
     {"Bridge", [](Game *game)
      {
