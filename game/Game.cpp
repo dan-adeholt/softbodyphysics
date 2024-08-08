@@ -545,17 +545,19 @@ void Game::performRK4Integration(
     prepareRK4Step(points, springs, step, m_impl->rk3, m_impl->rk4, profileInfo);
     updateRK4Springs(springs, m_impl->rk4, profileInfo);
 
+    float factor = (1.0f / 6.0f) * step;
+
     for (int i = 0; i < m_impl->points.size(); i++)
     {
-        PointDerivative &rk1 = m_impl->rk1[i];
-        PointDerivative &rk2 = m_impl->rk2[i];
-        PointDerivative &rk3 = m_impl->rk3[i];
-        PointDerivative &rk4 = m_impl->rk4[i];
+        PointDerivative rk1 = m_impl->rk1[i];
+        PointDerivative rk2 = m_impl->rk2[i];
+        PointDerivative rk3 = m_impl->rk3[i];
+        PointDerivative rk4 = m_impl->rk4[i];
 
-        Vector2 deltaVelocity = (rk1.velocity + (rk2.velocity + rk3.velocity) * 2.0f + rk4.velocity) * 1.0f / 6.0f;
-        Vector2 deltaAcceleration = (rk1.acceleration + (rk2.acceleration + rk3.acceleration) * 2.0f + rk4.acceleration) * 1.0f / 6.0f;
-        points.pos[i] += deltaVelocity * step;
-        points.velocity[i] += deltaAcceleration * step;
+        Vector2 deltaVelocity = (rk1.velocity + (rk2.velocity + rk3.velocity) * 2.0f + rk4.velocity) * factor;
+        Vector2 deltaAcceleration = (rk1.acceleration + (rk2.acceleration + rk3.acceleration) * 2.0f + rk4.acceleration) * factor;
+        points.pos[i] += deltaVelocity;
+        points.velocity[i] += deltaAcceleration;
     }
 
     for (int i = 0; i < m_impl->staticJoints.size(); i++)
@@ -729,6 +731,21 @@ void Game::testSpringPerformance(int iterations)
 }
 
 void Game::testRK4Performance(int iterations)
+{
+    ConsoleProfileInfo profileInfo;
+    m_impl->rkEmptyDerivatives.fill(PointDerivative(), m_impl->points.size());
+    auto points = m_impl->points.range();
+    Range<Spring> springs = m_impl->springs.range();
+
+    printf("Points size: %d\n", points.mass.size);
+    Range<int> collisionCounterForPoints = m_impl->collisionCounterForPoints.range();
+    for (int i = 0; i < iterations; i++)
+    {
+        performRK4Integration(points, springs, collisionCounterForPoints, false, profileInfo);
+    }
+}
+
+void Game::testRK4PreparePerformance(int iterations)
 {
     ConsoleProfileInfo profileInfo;
     m_impl->rkEmptyDerivatives.fill(PointDerivative(), m_impl->points.size());

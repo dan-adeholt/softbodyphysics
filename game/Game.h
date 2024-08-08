@@ -56,6 +56,7 @@ public:
     Array<StaticJoint> &staticJoints();
 
     void testRK4Performance(int iterations);
+    void testRK4PreparePerformance(int iterations);
     void testSpringPerformance(int iterations);
 
 private:
