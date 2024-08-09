@@ -338,7 +338,7 @@ int calculateCollisions(
     const ShapeBoundingBox &box2,
     Range<int> &collisionCounterForPoints1,
     Range<int> &collisionCounterForPoints2,
-    double step);
+    float step);
 
 int calculateStaticCollisions(
     PointMassesRange staticShape,
@@ -346,7 +346,7 @@ int calculateStaticCollisions(
     const ShapeBoundingBox &staticBox,
     const ShapeBoundingBox &movingBox,
     Range<int> &collisionCounterForMovingShape,
-    double step);
+    float step);
 
 void findClosestLineSegmentToPoint(PointMassesRange collisionShape, const Vector2 &point, const Vector2 &velocity, int &minIndex, Vector2 &minPoint, float &minT);
 

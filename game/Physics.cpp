@@ -202,7 +202,7 @@ int calculateCollisions(
     const ShapeBoundingBox &movingBox,
     Range<int> &collisionCounterForPoints1,
     Range<int> &collisionCounterForPoints2,
-    double step)
+    float step)
 {
 
     int numCollisions = 0;
@@ -275,7 +275,7 @@ int calculateStaticCollisions(
     const ShapeBoundingBox &staticBox,
     const ShapeBoundingBox &movingBox,
     Range<int> &collisionCounterForMovingShape,
-    double step)
+    float step)
 {
     int numCollisions = 0;
 

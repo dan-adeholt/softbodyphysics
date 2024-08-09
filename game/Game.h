@@ -67,10 +67,10 @@ private:
                                Range<int> &collisionCounterForPoints,
                                bool updateCollisions,
                                ConsoleProfileInfo &profileInfo);
-    void prepareRK4Step(PointMassesRange &initialState, Range<Spring> &springs, double dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo);
+    void prepareRK4Step(PointMassesRange &initialState, Range<Spring> &springs, float dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo);
     void updateRK4Springs(Range<Spring> &springs, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo);
     void updateAfterRewindOrForward();
-    void handleCollisions(PointMassesRange &points, const Range<int> &collisionCounterForPoints, double step, ConsoleProfileInfo &profileInfo);
+    void handleCollisions(PointMassesRange &points, const Range<int> &collisionCounterForPoints, float step, ConsoleProfileInfo &profileInfo);
 
     struct Impl;
     Impl *m_impl;

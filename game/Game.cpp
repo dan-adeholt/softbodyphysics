@@ -185,7 +185,7 @@ void updateSortedBoundingBoxes(Array<ShapeBoundingBox> &sortedBoundingBoxes, Arr
     }
 }
 
-void Game::handleCollisions(PointMassesRange &points, const Range<int> &collisionCounterForPoints, double step, ConsoleProfileInfo &profileInfo)
+void Game::handleCollisions(PointMassesRange &points, const Range<int> &collisionCounterForPoints, float step, ConsoleProfileInfo &profileInfo)
 {
     // For a broad phase collision detection, sort using insertion sort along a single axis
     Array<ShapeBoundingBox> &boundingBoxes = m_impl->boundingBoxes;
@@ -428,9 +428,9 @@ void Game::setCollisionsEnabled(bool collisionsEnabled)
     m_impl->collisionsEnabled = collisionsEnabled;
 }
 
-const double step = 1.0f;
+const float step = 1.0f;
 
-void Game::prepareRK4Step(PointMassesRange &initialState, Range<Spring> &springs, double dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo)
+void Game::prepareRK4Step(PointMassesRange &initialState, Range<Spring> &springs, float dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo)
 {
     if (m_impl->rkTemp.pos.size() != initialState.size())
     {
