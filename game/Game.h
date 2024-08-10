@@ -55,20 +55,13 @@ public:
     Array<Spring> &springs();
     Array<StaticJoint> &staticJoints();
 
-    void testRK4Performance(int iterations);
-    void testRK4PreparePerformance(int iterations);
-    void testSpringPerformance(int iterations);
-
 private:
-    void performThreadedSpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, ConsoleProfileInfo &profileInfo);
+    void performIntegration(PointMassesRange &points,
+                            Range<Spring> &springs,
+                            Range<int> &collisionCounterForPoints,
+                            bool updateCollisions,
+                            ConsoleProfileInfo &profileInfo);
 
-    void performRK4Integration(PointMassesRange &points,
-                               Range<Spring> &springs,
-                               Range<int> &collisionCounterForPoints,
-                               bool updateCollisions,
-                               ConsoleProfileInfo &profileInfo);
-    void prepareRK4Step(PointMassesRange &initialState, Range<Spring> &springs, float dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo);
-    void updateRK4Springs(Range<Spring> &springs, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo);
     void updateAfterRewindOrForward();
     void handleCollisions(PointMassesRange &points, const Range<int> &collisionCounterForPoints, float step, ConsoleProfileInfo &profileInfo);
 

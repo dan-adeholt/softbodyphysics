@@ -59,17 +59,18 @@ int main()
 
     Game game;
     game.init("Circle grid");
+    RK4Integrator integrator;
     Timer timer;
-    game.testRK4PreparePerformance(10000);
+    integrator.testRK4PreparePerformance(10000, game.points().range(), game.springs().range());
     double elapsed = timer.elapsedMillis();
     printf("Prepare time: %.lf ms\n", elapsed);
     timer.reset();
-    game.testSpringPerformance(10000);
+    integrator.testSpringPerformance(10000, game.points().range(), game.springs().range());
     elapsed = timer.elapsedMillis();
     printf("Spring time: %.lf ms\n", elapsed);
 
     timer.reset();
-    game.testRK4Performance(10000 / (4 * 2));
+    integrator.testRK4Performance(10000 / (4 * 2), game.points().range(), game.springs().range());
     elapsed = timer.elapsedMillis();
     printf("RK4 time: %.lf ms\n", elapsed);
 }

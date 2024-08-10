@@ -3,8 +3,12 @@
 #include "../containers/Array.h"
 #include "../utils/MinMax.h"
 #include "../utils/Console.h"
+#include "../tasks/Scheduler.h"
+#include "../timer.h"
 #include <stdio.h>
 #include <math.h>
+
+const float physicsStep = 1.0f;
 
 float coefficentOfRestitution = 0.65f;
 // Function to compute the length of a 2D vector using NEON intrinsics
@@ -371,10 +375,6 @@ void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Ra
 
         Vector2 p0(points.pos[spring.pointA]);
         Vector2 p1(points.pos[spring.pointB]);
-
-        PointDerivative &derivative1 = derivatives[spring.pointA];
-        PointDerivative &derivative2 = derivatives[spring.pointB];
-
         Vector2 direction(p1 - p0);
         float offsetLength = direction.length();
 
@@ -399,8 +399,188 @@ void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Ra
             float p1Mass = points.mass[spring.pointA];
             float p2Mass = points.mass[spring.pointB];
 
+            PointDerivative &derivative1 = derivatives[spring.pointA];
+            PointDerivative &derivative2 = derivatives[spring.pointB];
+
             derivative1.acceleration += force / p1Mass;
             derivative2.acceleration -= force / p2Mass;
         }
+    }
+}
+
+void RK4Integrator::prepareRK4Step(PointMassesRange &initialState, Range<Spring> &springs, float dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, bool gravityEnabled, ConsoleProfileInfo &profileInfo)
+{
+    if (rkTemp.pos.size() != initialState.size())
+    {
+        rkTemp.pos.fill(Vector2(), initialState.size());
+        rkTemp.velocity.fill(Vector2(), initialState.size());
+    }
+    rkTemp.mass.replace(initialState.mass);
+    rkTemp.acceleration.fill(Vector2(), initialState.size());
+    PointDerivative outDerivative;
+
+    if (gravityEnabled)
+    {
+        outDerivative.acceleration = Vector2(0.0f, 0.00015f); // Gravity
+    }
+    outDerivatives.fill(outDerivative, initialState.size());
+
+    Vector2 *posOut = &rkTemp.pos[0];
+    Vector2 *velOut = &rkTemp.velocity[0];
+    PointDerivative *outDerivativeOut = &outDerivatives[0];
+
+    Task tasks[Scheduler::numTasks];
+    int batchSize = initialState.size() / Scheduler::numTasks;
+    int curStart = 0;
+
+    PointDerivative *inDerivative = &derivatives[0];
+    Vector2 *posIn = &initialState.pos[0];
+    Vector2 *posOutEnd = posOut + initialState.size();
+    Vector2 *velIn = &initialState.velocity[0];
+
+    while (posOut != posOutEnd)
+    {
+        PointDerivative derivative = *inDerivative++;
+        Vector2 originalVelocity = *velIn++;
+        Vector2 originalPos = *posIn++;
+        outDerivativeOut->velocity = originalVelocity;
+        outDerivativeOut++;
+        *posOut++ = originalPos + derivative.velocity * dt;
+        *velOut++ = originalVelocity + derivative.acceleration * dt;
+    }
+}
+
+void RK4Integrator::updateRK4Springs(Range<Spring> &springs, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo)
+{
+    PointMassesRange pointsRange = rkTemp.range();
+    Range<PointDerivative> derivativeRange = outDerivatives.range();
+
+    performThreadedSpringDerivatives(pointsRange, springs, derivativeRange, profileInfo);
+}
+
+struct SpringJobData
+{
+    Range<Spring> springs;
+    PointMassesRange points;
+    Range<PointDerivative> derivatives;
+};
+
+void springJob(void *data)
+{
+    SpringJobData *jobData = (SpringJobData *)data;
+    applySpringDerivatives(jobData->points, jobData->springs, jobData->derivatives);
+}
+
+void RK4Integrator::performThreadedSpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, ConsoleProfileInfo &profileInfo)
+{
+    Timer springsTimer;
+    SpringJobData springRanges[Scheduler::numTasks];
+    Task tasks[Scheduler::numTasks];
+    int batchSize = springs.size / Scheduler::numTasks;
+
+    int curStart = 0;
+
+    int numThreads = Scheduler::numTasks;
+
+    // Ensure that no job chunks span across the same shape, because that would
+    // cause point mass calculations from different threads to interfere with each other
+    for (int i = 0; i < Scheduler::numTasks; i++)
+    {
+        int curEnd = min(curStart + batchSize, springs.size);
+        int curShapeIndex = springs[curEnd - 1].shapeIndex;
+
+        while (curEnd < springs.size && springs[curEnd].shapeIndex == curShapeIndex)
+        {
+            curEnd++;
+        }
+
+        springRanges[i] = {
+            springs.slice(curStart, curEnd),
+            points,
+            derivatives};
+
+        tasks[i].function = springJob;
+        tasks[i].data = &springRanges[i];
+
+        curStart = curEnd;
+        if (curStart == springs.size)
+        {
+            numThreads = i + 1;
+            break;
+        }
+    }
+
+    Scheduler::instance->schedule(tasks, numThreads);
+
+    profileInfo.springsTimeMillis += springsTimer.elapsedMillis();
+}
+
+void RK4Integrator::performRK4Integration(PointMassesRange &points, Range<Spring> &springs, Range<int> &collisionCounterForPoints, bool gravityEnabled, bool updateCollisions, ConsoleProfileInfo &profileInfo)
+{
+    if (rkEmptyDerivatives.size() != points.size())
+    {
+        rkEmptyDerivatives.fill(PointDerivative(), points.size());
+    }
+
+    prepareRK4Step(points, springs, 0.0, rkEmptyDerivatives, rk1, gravityEnabled, profileInfo);
+    updateRK4Springs(springs, rk1, profileInfo);
+    prepareRK4Step(points, springs, physicsStep * 0.5, rk1, rk2, gravityEnabled, profileInfo);
+    updateRK4Springs(springs, rk2, profileInfo);
+    prepareRK4Step(points, springs, physicsStep * 0.5, rk2, rk3, gravityEnabled, profileInfo);
+    updateRK4Springs(springs, rk3, profileInfo);
+    prepareRK4Step(points, springs, physicsStep, rk3, rk4, gravityEnabled, profileInfo);
+    updateRK4Springs(springs, rk4, profileInfo);
+
+    float factor = (1.0f / 6.0f) * physicsStep;
+
+    for (int i = 0; i < points.size(); i++)
+    {
+        PointDerivative rk1d = rk1[i];
+        PointDerivative rk2d = rk2[i];
+        PointDerivative rk3d = rk3[i];
+        PointDerivative rk4d = rk4[i];
+
+        Vector2 deltaVelocity = (rk1d.velocity + (rk2d.velocity + rk3d.velocity) * 2.0f + rk4d.velocity) * factor;
+        Vector2 deltaAcceleration = (rk1d.acceleration + (rk2d.acceleration + rk3d.acceleration) * 2.0f + rk4d.acceleration) * factor;
+        points.pos[i] += deltaVelocity;
+        points.velocity[i] += deltaAcceleration;
+    }
+}
+
+void RK4Integrator::testRK4Performance(int iterations, PointMassesRange points, Range<Spring> springs)
+{
+    rkEmptyDerivatives.fill(PointDerivative(), points.size());
+    ConsoleProfileInfo profileInfo;
+    Array<int> collisionCounterForPoints;
+    collisionCounterForPoints.fill(0, points.size());
+    Range<int> collisionCounterForPointsRange = collisionCounterForPoints.range();
+
+    for (int i = 0; i < iterations; i++)
+    {
+        performRK4Integration(points, springs, collisionCounterForPointsRange, true, false, profileInfo);
+    }
+}
+
+void RK4Integrator::testRK4PreparePerformance(int iterations, PointMassesRange points, Range<Spring> springs)
+{
+    ConsoleProfileInfo profileInfo;
+    rkEmptyDerivatives.fill(PointDerivative(), points.size());
+
+    for (int i = 0; i < iterations; i++)
+    {
+        prepareRK4Step(points, springs, 0.0, rkEmptyDerivatives, rk1, true, profileInfo);
+    }
+}
+
+void RK4Integrator::testSpringPerformance(int iterations, PointMassesRange points, Range<Spring> springs)
+{
+    ConsoleProfileInfo profileInfo;
+    rkEmptyDerivatives.fill(PointDerivative(), points.size());
+
+    prepareRK4Step(points, springs, 0.0, rkEmptyDerivatives, rk1, true, profileInfo);
+    auto derivativeRange = rk1.range();
+    for (int i = 0; i < iterations; i++)
+    {
+        performThreadedSpringDerivatives(points, springs, derivativeRange, profileInfo);
     }
 }
