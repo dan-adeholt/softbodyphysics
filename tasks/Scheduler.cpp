@@ -143,8 +143,8 @@ int getPhysicalCoreCount()
 
 Scheduler *Scheduler::instance(new Scheduler());
 
-int Scheduler::numThreads(7);
-int Scheduler::numTasks(8);
+int Scheduler::numThreads(6);
+int Scheduler::numTasks(7);
 
 struct Scheduler::Impl
 {
