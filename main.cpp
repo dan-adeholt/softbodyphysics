@@ -4,6 +4,7 @@
 #include "timer.h"
 #include "game/Game.h"
 #include "./game/Physics.h"
+#include "./game/PhysicsSpaceStorage.h"
 #include "./game/GameRenderer.h"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -84,6 +85,7 @@ int main(int argc, char *argv[])
     rectangle.w = 100;
     rectangle.h = 100;
 
+    bool renderShapeMatching = false;
     bool dragging = false;
     int offsetX = 0;
     int offsetY = 0;
@@ -120,8 +122,11 @@ int main(int argc, char *argv[])
             case SDL_KEYDOWN:
                 switch (event.key.keysym.sym)
                 {
+                case SDLK_F1:
+                    renderShapeMatching = !renderShapeMatching;
+                    break;
                 case SDLK_F2:
-                    game.toggleShapeMatchingEnabled();
+                    game.physicsSpace()->shapeMatchingEnabled = !game.physicsSpace()->shapeMatchingEnabled;
                     break;
                 case SDLK_F5:
                     paused = !paused;
@@ -147,13 +152,13 @@ int main(int argc, char *argv[])
                         snprintf(path, sizeof(buf), "%s%s", path, "dump.txt");
                         if (event.key.keysym.sym == SDLK_F6)
                         {
-                            game.dumpToFile(path);
+                            PhysicsSpaceStorage::dumpToFile(*game.physicsSpace(), path);
                             printf("Wrote to %s\n", path);
                         }
                         else
                         {
                             printf("Attempting read from %s\n", path);
-                            game.loadFromFile(path);
+                            PhysicsSpaceStorage::loadFromFile(*game.physicsSpace(), path);
                             printf("Read from %s\n", path);
                         }
 
@@ -232,7 +237,7 @@ int main(int argc, char *argv[])
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer);
 
-        gameRenderer.renderGame(renderer, game, profileInfo);
+        gameRenderer.renderGame(renderer, game, renderShapeMatching, profileInfo);
         // gameRenderer.renderText(renderer, "Press F5 to pause, F6 to save, F7 to load, F8 to step, F3 to rewind, F4 to forward", 10, 10);
         profileInfo.renderTimeMillis = renderTimer.elapsedMillis();
         Console::draw(game, profileInfo);

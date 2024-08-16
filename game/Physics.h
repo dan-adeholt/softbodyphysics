@@ -56,6 +56,16 @@ struct PointMasses
         shapeOriginalPos.append(other.shapeOriginalPos);
     }
 
+    void replace(const PointMasses &other)
+    {
+        pos.replace(other.pos);
+        mass.replace(other.mass);
+        velocity.replace(other.velocity);
+        acceleration.replace(other.acceleration);
+        shapePos.replace(other.shapePos);
+        shapeOriginalPos.replace(other.shapeOriginalPos);
+    }
+
     void push(float x, float y, float mass = 1.0f, float velocityX = 0.0f, float velocityY = 0.0f)
     {
         this->pos.push({x, y});
@@ -196,8 +206,6 @@ int calculateCollisions(
     PointMassesRange shape2,
     const ShapeBoundingBox &box1,
     const ShapeBoundingBox &box2,
-    Range<int> &collisionCounterForPoints1,
-    Range<int> &collisionCounterForPoints2,
     float step);
 
 int calculateStaticCollisions(
@@ -205,7 +213,6 @@ int calculateStaticCollisions(
     PointMassesRange movingShape,
     const ShapeBoundingBox &staticBox,
     const ShapeBoundingBox &movingBox,
-    Range<int> &collisionCounterForMovingShape,
     float step);
 
 void findClosestLineSegmentToPoint(PointMassesRange collisionShape, const Vector2 &point, const Vector2 &velocity, int &minIndex, Vector2 &minPoint, float &minT);
@@ -236,17 +243,57 @@ struct RK4Integrator
     void performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, bool enableShapeMatching, ConsoleProfileInfo &profileInfo);
     void performRK4Integration(
         Range<Shape> shapeRange,
-        PointMassesRange &points,
-        Range<Spring> &springs,
-        Range<int> &collisionCounterForPoints,
+        PointMassesRange points,
+        Range<Spring> springs,
         bool gravityEnabled,
-        bool updateCollisions,
         bool enableShapeMatching,
         ConsoleProfileInfo &profileInfo);
 
     void testRK4Performance(int iterations, Range<Shape> shapes, PointMassesRange points, Range<Spring> springs);
     void testRK4PreparePerformance(int iterations, PointMassesRange points, Range<Spring> springs);
     void testSpringPerformance(int iterations, Range<Shape> shapes, PointMassesRange points, Range<Spring> springs);
+};
+
+struct PhysicsSpace
+{
+    PhysicsSpace();
+
+    void assign(PhysicsSpace &other);
+
+    int nextShapeIndex() const;
+    int nextStaticShapeIndex() const;
+
+    void clear();
+
+    Array<Shape> shapes;
+    Array<ShapeQuad> partialShapes;
+    PointMasses points;
+    Array<Shape> staticShapes;
+    PointMasses staticPoints;
+    Array<Spring> springs;
+    Array<StaticJoint> staticJoints;
+
+    StaticJoint mouseJoint;
+    bool gravityEnabled;
+    bool collisionsEnabled;
+    bool shapeMatchingEnabled;
+};
+
+struct PhysicsIntegrator
+{
+    RK4Integrator rk4Integrator;
+    void performIntegration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo);
+};
+
+struct PhysicsCollisionSolver
+{
+    void clear();
+    void handleCollisions(PhysicsSpace &space, float step, ConsoleProfileInfo &profileInfo);
+
+    Array<ShapeBoundingBox> boundingBoxes;
+    Array<ShapeBoundingBox> staticBoundingBoxes;
+    Array<ShapeBoundingBox> sortedBoundingBoxes;
+    Array<ShapeBoundingBox> sortedStaticBoundingBoxes;
 };
 
 #endif

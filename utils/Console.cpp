@@ -149,8 +149,9 @@ void Console::draw(Game &game, ConsoleProfileInfo profileInfo)
                 if (ImGui::Selectable(scene.name, isSelected))
                 {
                     game.clear();
-                    game.setCollisionsEnabled(true);
-                    game.setGravityEnabled(true);
+                    PhysicsSpace *space = game.physicsSpace();
+                    space->collisionsEnabled = true;
+                    space->gravityEnabled = true;
                     scene.initFunc(&game);
                     selectedSceneIndex = i;
                 }
@@ -209,10 +210,6 @@ void Console::draw(Game &game, ConsoleProfileInfo profileInfo)
 
     ImDrawList *foreground = ImGui::GetForegroundDrawList();
 
-    PointMassesRange pointMasses;
-    game.getDynamicPoints(pointMasses);
-
-    // char buffer[100];
     // for (int i = 0; i < pointMasses.size; i++)
     // {
     //     PointMass &point = pointMasses[i];

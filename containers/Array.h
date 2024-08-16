@@ -95,12 +95,14 @@ public:
         {
             new (&m_data[i]) T(other[i]);
         }
+
+        m_size = other.size;
     }
 
     void replace(const Array<T> &other)
     {
         reserve(other.size());
-        for (int i = m_size; i < m_size + other.size; i++)
+        for (int i = m_size; i < m_size + other.size(); i++)
         {
             m_data[i].~T();
         }
@@ -108,6 +110,7 @@ public:
         {
             new (&m_data[i]) T(other[i]);
         }
+        m_size = other.size();
     }
 
     void append(const std::initializer_list<T> &other)

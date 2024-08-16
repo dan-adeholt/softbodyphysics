@@ -58,6 +58,8 @@ game/GameRenderer.cpp
 game/GameRenderer.h
 game/Physics.test.h
 game/Physics.h
+game/PhysicsSpaceStorage.h
+game/PhysicsSpaceStorage.cpp
 game/PhysicsTests.h
 game/Scenes.h
 tasks/Scheduler.h

@@ -20,12 +20,13 @@ PhysicsTestDefinition tests[] = {
             SceneDefinition *def = SceneDefinition::getDefinitionFromName("Line spring");
             assert(def != nullptr);
             def->initFunc(game);
-            game->setCollisionsEnabled(false);
-            game->setGravityEnabled(false);
+            PhysicsSpace *space = game->physicsSpace();
+            space->collisionsEnabled = false;
+            space->gravityEnabled = false;
 
-            Shape &lineShape = game->shapes()[0];
+            Shape &lineShape = space->shapes[0];
             int p1Index = lineShape.end - 1;
-            PointMasses &points = game->points();
+            PointMasses &points = space->points;
             Vector2 &p1 = points.pos[p1Index];
             p1.x += 100.0f;
             p1.y += 100.0f;
@@ -35,8 +36,9 @@ PhysicsTestDefinition tests[] = {
         },
         [](Game *game, int time)
         {
-            Shape &lineShape = game->shapes()[0];
-            PointMasses &points = game->points();
+            PhysicsSpace *space = game->physicsSpace();
+            Shape &lineShape = space->shapes[0];
+            PointMasses &points = space->points;
             int p0Index = lineShape.start;
             int p1Index = lineShape.end - 1;
 
@@ -64,8 +66,9 @@ PhysicsTestDefinition tests[] = {
             SceneDefinition *def = SceneDefinition::getDefinitionFromName("Box");
             assert(def != nullptr);
             def->initFunc(game);
-            game->setCollisionsEnabled(false);
-            game->setGravityEnabled(false);
+            PhysicsSpace *space = game->physicsSpace();
+            space->collisionsEnabled = false;
+            space->gravityEnabled = false;
         },
         [](Game *game, int time)
         {

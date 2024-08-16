@@ -152,28 +152,23 @@ void addLine(Array<Vertex> &vertices, float p0x, float p0y, float p1x, float p1y
                    whiteColor.topRight});
 }
 
-void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfileInfo &profileInfo)
+void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, bool renderShapeMatching, ConsoleProfileInfo &profileInfo)
 {
     m->vertices.clear();
 
     Range<Shape> shapes;
-    PointMassesRange pointMasses;
 
-    game.getStaticShapes(shapes);
-    game.getStaticPoints(pointMasses);
+    PhysicsSpace *physicsSpace = game.physicsSpace();
+    PointMassesRange staticPoints = physicsSpace->staticPoints.range();
+    renderShapes(renderer, physicsSpace->staticShapes.range(), staticPoints, renderShapeMatching);
 
-    renderShapes(renderer, shapes, pointMasses);
+    PointMassesRange dynamicPoints = physicsSpace->points.range();
+    renderShapes(renderer, physicsSpace->shapes.range(), dynamicPoints, renderShapeMatching);
+    renderSprings(renderer, physicsSpace->springs.range(), dynamicPoints);
 
-    game.getDynamicShapes(shapes);
-    game.getDynamicPoints(pointMasses);
-    renderShapes(renderer, shapes, pointMasses);
-    Range<Spring> springs;
-    game.getSprings(springs);
-    renderSprings(renderer, springs, pointMasses);
-
-    for (int i = 0; i < pointMasses.size(); i++)
+    for (int i = 0; i < dynamicPoints.size(); i++)
     {
-        Vector2 pos = pointMasses.pos[i];
+        Vector2 pos = dynamicPoints.pos[i];
         addCircle(m->vertices, pos.x, pos.y, {255, 255, 255, 255});
     }
 
@@ -192,7 +187,7 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
                           m->vertices.size(), nullptr, 0, 0);
 }
 
-void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, PointMassesRange &pointMasses)
+void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, PointMassesRange &pointMasses, bool renderShapeMatching)
 {
     for (int i = 0; i < shapes.size; i++)
     {
@@ -210,11 +205,16 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, Poi
                 continue;
             }
 
-            addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, {255, 255, 255, 255});
+            addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, {0, 0, 0, 255});
             pos = nextPos;
         }
 
-        addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, {255, 255, 255, 255});
+        addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, {0, 0, 0, 255});
+
+        if (!renderShapeMatching)
+        {
+            continue;
+        }
 
         if (shape.subShapes.isValid())
         {

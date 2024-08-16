@@ -19,10 +19,8 @@ void testCase(Shape &shape1, Shape &shape2, PointMasses &points, int expectedCol
 
     PointMassesRange shape1Points = points.range(shape1);
     PointMassesRange shape2Points = points.range(shape2);
-    Range<int> collisionRange1 = counterForCollisions.slice(shape1);
-    Range<int> collisionRange2 = counterForCollisions.slice(shape2);
 
-    testExpectInt(calculateCollisions(shape1Points, shape2Points, boundingBoxes[0], boundingBoxes[1], collisionRange1, collisionRange2, 1.0), expectedCollisions);
+    testExpectInt(calculateCollisions(shape1Points, shape2Points, boundingBoxes[0], boundingBoxes[1], 1.0), expectedCollisions);
 }
 
 UNIT_TEST(testFindClosestLineSegmentToPoint, "Physics")

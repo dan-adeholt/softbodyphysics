@@ -204,8 +204,6 @@ int calculateCollisions(
     PointMassesRange movingShape,
     const ShapeBoundingBox &collisionBox,
     const ShapeBoundingBox &movingBox,
-    Range<int> &collisionCounterForPoints1,
-    Range<int> &collisionCounterForPoints2,
     float step)
 {
 
@@ -231,8 +229,6 @@ int calculateCollisions(
         }
 
         numCollisions++;
-        collisionCounterForPoints1[i]++;
-        collisionCounterForPoints2[i]++;
 
         int minIndex = -1;
         float minT = 0.0f;
@@ -338,11 +334,10 @@ void shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes)
 
                 for (int k = 0; k < subShape.size; k++)
                 {
-                    int index = subShape.indices[k];
-                    Vector2 translatedPos = points.pos[index] - center;
-                    float angleDiff = subShape.originalPos[k].angle(translatedPos);
-                    avgDiffAngle += angleDiff;
+                    Vector2 translatedPos = points.pos[subShape.indices[k]] - center;
+                    avgDiffAngle += subShape.originalPos[k].angle(translatedPos);
                 }
+
                 avgDiffAngle /= subShape.size;
 
                 for (int k = 0; k < subShape.size; k++)
@@ -388,7 +383,6 @@ int calculateStaticCollisions(
     PointMassesRange movingShape,
     const ShapeBoundingBox &staticBox,
     const ShapeBoundingBox &movingBox,
-    Range<int> &collisionCounterForMovingShape,
     float step)
 {
     int numCollisions = 0;
@@ -406,7 +400,6 @@ int calculateStaticCollisions(
         Vector2 velocity = movingShape.velocity[i];
 
         numCollisions++;
-        collisionCounterForMovingShape[i]++;
 
         int minIndex = -1;
         float minT = 0.0f;
@@ -665,7 +658,7 @@ void RK4Integrator::performThreadedSpringDerivatives(Range<Shape> shapeRange, Po
     profileInfo.springsTimeMillis += springsTimer.elapsedMillis();
 }
 
-void RK4Integrator::performRK4Integration(Range<Shape> shapeRange, PointMassesRange &points, Range<Spring> &springs, Range<int> &collisionCounterForPoints, bool gravityEnabled, bool updateCollisions, bool enableShapeMatching, ConsoleProfileInfo &profileInfo)
+void RK4Integrator::performRK4Integration(Range<Shape> shapeRange, PointMassesRange points, Range<Spring> springs, bool gravityEnabled, bool enableShapeMatching, ConsoleProfileInfo &profileInfo)
 {
     if (rkEmptyDerivatives.size() != points.size())
     {
@@ -701,13 +694,10 @@ void RK4Integrator::testRK4Performance(int iterations, Range<Shape> shapes, Poin
 {
     rkEmptyDerivatives.fill(PointDerivative(), points.size());
     ConsoleProfileInfo profileInfo;
-    Array<int> collisionCounterForPoints;
-    collisionCounterForPoints.fill(0, points.size());
-    Range<int> collisionCounterForPointsRange = collisionCounterForPoints.range();
 
     for (int i = 0; i < iterations; i++)
     {
-        performRK4Integration(shapes, points, springs, collisionCounterForPointsRange, true, false, true, profileInfo);
+        performRK4Integration(shapes, points, springs, false, true, profileInfo);
     }
 }
 
@@ -732,5 +722,235 @@ void RK4Integrator::testSpringPerformance(int iterations, Range<Shape> shapes, P
     for (int i = 0; i < iterations; i++)
     {
         performThreadedSpringDerivatives(shapes, points, springs, derivativeRange, true, profileInfo);
+    }
+}
+
+#define NUM_SHAPES 40
+#define NUM_POINTS 1024
+
+void sortBoundingBoxes(Array<ShapeBoundingBox> &sortedBoundingBoxes)
+{
+    // Insertion sort - O(n^2), but since the movements are relatively stable it should be fine
+    for (int i = 1; i < sortedBoundingBoxes.size(); i++)
+    {
+        ShapeBoundingBox item = sortedBoundingBoxes[i];
+        int j = i - 1;
+        while (j >= 0 && sortedBoundingBoxes[j].x1 > item.x1)
+        {
+            sortedBoundingBoxes[j + 1] = sortedBoundingBoxes[j];
+            j--;
+        }
+        sortedBoundingBoxes[j + 1] = item;
+    }
+}
+
+void updateSortedBoundingBoxes(Array<ShapeBoundingBox> &sortedBoundingBoxes, Array<ShapeBoundingBox> &boundingBoxes)
+{
+    for (int i = 0; i < sortedBoundingBoxes.size(); i++)
+    {
+        ShapeBoundingBox &sortedBox = sortedBoundingBoxes[i];
+        const ShapeBoundingBox &box = boundingBoxes[sortedBox.shapeIndex];
+        sortedBox.x1 = box.x1;
+        sortedBox.y1 = box.y1;
+        sortedBox.x2 = box.x2;
+        sortedBox.y2 = box.y2;
+    }
+}
+
+PhysicsSpace::PhysicsSpace() : gravityEnabled(true), collisionsEnabled(true), shapeMatchingEnabled(true)
+{
+    shapes.reserve(NUM_SHAPES);
+    partialShapes.reserve(NUM_SHAPES);
+    points.reserve(NUM_POINTS);
+    staticShapes.reserve(NUM_SHAPES);
+    staticPoints.reserve(NUM_POINTS);
+    staticJoints.reserve(NUM_POINTS / 2);
+    springs.reserve(NUM_POINTS / 2);
+    mouseJoint.pointIndex = -1;
+    mouseJoint.position = Vector2::zero();
+}
+
+void PhysicsSpace::assign(PhysicsSpace &other)
+{
+    shapes.replace(other.shapes);
+    partialShapes.replace(other.partialShapes);
+    staticShapes.replace(other.staticShapes);
+    points.replace(other.points);
+    staticPoints.replace(other.staticPoints);
+    springs.replace(other.springs);
+    staticJoints.replace(other.staticJoints);
+}
+
+int PhysicsSpace::nextShapeIndex() const
+{
+    return shapes.size();
+}
+
+int PhysicsSpace::nextStaticShapeIndex() const
+{
+    return staticShapes.size();
+}
+
+void PhysicsSpace::clear()
+{
+    shapes.clear();
+    partialShapes.clear();
+    points.clear();
+    staticShapes.clear();
+    staticPoints.clear();
+    springs.clear();
+    staticJoints.clear();
+    mouseJoint.pointIndex = -1;
+    gravityEnabled = true;
+    shapeMatchingEnabled = true;
+}
+
+void PhysicsCollisionSolver::clear()
+{
+    boundingBoxes.clear();
+    staticBoundingBoxes.clear();
+    sortedBoundingBoxes.clear();
+    sortedStaticBoundingBoxes.clear();
+}
+
+void PhysicsCollisionSolver::handleCollisions(PhysicsSpace &space, float step, ConsoleProfileInfo &profileInfo)
+{
+    if (boundingBoxes.capacity() == 0)
+    {
+        boundingBoxes.reserve(space.shapes.size());
+        staticBoundingBoxes.reserve(space.staticShapes.size());
+        sortedBoundingBoxes.reserve(space.shapes.size());
+        sortedStaticBoundingBoxes.reserve(space.staticShapes.size());
+    }
+
+    for (int i = 0; i < space.points.size(); i++)
+    {
+        space.points.acceleration[i] = Vector2();
+    }
+
+    Timer collisionsTimer;
+
+    // For a broad phase collision detection, sort using insertion sort along a single axis
+
+    {
+        Timer boundingBoxTimer;
+        calculateBoundingBoxes(boundingBoxes, space.shapes, space.points);
+        calculateBoundingBoxes(staticBoundingBoxes, space.staticShapes, space.staticPoints);
+
+        if (sortedBoundingBoxes.size() == 0)
+        {
+            for (int i = 0; i < boundingBoxes.size(); i++)
+            {
+                ShapeBoundingBox &box = boundingBoxes[i];
+                Shape &shape = space.shapes[box.shapeIndex];
+                sortedBoundingBoxes.push(box);
+            }
+        }
+        else
+        {
+            updateSortedBoundingBoxes(sortedBoundingBoxes, boundingBoxes);
+        }
+
+        if (sortedStaticBoundingBoxes.size() == 0)
+        {
+            for (int i = 0; i < staticBoundingBoxes.size(); i++)
+            {
+                ShapeBoundingBox &box = staticBoundingBoxes[i];
+                Shape &shape = space.staticShapes[box.shapeIndex];
+                sortedStaticBoundingBoxes.push(box);
+            }
+        }
+
+        else
+        {
+            updateSortedBoundingBoxes(sortedStaticBoundingBoxes, staticBoundingBoxes);
+        }
+
+        sortBoundingBoxes(sortedBoundingBoxes);
+        sortBoundingBoxes(sortedStaticBoundingBoxes);
+        profileInfo.boundingBoxTimeMillis = boundingBoxTimer.elapsedMillis();
+    }
+
+    profileInfo.numBboxes = sortedBoundingBoxes.size();
+    profileInfo.numBbboxChecks = 0;
+    int staticIndex = 0;
+    // Insertion sort - O(n^2), but since the movements are relatively stable it should be fine
+    // TODO: Pre-sort using something better the first time it is run
+    for (int i = 0; i < sortedBoundingBoxes.size(); i++)
+    {
+        const ShapeBoundingBox &box = sortedBoundingBoxes[i];
+        const Shape &shape1 = space.shapes[box.shapeIndex];
+
+        for (int j = i + 1; j < sortedBoundingBoxes.size(); j++)
+        {
+            const ShapeBoundingBox &otherBox = sortedBoundingBoxes[j];
+            profileInfo.numBbboxChecks++;
+
+            if (otherBox.x1 < box.x2)
+            {
+                // Due to the sorted nature of the bounding boxes, we already know that
+                // otherBox.x1 >= box.x1, so we only need to check the other axis
+
+                if (otherBox.y1 <= box.y2 && otherBox.y2 >= box.y1)
+                {
+                    // Check for collision
+                    const Shape &shape2 = space.shapes[otherBox.shapeIndex];
+                    calculateCollisions(space.points.range(shape1), space.points.range(shape2), box, otherBox, step);
+                    calculateCollisions(space.points.range(shape2), space.points.range(shape1), otherBox, box, step);
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        while (staticIndex < sortedStaticBoundingBoxes.size() && sortedStaticBoundingBoxes[staticIndex].x2 < box.x1)
+        {
+            staticIndex++;
+        }
+
+        for (int j = staticIndex; j < sortedStaticBoundingBoxes.size(); j++)
+        {
+            const ShapeBoundingBox &staticBox = sortedStaticBoundingBoxes[j];
+            if (staticBox.x1 < box.x2)
+            {
+                const Shape &staticShape = space.staticShapes[staticBox.shapeIndex];
+                calculateStaticCollisions(space.staticPoints.range(staticShape), space.points.range(shape1), staticBox, box, step);
+                // Check for collision
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+
+    profileInfo.collisionTimeMillis = collisionsTimer.elapsedMillis();
+
+    for (int i = 0; i < space.points.size(); i++)
+    {
+        space.points.velocity[i] += (space.points.acceleration[i]) * physicsStep;
+        space.points.pos[i] += space.points.velocity[i] * physicsStep;
+    }
+}
+
+void PhysicsIntegrator::performIntegration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo)
+{
+    shapeMatchAlign(space.points.range(), space.shapes);
+    rk4Integrator.performRK4Integration(space.shapes.range(), space.points.range(), space.springs.range(), space.gravityEnabled, space.shapeMatchingEnabled, profileInfo);
+
+    for (int i = 0; i < space.staticJoints.size(); i++)
+    {
+        StaticJoint &joint = space.staticJoints[i];
+        space.points.pos[joint.pointIndex] = joint.position;
+        space.points.velocity[joint.pointIndex] = Vector2();
+    }
+
+    if (space.mouseJoint.pointIndex != -1)
+    {
+        space.points.pos[space.mouseJoint.pointIndex] = space.mouseJoint.position;
+        space.points.velocity[space.mouseJoint.pointIndex] = Vector2();
+        space.points.acceleration[space.mouseJoint.pointIndex] = Vector2();
     }
 }
