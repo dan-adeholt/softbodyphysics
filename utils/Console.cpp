@@ -243,3 +243,12 @@ void Console::stepTest(Game *game, double elapsedMilliseconds, ConsoleProfileInf
         curTestCase->step(game, elapsedMilliseconds, profileInfo);
     }
 }
+
+void Console::printToStandardOut()
+{
+    for (int i = 0; i < numLines; i++)
+    {
+        int index = i % BUFFER_SIZE;
+        printf("[%d] %s\n", lines[index].writeIndex, lines[index].text);
+    }
+}

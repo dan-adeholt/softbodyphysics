@@ -7,6 +7,7 @@ class Range;
 template <typename T>
 class Array;
 
+struct ShapeQuad;
 struct Spring;
 struct Shape;
 struct PointMasses;
@@ -14,7 +15,7 @@ struct PointMasses;
 namespace Shapes
 {
     Shape createCircle(int shapeIndex, PointMasses &points, Array<Spring> &springs, float x, float y, float radius, float mass);
-    Shape createBridge(int shapeIndex, PointMasses &points, Array<Spring> &springs, float x, float y, float mass, int numSegments);
+    Shape createBridge(int shapeIndex, PointMasses &points, Array<Spring> &springs, Array<ShapeQuad> &partialShapes, float x, float y, float mass, int numSegments);
     Shape createLine(int shapeIndex, PointMasses &points, Array<Spring> &springs, float x0, float y0, float x1, float y1, float drag);
     Shape createQuad(int shapeIndex, PointMasses &points, Array<Spring> &springs, float x, float y, float width, float height, float drag);
     Shape createStaticQuad(int shapeIndex, PointMasses &points, float x, float y, float width, float height, float mass);

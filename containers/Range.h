@@ -6,19 +6,27 @@
 template <typename T>
 struct Range
 {
+    Range() : data(nullptr), size(0) {}
+    Range(T *data, int size) : data(data), size(size) {}
+
     T *data;
     int size;
 
     T &operator[](int index) { return data[index]; }
     inline const T &operator[](int index) const { return data[index]; }
 
-    T* begin() { return data; }
-    T* end() { return data + size; }
+    T *begin() { return data; }
+    T *end() { return data + size; }
 
-    const T* begin() const { return data; }
-    const T* end() const { return data + size; }
+    const T *begin() const { return data; }
+    const T *end() const { return data + size; }
 
-    Range slice(const Span& span) const
+    bool isValid() const
+    {
+        return data != nullptr && size > 0;
+    }
+
+    Range slice(const Span &span) const
     {
         return Range{&data[span.start], span.end - span.start};
     }
@@ -26,7 +34,7 @@ struct Range
     Range slice(int start, int end) const
     {
         return Range{&data[start], end - start};
-    }    
+    }
 };
 
 #endif

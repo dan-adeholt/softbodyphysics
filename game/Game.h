@@ -1,6 +1,7 @@
 #ifndef __GAME_H
 #define __GAME_H
 
+struct ShapeQuad;
 struct PointMassesRange;
 struct PointMasses;
 struct Spring;
@@ -37,6 +38,7 @@ public:
     void rewindHistory();
     void forwardHistory();
 
+    void toggleShapeMatchingEnabled();
     void setGravityEnabled(bool gravityEnabled);
     void setCollisionsEnabled(bool collisionsEnabled);
 
@@ -54,9 +56,11 @@ public:
     PointMasses &staticPoints();
     Array<Spring> &springs();
     Array<StaticJoint> &staticJoints();
+    Array<ShapeQuad> &partialShapes();
 
 private:
-    void performIntegration(PointMassesRange &points,
+    void performIntegration(Range<Shape> &shapeRange,
+                            PointMassesRange &points,
                             Range<Spring> &springs,
                             Range<int> &collisionCounterForPoints,
                             bool updateCollisions,

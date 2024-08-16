@@ -7,6 +7,7 @@ extern "C"
     extern float atan2f(float __y, float __x);
     extern float sinf(float __x);
     extern float cosf(float __x);
+    extern float fabsf(float __x);
 }
 
 #define PI 3.141592653589793238463
@@ -149,12 +150,34 @@ public:
 
     constexpr float angle() const
     {
-        return atan2f(y, x);
+        float angle = atan2f(y, x);
+
+        if (angle < 0.0f)
+        {
+            angle += 2.0f * PI_F;
+        }
+
+        return angle;
     }
 
     constexpr float angle(const Vector2 &other) const
     {
-        return atan2f(y - other.y, x - other.x);
+        float angle1 = atan2f(y, x);
+        float angle2 = atan2f(other.y, other.x);
+
+        float diff = angle2 - angle1;
+
+        // Normalize to [-π, π]
+        if (diff > PI_F)
+        {
+            diff -= 2 * PI_F;
+        }
+        else if (diff < -PI_F)
+        {
+            diff += 2 * PI_F;
+        }
+
+        return diff;
     }
 
     Vector2 rotate(float angle) const

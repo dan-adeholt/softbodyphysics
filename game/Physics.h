@@ -15,9 +15,19 @@ struct PointMassesRange
     }
 
     Range<Vector2> pos;
+    Range<Vector2> shapeOriginalPos;
+    Range<Vector2> shapePos;
     Range<float> mass;
     Range<Vector2> velocity;
     Range<Vector2> acceleration;
+};
+
+struct ShapeQuad
+{
+    int indices[4];
+    Vector2 originalPos[4];
+    Vector2 shapePos[4];
+    int size;
 };
 
 struct PointMasses
@@ -32,6 +42,8 @@ struct PointMasses
         mass.clear();
         velocity.clear();
         acceleration.clear();
+        shapePos.clear();
+        shapeOriginalPos.clear();
     }
 
     void append(const PointMasses &other)
@@ -40,12 +52,15 @@ struct PointMasses
         mass.append(other.mass);
         velocity.append(other.velocity);
         acceleration.append(other.acceleration);
+        shapePos.append(other.shapePos);
+        shapeOriginalPos.append(other.shapeOriginalPos);
     }
 
     void push(float x, float y, float mass = 1.0f, float velocityX = 0.0f, float velocityY = 0.0f)
     {
         this->pos.push({x, y});
-
+        this->shapePos.push({x, y});
+        this->shapeOriginalPos.push({x, y});
         this->mass.push(mass);
         this->velocity.push({velocityX, velocityY});
         this->acceleration.push({0.0f, 0.0f});
@@ -65,6 +80,8 @@ struct PointMasses
     {
         return {
             pos.range(start, end),
+            shapeOriginalPos.range(start, end),
+            shapePos.range(start, end),
             mass.range(start, end),
             velocity.range(start, end),
             acceleration.range(start, end)};
@@ -81,6 +98,8 @@ struct PointMasses
         mass.reserve(size);
         velocity.reserve(size);
         acceleration.reserve(size);
+        shapePos.reserve(size);
+        shapeOriginalPos.reserve(size);
     }
 
     int size() const
@@ -89,6 +108,8 @@ struct PointMasses
     }
 
     Array<Vector2> pos;
+    Array<Vector2> shapeOriginalPos;
+    Array<Vector2> shapePos;
     Array<float> mass;
     Array<Vector2> velocity;
     Array<Vector2> acceleration;
@@ -131,6 +152,8 @@ struct Shape
     {
         return Span{start, end};
     }
+
+    Range<ShapeQuad> subShapes;
 };
 
 struct ShapeBoundingBox
@@ -189,7 +212,11 @@ void findClosestLineSegmentToPoint(PointMassesRange collisionShape, const Vector
 
 void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<Shape> &shapes, const PointMasses &points);
 
-void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives);
+void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, bool enableShapeMatching);
+
+void shapeMatchAlignInit(PointMassesRange points, Shape &shape);
+
+void shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes);
 
 ShapeBoundingBox calculateShapeBoundingBox(const Shape &shape, int shapeIndex, const PointMasses &points);
 
@@ -205,19 +232,21 @@ struct RK4Integrator
     Array<PointDerivative> rkEmptyDerivatives;
 
     void prepareRK4Step(PointMassesRange &initialState, Range<Spring> &springs, float dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, bool gravityEnabled, ConsoleProfileInfo &profileInfo);
-    void updateRK4Springs(Range<Spring> &springs, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo);
-    void performThreadedSpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, ConsoleProfileInfo &profileInfo);
+    void updateRK4Springs(Range<Shape> shapeRange, Range<Spring> &springs, Array<PointDerivative> &outDerivatives, bool enableShapeMatching, ConsoleProfileInfo &profileInfo);
+    void performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, bool enableShapeMatching, ConsoleProfileInfo &profileInfo);
     void performRK4Integration(
+        Range<Shape> shapeRange,
         PointMassesRange &points,
         Range<Spring> &springs,
         Range<int> &collisionCounterForPoints,
         bool gravityEnabled,
         bool updateCollisions,
+        bool enableShapeMatching,
         ConsoleProfileInfo &profileInfo);
 
-    void testRK4Performance(int iterations, PointMassesRange points, Range<Spring> springs);
+    void testRK4Performance(int iterations, Range<Shape> shapes, PointMassesRange points, Range<Spring> springs);
     void testRK4PreparePerformance(int iterations, PointMassesRange points, Range<Spring> springs);
-    void testSpringPerformance(int iterations, PointMassesRange points, Range<Spring> springs);
+    void testSpringPerformance(int iterations, Range<Shape> shapes, PointMassesRange points, Range<Spring> springs);
 };
 
 #endif

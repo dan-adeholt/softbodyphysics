@@ -93,7 +93,7 @@ struct AtlasCoordinate
     Vector2 bottomRight;
 };
 
-AtlasCoordinate blackColor(0, 0, 15, 15);
+AtlasCoordinate whiteColor(0, 0, 15, 15);
 AtlasCoordinate circle(17, 1, 13, 13);
 AtlasCoordinate springData(50, 0, 3, 512);
 
@@ -134,22 +134,22 @@ void addLine(Array<Vertex> &vertices, float p0x, float p0y, float p1x, float p1y
 
     vertices.push({color,
                    {p0x + nx, p0y + ny},
-                   blackColor.topRight});
+                   whiteColor.topRight});
     vertices.push({color,
                    {p1x + nx, p1y + ny},
-                   blackColor.bottomRight});
+                   whiteColor.bottomRight});
     vertices.push({color,
                    {p1x - nx, p1y - ny},
-                   blackColor.bottomLeft});
+                   whiteColor.bottomLeft});
     vertices.push({color,
                    {p1x - nx, p1y - ny},
-                   blackColor.bottomLeft});
+                   whiteColor.bottomLeft});
     vertices.push({color,
                    {p0x - nx, p0y - ny},
-                   blackColor.topLeft});
+                   whiteColor.topLeft});
     vertices.push({color,
                    {p0x + nx, p0y + ny},
-                   blackColor.topRight});
+                   whiteColor.topRight});
 }
 
 void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfileInfo &profileInfo)
@@ -180,7 +180,6 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
     Vector2 offset(700, 20);
     float height = 512.0f;
     float width = 5.0f;
-
     Vertex *vtx_buffer = &m->vertices[0];
     const float *xy = (const float *)(const void *)((const char *)(vtx_buffer) + offsetof(Vertex, pos));
     const float *uv = (const float *)(const void *)((const char *)(vtx_buffer) + offsetof(Vertex, uv));
@@ -216,10 +215,55 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, Poi
         }
 
         addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, {255, 255, 255, 255});
+
+        if (shape.subShapes.isValid())
+        {
+            for (int j = 0; j < shape.subShapes.size; j++)
+            {
+                const ShapeQuad &subShape = shape.subShapes.data[j];
+                Vector2 startPos = subShape.shapePos[0];
+                Vector2 pos = startPos;
+
+                for (int pointIndex = 1; pointIndex < subShape.size; pointIndex++)
+                {
+                    Vector2 nextPos = subShape.shapePos[pointIndex];
+
+                    if (isnan(pos.x) || isnan(pos.y) || isnan(nextPos.x) || isnan(nextPos.y))
+                    {
+                        continue;
+                    }
+
+                    addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, {0, 255, 0, 255});
+                    pos = nextPos;
+                }
+
+                addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, {0, 255, 0, 255});
+            }
+        }
+        else
+        {
+            startPos = pointMasses.shapePos[shape.start];
+            pos = startPos;
+
+            for (int pointIndex = shape.start + 1; pointIndex < shape.end; pointIndex++)
+            {
+                Vector2 nextPos = pointMasses.shapePos[pointIndex];
+
+                if (isnan(pos.x) || isnan(pos.y) || isnan(nextPos.x) || isnan(nextPos.y))
+                {
+                    continue;
+                }
+
+                addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, {0, 255, 0, 255});
+                pos = nextPos;
+            }
+
+            addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, {0, 255, 0, 255});
+        }
     }
 }
 
-inline void addSpring(Array<Vertex> &vertices, float p0x, float p0y, float p1x, float p1y, float springLength, SDL_Color color)
+inline void addSpring(Array<Vertex> &vertices, float p0x, float p0y, float p1x, float p1y, float springLength)
 {
     AtlasCoordinate springDataMod(springData.x, springData.y, springData.w, min(512.0f, springLength));
 
@@ -230,6 +274,9 @@ inline void addSpring(Array<Vertex> &vertices, float p0x, float p0y, float p1x, 
     float vecLength = Vector2::vec2length(dx, dy);
     float normalX = (-dy / vecLength) * lineWidth;
     float normalY = (dx / vecLength) * lineWidth;
+
+    float tension = fabs(1.0f - (springLength / vecLength));
+    SDL_Color color = {64, 64, 64, 255};
 
     vertices.push({color,
                    {p0x + normalX, p0y + normalY},
@@ -271,7 +318,7 @@ void GameRenderer::renderSprings(SDL_Renderer *renderer, Range<Spring> springs, 
             p1.x > MIN_LINE_POS && p1.x < MAX_LINE_POS &&
             p1.y > MIN_LINE_POS && p1.y < MAX_LINE_POS)
         {
-            addSpring(m->vertices, p0.x, p0.y, p1.x, p1.y, spring.length, {255, 255, 255, 255});
+            addSpring(m->vertices, p0.x, p0.y, p1.x, p1.y, spring.length);
         }
     }
 }

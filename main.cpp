@@ -12,6 +12,7 @@
 #include "containers/Array.test.h"
 #include "game/Physics.test.h"
 #include "tasks/Scheduler.h"
+#include "utils/UnitTestUtil.h"
 
 // #include "game/PhysicsSIMD.h"
 
@@ -91,13 +92,12 @@ int main(int argc, char *argv[])
     bool quit = false;
 
     Game game;
-    game.init("Circle grid");
+    game.init("Box");
     uint64_t startNanos = monotonicTimeNanos();
     bool show_demo_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-    testArrays();
-    testCollisions();
+    UnitTestUtil::runTests();
     Console::log("Refresh rate: %dhz | Startup time: %.1lf ms\n", displayMode.refresh_rate, (monotonicTimeNanos() - programStartNanos) / 1000000.0);
 
     SDL_RaiseWindow(window);
@@ -120,6 +120,9 @@ int main(int argc, char *argv[])
             case SDL_KEYDOWN:
                 switch (event.key.keysym.sym)
                 {
+                case SDLK_F2:
+                    game.toggleShapeMatchingEnabled();
+                    break;
                 case SDLK_F5:
                     paused = !paused;
                     break;

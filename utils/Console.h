@@ -31,6 +31,8 @@ public:
 
     static bool executingTest();
     static void stepTest(Game *game, double elapsedTimeMillis, ConsoleProfileInfo &profileInfo);
+
+    static void printToStandardOut();
 };
 
 #endif

@@ -96,18 +96,17 @@ SceneDefinition scenes[] = {
 
          game->setGravityEnabled(false);
 
+         //  Shape side1 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 1.0f, 2.0f, 10.0f, 730.0f, 1.0f);
 
-        //  Shape side1 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 1.0f, 2.0f, 10.0f, 730.0f, 1.0f);
+         //  game->staticShapes().push(side1);
 
-        //  game->staticShapes().push(side1);
+         //  Shape side2 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 1200.0f, 2.0f, 10.0f, 730.0f, 1.0f);
 
-        //  Shape side2 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 1200.0f, 2.0f, 10.0f, 730.0f, 1.0f);
+         //  game->staticShapes().push(side2);
 
-        //  game->staticShapes().push(side2);
+         //  Shape side3 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 1.0f, 735.0f, 1200.0f, 10.0f, 1.0f);
 
-        //  Shape side3 = Shapes::createStaticQuad(game->nextStaticShapeIndex(), game->staticPoints(), 1.0f, 735.0f, 1200.0f, 10.0f, 1.0f);
-
-        //  game->staticShapes().push(side3);
+         //  game->staticShapes().push(side3);
      }},
     {"Bridge", [](Game *game)
      {
@@ -115,7 +114,7 @@ SceneDefinition scenes[] = {
          float x = 200.0f;
          float y = 340.0f;
 
-         Shape bridge = Shapes::createBridge(game->nextShapeIndex(), game->points(), game->springs(), x, y, 1.0f, numSegments);
+         Shape bridge = Shapes::createBridge(game->nextShapeIndex(), game->points(), game->springs(), game->partialShapes(), x, y, 1.0f, numSegments);
          game->shapes().push(bridge);
 
          game->staticJoints().push({0, Vector2(x, y)});

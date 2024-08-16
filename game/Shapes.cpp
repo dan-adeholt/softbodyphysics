@@ -55,10 +55,13 @@ namespace Shapes
             springs.push(Spring(n2, n0, lengthSpring2, stiffness, damping, shapeIndex));
         }
 
-        return Shape{.start = startIndex, .end = curIndex, .volume = 300.0f};
+        Shape circle = Shape{.start = startIndex, .end = curIndex, .volume = 300.0f};
+
+        shapeMatchAlignInit(points.range(), circle);
+        return circle;
     }
 
-    Shape createBridge(int shapeIndex, PointMasses &points, Array<Spring> &springs, float x, float y, float mass, int numSegments)
+    Shape createBridge(int shapeIndex, PointMasses &points, Array<Spring> &springs, Array<ShapeQuad> &partialShapes, float x, float y, float mass, int numSegments)
     {
         int startIndex = points.size();
         int curIndex = startIndex;
@@ -86,6 +89,7 @@ namespace Shapes
             curX -= width;
             curIndex++;
         }
+        int partialShapesStart = partialShapes.size();
 
         for (int i = 0; i < numSegments; i++)
         {
@@ -96,6 +100,14 @@ namespace Shapes
 
             if (i > 0)
             {
+                Vector2 topLeft = points.pos[topIndex];
+                Vector2 topRight = points.pos[topIndex - 1];
+                Vector2 bottomLeft = points.pos[bottomIndex + 1];
+                Vector2 bottomRight = points.pos[bottomIndex];
+
+                ShapeQuad quad = {{topIndex - 1, topIndex, bottomIndex, bottomIndex + 1}, {topLeft, topRight, bottomLeft, bottomRight}, {topLeft, topRight, bottomLeft, bottomRight}, 4};
+                partialShapes.push(quad);
+
                 // Top bar
                 springs.push(Spring(topIndex - 1, topIndex, width, stiffness, damping, shapeIndex));
                 // Bottom bar
@@ -110,7 +122,10 @@ namespace Shapes
 
         curX -= width;
 
-        return Shape{.start = startIndex, .end = curIndex};
+        Shape bridge = Shape{.start = startIndex, .end = curIndex};
+        bridge.subShapes = partialShapes.range(partialShapesStart, partialShapes.size());
+        shapeMatchAlignInit(points.range(), bridge);
+        return bridge;
     }
 
     Shape createStaticQuad(int shapeIndex, PointMasses &points, float x, float y, float width, float height, float mass)
@@ -121,8 +136,10 @@ namespace Shapes
         points.push(x, y + height, mass);
 
         const Span span = {.start = points.size() - 4, .end = points.size()};
+        Shape quad = Shape{.start = span.start, .end = span.end};
+        shapeMatchAlignInit(points.range(), quad);
 
-        return Shape{.start = span.start, .end = span.end};
+        return quad;
     }
 
     Shape createQuad(int shapeIndex, PointMasses &points, Array<Spring> &springs, float x, float y, float width, float height, float mass)
@@ -154,7 +171,10 @@ namespace Shapes
         points.push(x + width + sideOffset, y + height, mass);
         points.push(x + sideOffset, y + height, mass);
 
-        return Shape{.start = points.size() - 4, .end = points.size()};
+        Shape parallelogram = Shape{.start = points.size() - 4, .end = points.size()};
+        shapeMatchAlignInit(points.range(), parallelogram);
+
+        return parallelogram;
     }
 
     Shape createTriangle(int shapeIndex, PointMasses &points, float x0, float y0, float x1, float y1, float x2, float y2, float mass)
@@ -165,7 +185,9 @@ namespace Shapes
 
         const Span span = {.start = points.size() - 3, .end = points.size()};
 
-        return Shape{.start = span.start, .end = span.end};
+        Shape triangle = Shape{.start = span.start, .end = span.end};
+        shapeMatchAlignInit(points.range(), triangle);
+        return triangle;
     }
 
     Shape createLine(int shapeIndex, PointMasses &points, Array<Spring> &springs, float x0, float y0, float x1, float y1, float mass)
@@ -176,7 +198,8 @@ namespace Shapes
         const Span span = {.start = points.size() - 2, .end = points.size()};
         float lineLength = Vector2::vec2distance(x0, y0, x1, y1);
         springs.push(Spring(span.start, span.start + 1, lineLength, 1.5f, 28.9f, shapeIndex));
-
-        return Shape{.start = span.start, .end = span.end};
+        Shape line = Shape{.start = span.start, .end = span.end};
+        shapeMatchAlignInit(points.range(), line);
+        return line;
     }
 }

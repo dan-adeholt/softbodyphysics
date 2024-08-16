@@ -21,6 +21,7 @@
 struct HistoricalState
 {
     Array<Shape> shapes;
+    Array<ShapeQuad> partialShapes;
     PointMasses staticPoints;
     PointMasses points;
     Array<Spring> springs;
@@ -30,9 +31,10 @@ struct HistoricalState
 
 struct Game::Impl
 {
-    Impl() : historicalIndex(0), historyRewindIndex(0), gravityEnabled(true), collisionsEnabled(true), timeBucket(0.0)
+    Impl() : historicalIndex(0), historyRewindIndex(0), gravityEnabled(true), collisionsEnabled(true), timeBucket(0.0), shapeMatchingEnabled(true)
     {
         shapes.reserve(NUM_SHAPES);
+        partialShapes.reserve(NUM_SHAPES);
         points.reserve(NUM_POINTS);
         staticShapes.reserve(NUM_SHAPES);
         staticPoints.reserve(NUM_POINTS);
@@ -50,6 +52,7 @@ struct Game::Impl
     void clear()
     {
         shapes.clear();
+        partialShapes.clear();
         points.clear();
         staticShapes.clear();
         staticPoints.clear();
@@ -62,12 +65,14 @@ struct Game::Impl
         sortedStaticBoundingBoxes.clear();
         mouseJoint.pointIndex = -1;
         gravityEnabled = true;
+        shapeMatchingEnabled = true;
     }
 
     HistoricalState history[NUM_HISTORICAL_STATES];
     int historicalIndex;
     int historyRewindIndex;
     Array<Shape> shapes;
+    Array<ShapeQuad> partialShapes;
     PointMasses points;
     Array<Shape> staticShapes;
     PointMasses staticPoints;
@@ -83,6 +88,7 @@ struct Game::Impl
     StaticJoint mouseJoint;
     bool gravityEnabled;
     bool collisionsEnabled;
+    bool shapeMatchingEnabled;
     double timeBucket;
 };
 
@@ -369,7 +375,9 @@ void Game::updateAfterRewindOrForward()
     m_impl->staticJoints.clear();
     m_impl->staticPoints.clear();
     m_impl->staticShapes.clear();
+    m_impl->partialShapes.clear();
     m_impl->shapes.append(m_impl->history[m_impl->historyRewindIndex].shapes);
+    m_impl->partialShapes.append(m_impl->history[m_impl->historyRewindIndex].partialShapes);
     m_impl->staticShapes.append(m_impl->history[m_impl->historyRewindIndex].staticShapes);
     m_impl->points.append(m_impl->history[m_impl->historyRewindIndex].points);
     m_impl->staticPoints.append(m_impl->history[m_impl->historyRewindIndex].staticPoints);
@@ -399,6 +407,12 @@ void Game::forwardHistory()
     updateAfterRewindOrForward();
 }
 
+void Game::toggleShapeMatchingEnabled()
+{
+    m_impl->shapeMatchingEnabled = !m_impl->shapeMatchingEnabled;
+    Console::log("Shape matching enabled: %d", (int)m_impl->shapeMatchingEnabled);
+}
+
 void Game::setGravityEnabled(bool gravityEnabled)
 {
     m_impl->gravityEnabled = gravityEnabled;
@@ -410,13 +424,15 @@ void Game::setCollisionsEnabled(bool collisionsEnabled)
 }
 
 void Game::performIntegration(
+    Range<Shape> &shapeRange,
     PointMassesRange &points,
     Range<Spring> &springs,
     Range<int> &collisionCounterForPoints,
     bool updateCollisions,
     ConsoleProfileInfo &profileInfo)
 {
-    m_impl->rk4Integrator.performRK4Integration(points, springs, collisionCounterForPoints, m_impl->gravityEnabled, updateCollisions, profileInfo);
+    shapeMatchAlign(points, m_impl->shapes);
+    m_impl->rk4Integrator.performRK4Integration(shapeRange, points, springs, collisionCounterForPoints, m_impl->gravityEnabled, updateCollisions, m_impl->shapeMatchingEnabled, profileInfo);
 
     for (int i = 0; i < m_impl->staticJoints.size(); i++)
     {
@@ -465,11 +481,12 @@ void Game::update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInf
     {
         PointMassesRange points = m_impl->points.range();
         Range<Spring> springs = m_impl->springs.range();
+        Range<Shape> shapes = m_impl->shapes.range();
         m_impl->collisionCounterForPoints.fill(0, m_impl->points.size());
         Range<int> collisionCounterForPoints = m_impl->collisionCounterForPoints.range();
 
         bool updateCollisions = numIterations % 8 == 0;
-        performIntegration(points, springs, collisionCounterForPoints, updateCollisions, profileInfo);
+        performIntegration(shapes, points, springs, collisionCounterForPoints, updateCollisions, profileInfo);
 
         m_impl->timeBucket -= physicsStep;
         numIterations++;
@@ -491,7 +508,9 @@ void Game::update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInf
     m_impl->history[m_impl->historicalIndex].points.clear();
     m_impl->history[m_impl->historicalIndex].springs.clear();
     m_impl->history[m_impl->historicalIndex].staticJoints.clear();
+    m_impl->history[m_impl->historicalIndex].partialShapes.clear();
     m_impl->history[m_impl->historicalIndex].shapes.append(m_impl->shapes);
+    m_impl->history[m_impl->historicalIndex].partialShapes.append(m_impl->partialShapes);
     m_impl->history[m_impl->historicalIndex].staticShapes.append(m_impl->staticShapes);
     m_impl->history[m_impl->historicalIndex].points.append(m_impl->points);
     m_impl->history[m_impl->historicalIndex].springs.append(m_impl->springs);
@@ -572,6 +591,11 @@ Array<Spring> &Game::springs()
 Array<StaticJoint> &Game::staticJoints()
 {
     return m_impl->staticJoints;
+}
+
+Array<ShapeQuad> &Game::partialShapes()
+{
+    return m_impl->partialShapes;
 }
 
 void Game::clear()

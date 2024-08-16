@@ -49,13 +49,13 @@ void testSentinelsInner()
     testAssert(array.size() == 3);
 }
 
-void testSentinels()
+UNIT_TEST(testSentinels, "Array")
 {
     testSentinelsInner();
     testAssert(numConstructed == numDestructed);
 }
 
-void testInts()
+UNIT_TEST(testInts, "Array")
 {
     Array<int> ints;
     ints.push(0);
@@ -76,12 +76,6 @@ void testInts()
     {
         testAssert(ints[i] == i);
     }
-}
-
-void testArrays()
-{
-    testSentinels();
-    testInts();
 }
 
 #endif

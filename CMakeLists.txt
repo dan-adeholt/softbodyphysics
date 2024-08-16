@@ -41,6 +41,7 @@ SET(SOURCE_FILES timer.cpp
 game/Game.cpp
 game/Scenes.cpp
 utils/Console.cpp
+utils/UnitTestUtil.cpp
 containers/ContainerPlatform.cpp
 game/Shapes.cpp
 game/Physics.cpp
@@ -81,15 +82,21 @@ add_executable(SoftBodyPhysics
  ${SOURCE_FILES}
  ) 
 
+ add_executable(SoftBodyPhysicsTests
+ tests.cpp
+ ${SOURCE_FILES}
+ )  
+
 target_include_directories(SoftBodyPhysics PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
 target_include_directories(PerfTest PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
+target_include_directories(SoftBodyPhysicsTests PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
 
-# add_executable(SoftBodyPhysicsTest test.main.cpp containers/ContainerPlatform.cpp game/Shapes.cpp game/Physics.cpp)
-# target_include_directories(SoftBodyPhysicsTest PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
+
 # Link against C standard library
 if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     target_link_libraries(SoftBodyPhysics PRIVATE c)
     target_link_libraries(PerfTest PRIVATE c)
+    target_link_libraries(SoftBodyPhysicsTests PRIVATE c)
 
 endif()
 
@@ -98,3 +105,6 @@ target_link_libraries(SoftBodyPhysics PRIVATE ${SDL2_LIBRARIES})
 
 target_include_directories(PerfTest PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_libraries(PerfTest PRIVATE ${SDL2_LIBRARIES})
+
+target_include_directories(SoftBodyPhysicsTests PRIVATE ${SDL2_INCLUDE_DIRS})
+target_link_libraries(SoftBodyPhysicsTests PRIVATE ${SDL2_LIBRARIES})
