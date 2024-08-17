@@ -149,9 +149,9 @@ void Console::draw(Game &game, ConsoleProfileInfo profileInfo)
                 if (ImGui::Selectable(scene.name, isSelected))
                 {
                     game.clear();
-                    PhysicsSpace *space = game.physicsSpace();
-                    space->collisionsEnabled = true;
-                    space->gravityEnabled = true;
+                    PhysicsSpace &space = game.physicsSpace();
+                    space.collisionsEnabled = true;
+                    space.gravityEnabled = true;
                     scene.initFunc(&game);
                     selectedSceneIndex = i;
                 }

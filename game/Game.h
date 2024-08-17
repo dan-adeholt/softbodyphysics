@@ -28,7 +28,7 @@ public:
     void mouseButtonUp(int x, int y);
     void mouseMove(int x, int y);
 
-    PhysicsSpace *physicsSpace();
+    PhysicsSpace &physicsSpace();
 
 private:
     void updateAfterRewindOrForward();

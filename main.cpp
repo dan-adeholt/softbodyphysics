@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
                     renderShapeMatching = !renderShapeMatching;
                     break;
                 case SDLK_F2:
-                    game.physicsSpace()->shapeMatchingEnabled = !game.physicsSpace()->shapeMatchingEnabled;
+                    game.physicsSpace().shapeMatchingEnabled = !game.physicsSpace().shapeMatchingEnabled;
                     break;
                 case SDLK_F5:
                     paused = !paused;
@@ -152,13 +152,13 @@ int main(int argc, char *argv[])
                         snprintf(path, sizeof(buf), "%s%s", path, "dump.txt");
                         if (event.key.keysym.sym == SDLK_F6)
                         {
-                            PhysicsSpaceStorage::dumpToFile(*game.physicsSpace(), path);
+                            PhysicsSpaceStorage::dumpToFile(game.physicsSpace(), path);
                             printf("Wrote to %s\n", path);
                         }
                         else
                         {
                             printf("Attempting read from %s\n", path);
-                            PhysicsSpaceStorage::loadFromFile(*game.physicsSpace(), path);
+                            PhysicsSpaceStorage::loadFromFile(game.physicsSpace(), path);
                             printf("Read from %s\n", path);
                         }
 

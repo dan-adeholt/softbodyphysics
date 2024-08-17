@@ -158,13 +158,13 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, bool renderSha
 
     Range<Shape> shapes;
 
-    PhysicsSpace *physicsSpace = game.physicsSpace();
-    PointMassesRange staticPoints = physicsSpace->staticPoints.range();
-    renderShapes(renderer, physicsSpace->staticShapes.range(), staticPoints, renderShapeMatching);
+    PhysicsSpace &physicsSpace = game.physicsSpace();
+    PointMassesRange staticPoints = physicsSpace.staticPoints.range();
+    renderShapes(renderer, physicsSpace.staticShapes.range(), staticPoints, renderShapeMatching);
 
-    PointMassesRange dynamicPoints = physicsSpace->points.range();
-    renderShapes(renderer, physicsSpace->shapes.range(), dynamicPoints, renderShapeMatching);
-    renderSprings(renderer, physicsSpace->springs.range(), dynamicPoints);
+    PointMassesRange dynamicPoints = physicsSpace.points.range();
+    renderShapes(renderer, physicsSpace.shapes.range(), dynamicPoints, renderShapeMatching);
+    renderSprings(renderer, physicsSpace.springs.range(), dynamicPoints);
 
     for (int i = 0; i < dynamicPoints.size(); i++)
     {

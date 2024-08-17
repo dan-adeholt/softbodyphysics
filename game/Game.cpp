@@ -169,9 +169,9 @@ void Game::mouseMove(int x, int y)
     }
 }
 
-PhysicsSpace *Game::physicsSpace()
+PhysicsSpace &Game::physicsSpace()
 {
-    return &m->physicsSpace;
+    return m->physicsSpace;
 }
 
 void Game::clear()
