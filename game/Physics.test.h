@@ -54,7 +54,7 @@ UNIT_TEST(testShapeMatching, "Physics")
 
     for (int i = 0; i < range.size(); i++)
     {
-        Vector2 rotated = range.pos[i].rotate(-PI / 2.0f);
+        Vector2 rotated = range.pos[i].rotate(-PI_F / 2.0f);
         range.pos[i] = rotated;
     }
 

@@ -1,5 +1,6 @@
 #include "Scheduler.h"
 #include "../containers/Array.h"
+#include "../utils/MinMax.h"
 #include <stdio.h>
 #include <assert.h>
 
@@ -25,11 +26,11 @@ int get_current_cpu()
     mach_msg_type_number_t count = THREAD_AFFINITY_POLICY_COUNT;
     boolean_t get_default = false;
 
-    kern_return_t result = thread_policy_get(mach_thread,
-                                             THREAD_AFFINITY_POLICY,
-                                             (thread_policy_t)&policy_data,
-                                             &count,
-                                             &get_default);
+    [[maybe_unused]] kern_return_t result = thread_policy_get(mach_thread,
+                                                              THREAD_AFFINITY_POLICY,
+                                                              (thread_policy_t)&policy_data,
+                                                              &count,
+                                                              &get_default);
 
     assert(result == KERN_SUCCESS);
 
@@ -116,7 +117,7 @@ int getPhysicalCoreCount()
 {
     SYSTEM_INFO sysinfo;
     GetSystemInfo(&sysinfo);
-    return sysinfo.dwNumberOfProcessors;
+    return min(Scheduler::maxNumThreads, (int)sysinfo.dwNumberOfProcessors);
 }
 
 #else
@@ -124,7 +125,7 @@ int getPhysicalCoreCount()
 
 int getPhysicalCoreCount()
 {
-    return sysconf(_SC_NPROCESSORS_ONLN);
+    return min(Scheduler::maxNumThreads, (int)sysconf(_SC_NPROCESSORS_ONLN));
 }
 #endif
 

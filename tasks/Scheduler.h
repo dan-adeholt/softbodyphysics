@@ -12,7 +12,7 @@ struct Task
 };
 
 typedef void (*ThreadFunction)(void *);
-struct Scheduler;
+class Scheduler;
 
 struct Thread
 {
@@ -35,7 +35,7 @@ private:
 };
 
 template <typename T>
-class Range;
+struct Range;
 
 class Scheduler
 {
@@ -45,6 +45,7 @@ public:
     void start();
     void schedule(Task *tasks, int numTasks);
 
+    static constexpr int maxNumThreads = 64;
     static int numTasks;
 
     Scheduler();

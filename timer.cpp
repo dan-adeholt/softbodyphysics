@@ -15,7 +15,7 @@ uint64_t monotonicTimeNanos()
     {
         Data(uint64_t bias_) : bias(bias_)
         {
-            kern_return_t mtiStatus = mach_timebase_info(&tb);
+            [[maybe_unused]] kern_return_t mtiStatus = mach_timebase_info(&tb);
             assert(mtiStatus == KERN_SUCCESS);
         }
         uint64_t scale(uint64_t i)

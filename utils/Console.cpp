@@ -28,8 +28,8 @@ struct PositionLineEntry
 };
 
 #define BUFFER_SIZE 1000
-LineEntry lines[BUFFER_SIZE] = {0};
-PositionLineEntry positionLines[BUFFER_SIZE] = {0};
+LineEntry lines[BUFFER_SIZE] = {};
+PositionLineEntry positionLines[BUFFER_SIZE] = {};
 
 int numPosLines = 0;
 int numLines = 0;

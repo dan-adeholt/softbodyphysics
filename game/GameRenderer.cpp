@@ -1,7 +1,12 @@
 #include "GameRenderer.h"
 #include <SDL.h>
 #include "../containers/Array.h"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wimplicit-int-conversion"
 #include "../stb_image/stb_image.h"
+#pragma GCC diagnostic pop
+
 #include "../utils/Console.h"
 #include "../utils/MinMax.h"
 #include "stddef.h"
@@ -31,7 +36,7 @@ loadImage(const char *filename)
     pitch = (pitch + 3) & ~3;
 
     // Setup relevance bitmask
-    int Rmask, Gmask, Bmask, Amask;
+    Uint32 Rmask, Gmask, Bmask, Amask;
 #if SDL_BYTEORDER == SDL_LIL_ENDIAN
     Rmask = 0x000000FF;
     Gmask = 0x0000FF00;
@@ -173,8 +178,7 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, bool renderSha
     }
 
     Vector2 offset(700, 20);
-    float height = 512.0f;
-    float width = 5.0f;
+
     Vertex *vtx_buffer = &m->vertices[0];
     const float *xy = (const float *)(const void *)((const char *)(vtx_buffer) + offsetof(Vertex, pos));
     const float *uv = (const float *)(const void *)((const char *)(vtx_buffer) + offsetof(Vertex, uv));
@@ -275,7 +279,7 @@ inline void addSpring(Array<Vertex> &vertices, float p0x, float p0y, float p1x, 
     float normalX = (-dy / vecLength) * lineWidth;
     float normalY = (dx / vecLength) * lineWidth;
 
-    float tension = fabs(1.0f - (springLength / vecLength));
+    // float tension = fabs(1.0f - (springLength / vecLength));
     SDL_Color color = {64, 64, 64, 255};
 
     vertices.push({color,
@@ -307,10 +311,6 @@ void GameRenderer::renderSprings(SDL_Renderer *renderer, Range<Spring> springs, 
         const Spring &spring = springs.data[i];
         Vector2 p0 = points.pos[spring.pointA];
         Vector2 p1 = points.pos[spring.pointB];
-        Vector2 direction = p1 - p0;
-        float currentLength = direction.length();
-
-        float tension = fabs(1.0f - (spring.length / currentLength));
 
         // To prevent SDL taking extremely long to render degenerate lines
         if (p0.x > MIN_LINE_POS && p0.x < MAX_LINE_POS &&

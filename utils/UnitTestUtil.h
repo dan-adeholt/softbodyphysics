@@ -7,18 +7,18 @@ namespace UnitTestUtil
     void runTests(const char *category = nullptr);
 }
 
-#define UNIT_TEST(test_name, ...)                                                 \
-    void test_name();                                                             \
-    namespace                                                                     \
-    {                                                                             \
-        struct test_name##_register                                               \
-        {                                                                         \
-            test_name##_register()                                                \
-            {                                                                     \
-                UnitTestUtil::registerTest(#test_name, test_name, ##__VA_ARGS__); \
-            }                                                                     \
-        } test_name##_register_instance;                                          \
-    }                                                                             \
+#define UNIT_TEST(test_name, category)                                       \
+    void test_name();                                                        \
+    namespace                                                                \
+    {                                                                        \
+        struct test_name##_register                                          \
+        {                                                                    \
+            test_name##_register()                                           \
+            {                                                                \
+                UnitTestUtil::registerTest(#test_name, test_name, category); \
+            }                                                                \
+        } test_name##_register_instance;                                     \
+    }                                                                        \
     void test_name()
 #define testAssert(condition)                                                  \
     if (!(condition))                                                          \

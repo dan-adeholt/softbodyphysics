@@ -2,11 +2,11 @@
 #define __GAME_RENDERER_H
 
 struct SDL_Renderer;
-struct Game;
+class Game;
 struct ConsoleProfileInfo;
 
 template <typename T>
-class Range;
+struct Range;
 struct Shape;
 struct PointMassesRange;
 struct Spring;

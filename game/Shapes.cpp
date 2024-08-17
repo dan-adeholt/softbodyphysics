@@ -25,7 +25,7 @@ namespace Shapes
         float stiffness = 2.5f;
         float damping = 1080.9f;
         int numSegments = 16;
-        float segmentAngle = 2 * M_PI / numSegments;
+        float segmentAngle = 2 * PI_F / numSegments;
         int startIndex = space.points.size();
         int curIndex = startIndex;
         float curAngle = 0.0f;
@@ -132,8 +132,6 @@ namespace Shapes
 
     Shape createStaticQuad(PhysicsSpace &space, float x, float y, float width, float height, float mass)
     {
-        int shapeIndex = space.nextStaticShapeIndex();
-
         space.staticPoints.push(x, y, mass);
         space.staticPoints.push(x + width, y, mass);
         space.staticPoints.push(x + width, y + height, mass);
@@ -190,7 +188,6 @@ namespace Shapes
 
     Shape createTriangle(PhysicsSpace &space, bool isStatic, float x0, float y0, float x1, float y1, float x2, float y2, float mass)
     {
-        int shapeIndex = isStatic ? space.nextStaticShapeIndex() : space.nextShapeIndex();
         PointMasses &points = isStatic ? space.staticPoints : space.points;
         points.push(x0, y0, mass);
         points.push(x1, y1, mass);

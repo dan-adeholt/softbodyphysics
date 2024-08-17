@@ -21,7 +21,7 @@ void PhysicsSpaceStorage::loadFromFile(PhysicsSpace &space, const char *filename
     space.points.reserve(numPoints);
 
     // Read points
-    for (size_t i = 0; i < numPoints; ++i)
+    for (int i = 0; i < numPoints; ++i)
     {
         float x, y;
         float velocityX, velocityY;
@@ -35,7 +35,7 @@ void PhysicsSpaceStorage::loadFromFile(PhysicsSpace &space, const char *filename
     }
 
     // Read shapes
-    for (size_t i = 0; i < numShapes; ++i)
+    for (int i = 0; i < numShapes; ++i)
     {
         Shape shape;
         fscanf(file, "%d %d\n", &shape.start, &shape.end);
@@ -43,7 +43,7 @@ void PhysicsSpaceStorage::loadFromFile(PhysicsSpace &space, const char *filename
     }
 
     // Read springs
-    for (size_t i = 0; i < numSprings; ++i)
+    for (int i = 0; i < numSprings; ++i)
     {
         Spring spring;
         fscanf(file, "%d %d %f %f %f %d\n", &spring.pointA, &spring.pointB, &spring.length, &spring.stiffness, &spring.damping, &spring.shapeIndex);
@@ -66,7 +66,7 @@ void PhysicsSpaceStorage::dumpToFile(PhysicsSpace &space, const char *filename)
     fprintf(file, "%d %d %d\n", space.points.size(), space.shapes.size(), space.springs.size());
 
     // Dump points
-    for (size_t i = 0; i < space.points.size(); ++i)
+    for (int i = 0; i < space.points.size(); ++i)
     {
         Vector2 pos = space.points.pos[i];
 
@@ -77,13 +77,13 @@ void PhysicsSpaceStorage::dumpToFile(PhysicsSpace &space, const char *filename)
     }
 
     // Dump shapes
-    for (size_t i = 0; i < space.shapes.size(); ++i)
+    for (int i = 0; i < space.shapes.size(); ++i)
     {
         fprintf(file, "%d %d\n", space.shapes[i].start, space.shapes[i].end);
     }
 
     // Dump springs
-    for (size_t i = 0; i < space.springs.size(); ++i)
+    for (int i = 0; i < space.springs.size(); ++i)
     {
         fprintf(file, "%d %d %f %f %f %d\n", space.springs[i].pointA, space.springs[i].pointB, space.springs[i].length, space.springs[i].stiffness, space.springs[i].damping, space.springs[i].shapeIndex);
     }

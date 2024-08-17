@@ -30,7 +30,7 @@ public:
         }
     }
 
-    Array(int size) : m_size(0), m_capacity(size), m_data(reinterpret_cast<T *>(new char[sizeof(T) * size])) {}
+    Array(int size) : m_size(0), m_capacity(size), m_data(reinterpret_cast<T *>(new char[sizeof(T) * (size_t)size])) {}
 
     ~Array()
     {
@@ -115,7 +115,7 @@ public:
 
     void append(const std::initializer_list<T> &other)
     {
-        reserve(m_size + other.size());
+        reserve(m_size + (int)other.size());
 
         for (const T &element : other)
         {
@@ -172,7 +172,7 @@ public:
 
         int actualCapacity = newCapacity < 2 ? 2 : newCapacity;
 
-        T *newData = reinterpret_cast<T *>(new char[sizeof(T) * actualCapacity]);
+        T *newData = reinterpret_cast<T *>(new char[sizeof(T) * (size_t)actualCapacity]);
         for (int i = 0; i < m_size; i++)
         {
             new (&newData[i]) T(m_data[i]);

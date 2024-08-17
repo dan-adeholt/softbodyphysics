@@ -191,7 +191,7 @@ struct ShapeBoundingBox
 template <typename T>
 class Array;
 template <typename T>
-class Range;
+struct Range;
 
 struct CollisionResult
 {

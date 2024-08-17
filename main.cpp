@@ -86,9 +86,6 @@ int main(int argc, char *argv[])
     rectangle.h = 100;
 
     bool renderShapeMatching = false;
-    bool dragging = false;
-    int offsetX = 0;
-    int offsetY = 0;
     bool paused = false;
     SDL_Event event;
     bool quit = false;
@@ -97,7 +94,6 @@ int main(int argc, char *argv[])
     game.init("Box");
     uint64_t startNanos = monotonicTimeNanos();
     bool show_demo_window = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     UnitTestUtil::runTests();
     Console::log("Refresh rate: %dhz | Startup time: %.1lf ms\n", displayMode.refresh_rate, (monotonicTimeNanos() - programStartNanos) / 1000000.0);

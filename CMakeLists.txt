@@ -8,6 +8,33 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Set the compiler flags for the debug build type
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Og -g -fno-omit-frame-pointer -finline-functions")
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(
+        -Werror
+        -Wall
+        -Wextra
+        -Wpedantic
+        -Werror=conversion
+        -Werror=sign-conversion
+        -Werror=null-dereference
+        -Werror=return-type
+        -Werror=uninitialized
+        -Wno-unused-parameter
+    )
+endif()
+
+if(MSVC)
+    add_compile_options(
+        /W4
+        /WX
+        /we4244
+        /we4267
+        /we4389
+        /we4700
+        /we4701
+        /wd4100
+    )
+endif()
 
 # ISPC settings for ARM (M1)
 set(CMAKE_ISPC_INSTRUCTION_SETS "neon")

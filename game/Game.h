@@ -5,7 +5,7 @@ struct PhysicsSpace;
 struct ConsoleProfileInfo;
 
 template <typename T>
-class Range;
+struct Range;
 
 template <typename T>
 class Array;

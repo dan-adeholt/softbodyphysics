@@ -567,10 +567,6 @@ void RK4Integrator::prepareRK4Step(PointMassesRange &initialState, Range<Spring>
     Vector2 *velOut = &rkTemp.velocity[0];
     PointDerivative *outDerivativeOut = &outDerivatives[0];
 
-    Task tasks[Scheduler::numTasks];
-    int batchSize = initialState.size() / Scheduler::numTasks;
-    int curStart = 0;
-
     PointDerivative *inDerivative = &derivatives[0];
     Vector2 *posIn = &initialState.pos[0];
     Vector2 *posOutEnd = posOut + initialState.size();
@@ -614,8 +610,8 @@ void springJob(void *data)
 void RK4Integrator::performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, bool enableShapeMatching, ConsoleProfileInfo &profileInfo)
 {
     Timer springsTimer;
-    SpringJobData springRanges[Scheduler::numTasks];
-    Task tasks[Scheduler::numTasks];
+    SpringJobData springRanges[Scheduler::maxNumThreads];
+    Task tasks[Scheduler::maxNumThreads];
     int batchSize = springs.size / Scheduler::numTasks;
 
     int curStart = 0;
@@ -841,9 +837,7 @@ void PhysicsCollisionSolver::handleCollisions(PhysicsSpace &space, float step, C
         {
             for (int i = 0; i < boundingBoxes.size(); i++)
             {
-                ShapeBoundingBox &box = boundingBoxes[i];
-                Shape &shape = space.shapes[box.shapeIndex];
-                sortedBoundingBoxes.push(box);
+                sortedBoundingBoxes.push(boundingBoxes[i]);
             }
         }
         else
@@ -855,9 +849,7 @@ void PhysicsCollisionSolver::handleCollisions(PhysicsSpace &space, float step, C
         {
             for (int i = 0; i < staticBoundingBoxes.size(); i++)
             {
-                ShapeBoundingBox &box = staticBoundingBoxes[i];
-                Shape &shape = space.staticShapes[box.shapeIndex];
-                sortedStaticBoundingBoxes.push(box);
+                sortedStaticBoundingBoxes.push(staticBoundingBoxes[i]);
             }
         }
 

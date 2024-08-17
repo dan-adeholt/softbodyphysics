@@ -144,7 +144,6 @@ void Game::mouseButtonDown(int x, int y)
         Vector2 pos = m->physicsSpace.points.pos[i];
         if (Vector2::vec2distance((float)x, (float)y, pos.x, pos.y) < 20.0f)
         {
-            StaticJoint joint = {i, Vector2(x, y)};
             m->physicsSpace.mouseJoint.pointIndex = i;
             m->physicsSpace.mouseJoint.position = Vector2(x, y);
             break;

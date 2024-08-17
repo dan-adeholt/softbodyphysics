@@ -24,10 +24,11 @@ public:
 
     const char *name;
     const char *invariantResult;
+    int duration;
+
     PhysicsTestFunction initFunc;
     PhysicsInvariantFunction invariantFunction;
     PhysicsTimeFunction actionFunction;
-    int duration;
     int time;
 
     static int numTests;

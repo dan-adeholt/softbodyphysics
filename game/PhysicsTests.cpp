@@ -45,9 +45,9 @@ PhysicsTestDefinition tests[] = {
             Vector2 p0 = points.pos[p0Index];
             Vector2 p1 = points.pos[p1Index];
             float angle = atan2(p1.y - p0.y, p1.x - p0.x);
-            float validAngle = 0.89;
+            float validAngle = 0.89f;
 
-            if (fabs(angle - validAngle) > 0.01)
+            if (fabs(angle - validAngle) > 0.01f)
             {
                 return "Spring damping causes rotation";
             }
