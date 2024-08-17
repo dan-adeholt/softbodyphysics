@@ -57,7 +57,7 @@ namespace Shapes
         }
 
         Shape circle = Shape{.start = startIndex, .end = curIndex, .volume = 300.0f};
-
+        space.shapes.push(circle);
         shapeMatchAlignInit(space.points.range(), circle);
         return circle;
     }
@@ -127,6 +127,7 @@ namespace Shapes
         Shape bridge = Shape{.start = startIndex, .end = curIndex};
         bridge.subShapes = space.partialShapes.range(partialShapesStart, space.partialShapes.size());
         shapeMatchAlignInit(space.points.range(), bridge);
+        space.shapes.push(bridge);
         return bridge;
     }
 
@@ -140,6 +141,7 @@ namespace Shapes
         const Span span = {.start = space.staticPoints.size() - 4, .end = space.staticPoints.size()};
         Shape quad = Shape{.start = span.start, .end = span.end};
         shapeMatchAlignInit(space.staticPoints.range(), quad);
+        space.staticShapes.push(quad);
 
         return quad;
     }
@@ -171,6 +173,8 @@ namespace Shapes
         space.springs.push(Spring(span.start, span.start + 2, Vector2::vec2distance(p0.x, p0.y, p2.x, p2.y), stiffness, damping, shapeIndex));
         space.springs.push(Spring(span.start + 1, span.start + 3, Vector2::vec2distance(p1.x, p1.y, p3.x, p3.y), stiffness, damping, shapeIndex));
 
+        space.shapes.push(quad);
+
         return quad;
     }
     Shape createParallelogram(PhysicsSpace &space, float x, float y, float width, float height, float sideOffset, float mass)
@@ -182,7 +186,7 @@ namespace Shapes
 
         Shape parallelogram = Shape{.start = space.points.size() - 4, .end = space.points.size()};
         shapeMatchAlignInit(space.points.range(), parallelogram);
-
+        space.shapes.push(parallelogram);
         return parallelogram;
     }
 
@@ -197,6 +201,15 @@ namespace Shapes
 
         Shape triangle = Shape{.start = span.start, .end = span.end};
         shapeMatchAlignInit(points.range(), triangle);
+        if (isStatic)
+        {
+            space.staticShapes.push(triangle);
+        }
+        else
+        {
+            space.shapes.push(triangle);
+        }
+
         return triangle;
     }
 
@@ -211,6 +224,7 @@ namespace Shapes
         space.springs.push(Spring(span.start, span.start + 1, lineLength, 1.5f, 28.9f, shapeIndex));
         Shape line = Shape{.start = span.start, .end = span.end};
         shapeMatchAlignInit(space.points.range(), line);
+        space.shapes.push(line);
         return line;
     }
 }
