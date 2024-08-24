@@ -569,7 +569,7 @@ void applySpringDerivatives(Range<Shape> &shapes, PointMassesRange &points, Rang
                     // Console::log("Accel %f %f", acceleration.x, acceleration.y);
 
                     derivative.acceleration += acceleration;
-                    derivative.acceleration += (velocityAlongSpringAxis * -0.00025f) / points.mass[j];
+                    derivative.acceleration += (velocityAlongSpringAxis * -0.0025f) / points.mass[j];
                     // derivative.acceleration -= (points.velocity[j] - avgVelocity) * 0.000025f;
                 }
             }
