@@ -28,6 +28,32 @@ struct ShapeQuad
     Vector2 originalPos[4];
     Vector2 shapePos[4];
     int size;
+
+    bool isPointInQuad(const Vector2 &point) const
+    {
+        int windingNumber = 0;
+        for (int i = 0; i < size; i++)
+        {
+            Vector2 current = shapePos[i];
+            Vector2 next = shapePos[(i + 1) % size];
+            if (current.y <= point.y)
+            {
+                if (next.y > point.y && (next - current).cross(point - current) > 0)
+                {
+                    windingNumber++;
+                }
+            }
+            else
+            {
+                if (next.y <= point.y && (next - current).cross(point - current) < 0)
+                {
+                    windingNumber--;
+                }
+            }
+        }
+
+        return windingNumber != 0;
+    }
 };
 
 struct PointMasses
@@ -186,6 +212,11 @@ struct ShapeBoundingBox
     {
         return Vector2(x1 + (x2 - x1) * 0.5f, y1 + (y2 - y1) * 0.5f);
     }
+
+    bool includes(const Vector2 &point) const
+    {
+        return point.x >= x1 && point.x <= x2 && point.y >= y1 && point.y <= y2;
+    }
 };
 
 template <typename T>
@@ -223,10 +254,11 @@ void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Ra
 
 void shapeMatchAlignInit(PointMassesRange points, Shape &shape);
 
-void shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes);
+void shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes, int draggingShapeIndex);
 
 ShapeBoundingBox calculateShapeBoundingBox(const Shape &shape, int shapeIndex, const PointMasses &points);
 
+struct PhysicsSpace;
 struct ConsoleProfileInfo;
 
 struct RK4Integrator
@@ -238,20 +270,14 @@ struct RK4Integrator
     PointMasses rkTemp;
     Array<PointDerivative> rkEmptyDerivatives;
 
-    void prepareRK4Step(PointMassesRange &initialState, Range<Spring> &springs, float dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, bool gravityEnabled, ConsoleProfileInfo &profileInfo);
-    void updateRK4Springs(Range<Shape> shapeRange, Range<Spring> &springs, Array<PointDerivative> &outDerivatives, bool enableShapeMatching, ConsoleProfileInfo &profileInfo);
-    void performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, bool enableShapeMatching, ConsoleProfileInfo &profileInfo);
-    void performRK4Integration(
-        Range<Shape> shapeRange,
-        PointMassesRange points,
-        Range<Spring> springs,
-        bool gravityEnabled,
-        bool enableShapeMatching,
-        ConsoleProfileInfo &profileInfo);
+    void prepareRK4Step(PhysicsSpace &PhysicsSpace, float dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo);
+    void updateRK4Springs(PhysicsSpace &spaces, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo);
+    void performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange points, Range<Spring> springs, Range<PointDerivative> derivatives, bool enableShapeMatching, ConsoleProfileInfo &profileInfo);
+    void performRK4Integration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo);
 
-    void testRK4Performance(int iterations, Range<Shape> shapes, PointMassesRange points, Range<Spring> springs);
-    void testRK4PreparePerformance(int iterations, PointMassesRange points, Range<Spring> springs);
-    void testSpringPerformance(int iterations, Range<Shape> shapes, PointMassesRange points, Range<Spring> springs);
+    void testRK4Performance(int iterations, PhysicsSpace &space);
+    void testRK4PreparePerformance(int iterations, PhysicsSpace &space);
+    void testSpringPerformance(int iterations, PhysicsSpace &space);
 };
 
 struct PhysicsSpace
@@ -277,6 +303,8 @@ struct PhysicsSpace
     bool gravityEnabled;
     bool collisionsEnabled;
     bool shapeMatchingEnabled;
+    int draggingShapeIndex;
+    int draggingSubShapeIndex;
 };
 
 struct PhysicsIntegrator

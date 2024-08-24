@@ -60,7 +60,7 @@ UNIT_TEST(testShapeMatching, "Physics")
 
     printf("Rotated by: %f\n", -PI / 2.0f);
 
-    shapeMatchAlign(space.points.range(), space.shapes);
+    shapeMatchAlign(space.points.range(), space.shapes, space.draggingShapeIndex);
 
     for (int i = 0; i < range.size(); i++)
     {

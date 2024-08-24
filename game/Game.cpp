@@ -138,7 +138,6 @@ void Game::update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInf
 
 void Game::mouseButtonDown(int x, int y)
 {
-    Console::log("Mouse down: %d %d", x, y);
     for (int i = 0; i < m->physicsSpace.points.size(); i++)
     {
         Vector2 pos = m->physicsSpace.points.pos[i];
@@ -146,7 +145,35 @@ void Game::mouseButtonDown(int x, int y)
         {
             m->physicsSpace.mouseJoint.pointIndex = i;
             m->physicsSpace.mouseJoint.position = Vector2(x, y);
-            break;
+            return;
+        }
+    }
+
+    for (int i = 0; i < m->collisionSolver.boundingBoxes.size(); i++)
+    {
+        ShapeBoundingBox &box = m->collisionSolver.boundingBoxes[i];
+        if (box.includes(Vector2((float)x, (float)y)))
+        {
+
+            Shape &shape = m->physicsSpace.shapes[box.shapeIndex];
+            if (shape.subShapes.isValid())
+            {
+                for (int j = 0; j < shape.subShapes.size; j++)
+                {
+                    ShapeQuad &quad = shape.subShapes[j];
+                    if (quad.isPointInQuad(Vector2((float)x, (float)y)))
+                    {
+                        m->physicsSpace.draggingShapeIndex = box.shapeIndex;
+                        m->physicsSpace.draggingSubShapeIndex = j;
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                m->physicsSpace.draggingShapeIndex = box.shapeIndex;
+                break;
+            }
         }
     }
 }
@@ -154,9 +181,11 @@ void Game::mouseButtonDown(int x, int y)
 void Game::mouseButtonUp(int x, int y)
 {
     m->physicsSpace.mouseJoint.pointIndex = -1;
+    m->physicsSpace.draggingShapeIndex = -1;
+    m->physicsSpace.draggingSubShapeIndex = -1;
 }
 
-void Game::mouseMove(int x, int y)
+void Game::mouseMove(int x, int y, int relativeX, int relativeY)
 {
     if (m->physicsSpace.mouseJoint.pointIndex != -1)
     {
@@ -165,6 +194,31 @@ void Game::mouseMove(int x, int y)
         m->physicsSpace.points.velocity[i] = Vector2();
         m->physicsSpace.points.acceleration[i] = Vector2();
         m->physicsSpace.mouseJoint.position = Vector2((float)x, (float)y);
+    }
+
+    if (m->physicsSpace.draggingShapeIndex != -1)
+    {
+        Shape &shape = m->physicsSpace.shapes[m->physicsSpace.draggingShapeIndex];
+        Vector2 delta((float)relativeX, (float)relativeY);
+
+        if (shape.subShapes.isValid())
+        {
+            if (m->physicsSpace.draggingSubShapeIndex != -1)
+            {
+                ShapeQuad &quad = shape.subShapes[m->physicsSpace.draggingSubShapeIndex];
+                for (int i = 0; i < quad.size; i++)
+                {
+                    quad.shapePos[i] += delta;
+                }
+            }
+        }
+        else
+        {
+            for (int i = shape.start; i < shape.end; i++)
+            {
+                m->physicsSpace.points.shapePos[i] += delta;
+            }
+        }
     }
 }
 

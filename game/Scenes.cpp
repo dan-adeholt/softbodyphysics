@@ -33,6 +33,7 @@ SceneDefinition scenes[] = {
      {
          PhysicsSpace &space = game->physicsSpace();
          Shapes::createCircle(space, 600.0f, 350.0f, 110.0f, 0.2f);
+         
          Shapes::createStaticQuad(space, 149.0f, 90.0f, 50.0f, 600.0f, 1.0f);
          Shapes::createStaticQuad(space, 1099.0f, 90.0f, 50.0f, 600.0f, 1.0f);
          Shapes::createStaticQuad(space, 149.0f, 690.0f, 1000.0f, 50.0f, 1.0f);

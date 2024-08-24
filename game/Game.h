@@ -26,7 +26,7 @@ public:
 
     void mouseButtonDown(int x, int y);
     void mouseButtonUp(int x, int y);
-    void mouseMove(int x, int y);
+    void mouseMove(int x, int y, int relativeX, int relativeY);
 
     PhysicsSpace &physicsSpace();
 

@@ -311,11 +311,15 @@ void shapeMatchAlignInit(PointMassesRange points, Shape &shape)
     }
 }
 
-void shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes)
+void shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes, int draggingShapeIndex)
 {
     for (int i = 0; i < shapes.size(); i++)
     {
         Shape &shape = shapes[i];
+        if (i == draggingShapeIndex)
+        {
+            continue;
+        }
 
         if (shape.subShapes.isValid())
         {
@@ -535,42 +539,70 @@ void applySpringDerivatives(Range<Shape> &shapes, PointMassesRange &points, Rang
         }
         else
         {
+            Vector2 avgVelocity;
+
+            for (int j = shape.start; j < shape.end; j++)
+            {
+                avgVelocity += points.velocity[j];
+            }
+
+            avgVelocity /= (shape.end - shape.start);
+
             for (int j = shape.start; j < shape.end; j++)
             {
                 PointDerivative &derivative = derivatives[j];
-                Vector2 force = (points.shapePos[j] - points.pos[j]) * 0.00004f;
-                derivative.acceleration += force / points.mass[j];
+                float springStiffness = 0.1250f;
+                float springDamping = 800.9f;
+
+                Vector2 p0(points.shapePos[j]);
+                Vector2 p1(points.pos[j]);
+                Vector2 direction = p0 - p1;
+                float offsetLength = direction.length();
+
+                if (offsetLength > 0.001f)
+                {
+                    Vector2 directionNormalized = direction.normalized();
+
+                    Vector2 velocityAlongSpringAxis = directionNormalized * (points.velocity[j] - avgVelocity).dot(directionNormalized);
+                    Vector2 force = (p0 - p1) * 0.00005f;
+                    Vector2 acceleration = force / points.mass[j];
+                    // Console::log("Accel %f %f", acceleration.x, acceleration.y);
+
+                    derivative.acceleration += acceleration;
+                    derivative.acceleration += (velocityAlongSpringAxis * -0.00025f) / points.mass[j];
+                    // derivative.acceleration -= (points.velocity[j] - avgVelocity) * 0.000025f;
+                }
             }
         }
     }
 }
 
-void RK4Integrator::prepareRK4Step(PointMassesRange &initialState, Range<Spring> &springs, float dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, bool gravityEnabled, ConsoleProfileInfo &profileInfo)
+void RK4Integrator::prepareRK4Step(PhysicsSpace &space, float dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo)
 {
-    if (rkTemp.pos.size() != initialState.size())
+    if (rkTemp.pos.size() != space.points.size())
     {
-        rkTemp.pos.fill(Vector2(), initialState.size());
-        rkTemp.velocity.fill(Vector2(), initialState.size());
+        rkTemp.pos.fill(Vector2(), space.points.size());
+        rkTemp.velocity.fill(Vector2(), space.points.size());
     }
-    rkTemp.mass.replace(initialState.mass);
-    rkTemp.shapePos.replace(initialState.shapePos);
-    rkTemp.acceleration.fill(Vector2(), initialState.size());
+    rkTemp.mass.replace(space.points.mass);
+    rkTemp.shapePos.replace(space.points.shapePos);
+    rkTemp.acceleration.fill(Vector2(), space.points.size());
     PointDerivative outDerivative;
 
-    if (gravityEnabled)
+    if (space.gravityEnabled)
     {
         outDerivative.acceleration = Vector2(0.0f, 0.00015f); // Gravity
     }
-    outDerivatives.fill(outDerivative, initialState.size());
+    outDerivatives.fill(outDerivative, space.points.size());
 
     Vector2 *posOut = &rkTemp.pos[0];
     Vector2 *velOut = &rkTemp.velocity[0];
     PointDerivative *outDerivativeOut = &outDerivatives[0];
 
     PointDerivative *inDerivative = &derivatives[0];
-    Vector2 *posIn = &initialState.pos[0];
-    Vector2 *posOutEnd = posOut + initialState.size();
-    Vector2 *velIn = &initialState.velocity[0];
+    Vector2 *posIn = &space.points.pos[0];
+    Vector2 *posOutEnd = posOut + space.points.size();
+    Vector2 *velIn = &space.points.velocity[0];
 
     while (posOut != posOutEnd)
     {
@@ -584,12 +616,23 @@ void RK4Integrator::prepareRK4Step(PointMassesRange &initialState, Range<Spring>
     }
 }
 
-void RK4Integrator::updateRK4Springs(Range<Shape> shapeRange, Range<Spring> &springs, Array<PointDerivative> &outDerivatives, bool enableShapeMatching, ConsoleProfileInfo &profileInfo)
+void RK4Integrator::updateRK4Springs(PhysicsSpace &space, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo)
 {
     PointMassesRange pointsRange = rkTemp.range();
     Range<PointDerivative> derivativeRange = outDerivatives.range();
 
-    performThreadedSpringDerivatives(shapeRange, pointsRange, springs, derivativeRange, enableShapeMatching, profileInfo);
+    performThreadedSpringDerivatives(space.shapes.range(), pointsRange, space.springs.range(), derivativeRange, space.shapeMatchingEnabled, profileInfo);
+
+    if (space.draggingShapeIndex != -1)
+    {
+        Shape &shape = space.shapes[space.draggingShapeIndex];
+
+        for (int i = shape.start; i < shape.end; i++)
+        {
+            PointDerivative &derivative = outDerivatives[i];
+            derivative.acceleration += space.points.velocity[i] * -0.008f;
+        }
+    }
 }
 
 struct SpringJobData
@@ -607,7 +650,7 @@ void springJob(void *data)
     applySpringDerivatives(jobData->shapes, jobData->points, jobData->springs, jobData->derivatives, jobData->enableShapeMatching);
 }
 
-void RK4Integrator::performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, bool enableShapeMatching, ConsoleProfileInfo &profileInfo)
+void RK4Integrator::performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange points, Range<Spring> springs, Range<PointDerivative> derivatives, bool enableShapeMatching, ConsoleProfileInfo &profileInfo)
 {
     Timer springsTimer;
     SpringJobData springRanges[Scheduler::maxNumThreads];
@@ -631,8 +674,10 @@ void RK4Integrator::performThreadedSpringDerivatives(Range<Shape> shapeRange, Po
             curEnd++;
         }
 
+        int endShapeIndex = springs[curEnd - 1].shapeIndex + 1;
+
         springRanges[i] = {
-            shapeRange.slice(startShapeIndex, curShapeIndex - startShapeIndex + 1),
+            shapeRange.slice(startShapeIndex, endShapeIndex),
             springs.slice(curStart, curEnd),
             points,
             derivatives,
@@ -654,25 +699,25 @@ void RK4Integrator::performThreadedSpringDerivatives(Range<Shape> shapeRange, Po
     profileInfo.springsTimeMillis += springsTimer.elapsedMillis();
 }
 
-void RK4Integrator::performRK4Integration(Range<Shape> shapeRange, PointMassesRange points, Range<Spring> springs, bool gravityEnabled, bool enableShapeMatching, ConsoleProfileInfo &profileInfo)
+void RK4Integrator::performRK4Integration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo)
 {
-    if (rkEmptyDerivatives.size() != points.size())
+    if (rkEmptyDerivatives.size() != space.points.size())
     {
-        rkEmptyDerivatives.fill(PointDerivative(), points.size());
+        rkEmptyDerivatives.fill(PointDerivative(), space.points.size());
     }
 
-    prepareRK4Step(points, springs, 0.0, rkEmptyDerivatives, rk1, gravityEnabled, profileInfo);
-    updateRK4Springs(shapeRange, springs, rk1, enableShapeMatching, profileInfo);
-    prepareRK4Step(points, springs, physicsStep * 0.5, rk1, rk2, gravityEnabled, profileInfo);
-    updateRK4Springs(shapeRange, springs, rk2, enableShapeMatching, profileInfo);
-    prepareRK4Step(points, springs, physicsStep * 0.5, rk2, rk3, gravityEnabled, profileInfo);
-    updateRK4Springs(shapeRange, springs, rk3, enableShapeMatching, profileInfo);
-    prepareRK4Step(points, springs, physicsStep, rk3, rk4, gravityEnabled, profileInfo);
-    updateRK4Springs(shapeRange, springs, rk4, enableShapeMatching, profileInfo);
+    prepareRK4Step(space, 0.0, rkEmptyDerivatives, rk1, profileInfo);
+    updateRK4Springs(space, rk1, profileInfo);
+    prepareRK4Step(space, physicsStep * 0.5, rk1, rk2, profileInfo);
+    updateRK4Springs(space, rk2, profileInfo);
+    prepareRK4Step(space, physicsStep * 0.5, rk2, rk3, profileInfo);
+    updateRK4Springs(space, rk3, profileInfo);
+    prepareRK4Step(space, physicsStep, rk3, rk4, profileInfo);
+    updateRK4Springs(space, rk4, profileInfo);
 
     float factor = (1.0f / 6.0f) * physicsStep;
 
-    for (int i = 0; i < points.size(); i++)
+    for (int i = 0; i < space.points.size(); i++)
     {
         PointDerivative rk1d = rk1[i];
         PointDerivative rk2d = rk2[i];
@@ -681,43 +726,43 @@ void RK4Integrator::performRK4Integration(Range<Shape> shapeRange, PointMassesRa
 
         Vector2 deltaVelocity = (rk1d.velocity + (rk2d.velocity + rk3d.velocity) * 2.0f + rk4d.velocity) * factor;
         Vector2 deltaAcceleration = (rk1d.acceleration + (rk2d.acceleration + rk3d.acceleration) * 2.0f + rk4d.acceleration) * factor;
-        points.pos[i] += deltaVelocity;
-        points.velocity[i] += deltaAcceleration;
+        space.points.pos[i] += deltaVelocity;
+        space.points.velocity[i] += deltaAcceleration;
     }
 }
 
-void RK4Integrator::testRK4Performance(int iterations, Range<Shape> shapes, PointMassesRange points, Range<Spring> springs)
+void RK4Integrator::testRK4Performance(int iterations, PhysicsSpace &space)
 {
-    rkEmptyDerivatives.fill(PointDerivative(), points.size());
+    rkEmptyDerivatives.fill(PointDerivative(), space.points.size());
     ConsoleProfileInfo profileInfo;
 
     for (int i = 0; i < iterations; i++)
     {
-        performRK4Integration(shapes, points, springs, false, true, profileInfo);
+        performRK4Integration(space, profileInfo);
     }
 }
 
-void RK4Integrator::testRK4PreparePerformance(int iterations, PointMassesRange points, Range<Spring> springs)
+void RK4Integrator::testRK4PreparePerformance(int iterations, PhysicsSpace &space)
 {
     ConsoleProfileInfo profileInfo;
-    rkEmptyDerivatives.fill(PointDerivative(), points.size());
+    rkEmptyDerivatives.fill(PointDerivative(), space.points.size());
 
     for (int i = 0; i < iterations; i++)
     {
-        prepareRK4Step(points, springs, 0.0, rkEmptyDerivatives, rk1, true, profileInfo);
+        prepareRK4Step(space, 0.0, rkEmptyDerivatives, rk1, profileInfo);
     }
 }
 
-void RK4Integrator::testSpringPerformance(int iterations, Range<Shape> shapes, PointMassesRange points, Range<Spring> springs)
+void RK4Integrator::testSpringPerformance(int iterations, PhysicsSpace &space)
 {
     ConsoleProfileInfo profileInfo;
-    rkEmptyDerivatives.fill(PointDerivative(), points.size());
+    rkEmptyDerivatives.fill(PointDerivative(), space.points.size());
 
-    prepareRK4Step(points, springs, 0.0, rkEmptyDerivatives, rk1, true, profileInfo);
+    prepareRK4Step(space, 0.0, rkEmptyDerivatives, rk1, profileInfo);
     auto derivativeRange = rk1.range();
     for (int i = 0; i < iterations; i++)
     {
-        performThreadedSpringDerivatives(shapes, points, springs, derivativeRange, true, profileInfo);
+        performThreadedSpringDerivatives(space.shapes.range(), space.points.range(), space.springs.range(), derivativeRange, space.shapeMatchingEnabled, profileInfo);
     }
 }
 
@@ -753,7 +798,7 @@ void updateSortedBoundingBoxes(Array<ShapeBoundingBox> &sortedBoundingBoxes, Arr
     }
 }
 
-PhysicsSpace::PhysicsSpace() : gravityEnabled(true), collisionsEnabled(true), shapeMatchingEnabled(true)
+PhysicsSpace::PhysicsSpace() : gravityEnabled(true), collisionsEnabled(true), shapeMatchingEnabled(true), draggingShapeIndex(-1), draggingSubShapeIndex(-1)
 {
     shapes.reserve(NUM_SHAPES);
     partialShapes.reserve(NUM_SHAPES);
@@ -929,8 +974,8 @@ void PhysicsCollisionSolver::handleCollisions(PhysicsSpace &space, float step, C
 
 void PhysicsIntegrator::performIntegration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo)
 {
-    shapeMatchAlign(space.points.range(), space.shapes);
-    rk4Integrator.performRK4Integration(space.shapes.range(), space.points.range(), space.springs.range(), space.gravityEnabled, space.shapeMatchingEnabled, profileInfo);
+    shapeMatchAlign(space.points.range(), space.shapes, space.draggingShapeIndex);
+    rk4Integrator.performRK4Integration(space, profileInfo);
 
     for (int i = 0; i < space.staticJoints.size(); i++)
     {

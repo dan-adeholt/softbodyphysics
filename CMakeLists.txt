@@ -19,6 +19,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         -Werror=null-dereference
         -Werror=return-type
         -Werror=uninitialized
+        -Wno-unused-variable
         -Wno-unused-parameter
     )
 endif()

@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
     bool quit = false;
 
     Game game;
-    game.init("Box");
+    game.init("Bridge");
     uint64_t startNanos = monotonicTimeNanos();
     bool show_demo_window = false;
 
@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
                 game.mouseButtonUp(event.button.x, event.button.y);
                 break;
             case SDL_MOUSEMOTION:
-                game.mouseMove(event.motion.x, event.motion.y);
+                game.mouseMove(event.motion.x, event.motion.y, event.motion.xrel, event.motion.yrel);
                 break;
             }
         }
