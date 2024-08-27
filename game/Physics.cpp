@@ -103,6 +103,99 @@ IntersectionResult lineIntersection(const Vector2 &s1, const Vector2 &s2, const 
     return res; // No interseweqction within segments
 }
 
+Vector2 intersectLineSegmentPoint(const Vector2 &p0, const Vector2 &p1, Vector2 d)
+{
+    Vector2 segment = p1 - p0;
+    d = d.normalized();
+
+    float denom = d.dot(segment);
+    if (abs(denom) < 1e-6f)
+    {
+        // Line and direction are parallel
+        return p0;
+    }
+
+    float t = segment.dot(d) / segment.dot(segment);
+
+    if (t < 0)
+    {
+        // Intersection is behind p0, reverse direction
+        d = Vector2(-d.x, -d.y);
+        t = segment.dot(d) / segment.dot(segment);
+    }
+
+    // Clamp t between 0 and 1
+    t = clamp(t, 0.0f, 1.0f);
+    return p0 + segment * t;
+}
+
+float direction(const Vector2 &p1, const Vector2 &p2, const Vector2 &p3)
+{
+    return (p3.x - p1.x) * (p2.y - p1.y) - (p2.x - p1.x) * (p3.y - p1.y);
+}
+
+bool onSegment(const Vector2 &p1, const Vector2 &p2, const Vector2 &p)
+{
+    return (min(p1.x, p2.x) <= p.x && p.x <= max(p1.x, p2.x) &&
+            min(p1.y, p2.y) <= p.y && p.y <= max(p1.y, p2.y));
+}
+
+bool lineSegmentsIntersect(const Vector2 &p1, const Vector2 &p2,
+                           const Vector2 &p3, const Vector2 &p4)
+{
+    float d1 = direction(p3, p4, p1);
+    float d2 = direction(p3, p4, p2);
+    float d3 = direction(p1, p2, p3);
+    float d4 = direction(p1, p2, p4);
+
+    if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+        ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0)))
+        return true;
+    if (d1 == 0 && onSegment(p3, p4, p1))
+        return true;
+    if (d2 == 0 && onSegment(p3, p4, p2))
+        return true;
+    if (d3 == 0 && onSegment(p1, p2, p3))
+        return true;
+    if (d4 == 0 && onSegment(p1, p2, p4))
+        return true;
+    return false;
+}
+
+bool shapesOverlap(const PointMassesRange &poly1, const PointMassesRange &poly2)
+{
+    for (int i = 0; i < poly1.size(); ++i)
+    {
+        for (int j = 0; j < poly2.size(); ++j)
+        {
+            if (lineSegmentsIntersect(poly1.pos[i], poly1.pos[(i + 1) % poly1.size()],
+                                      poly2.pos[j], poly2.pos[(j + 1) % poly2.size()]))
+                return true;
+        }
+    }
+    return false;
+}
+
+bool pointInShape(const Vector2 &point, const PointMassesRange &shape)
+{
+    bool inside = false;
+    int j = shape.size() - 1;
+
+    for (int i = 0; i < shape.size(); i++)
+    {
+        if ((shape.pos[i].y > point.y) != (shape.pos[j].y > point.y) &&
+            point.x < (shape.pos[j].x - shape.pos[i].x) * (point.y - shape.pos[i].y) /
+                              (shape.pos[j].y - shape.pos[i].y) +
+                          shape.pos[i].x)
+        {
+            inside = !inside;
+        }
+        j = i;
+    }
+
+    return inside;
+}
+
 int countNumCollisions(PointMassesRange collisionShape, float pointX, float pointY, float outX)
 {
     int numIntersections = 0;
@@ -202,6 +295,7 @@ bool isPointOutsideShape(float pointX, float pointY, const ShapeBoundingBox &box
 int calculateCollisions(
     PointMassesRange collisionShape,
     PointMassesRange movingShape,
+    PointMassesRange movingShapePrevPos,
     const ShapeBoundingBox &collisionBox,
     const ShapeBoundingBox &movingBox,
     float step)
@@ -385,6 +479,7 @@ void shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes, int dragging
 int calculateStaticCollisions(
     PointMassesRange staticShape,
     PointMassesRange movingShape,
+    PointMassesRange movingShapePrevPos,
     const ShapeBoundingBox &staticBox,
     const ShapeBoundingBox &movingBox,
     float step)
@@ -621,6 +716,11 @@ void RK4Integrator::updateRK4Springs(PhysicsSpace &space, Array<PointDerivative>
     PointMassesRange pointsRange = rkTemp.range();
     Range<PointDerivative> derivativeRange = outDerivatives.range();
 
+    if (!space.springsEnabled)
+    {
+        return;
+    }
+
     performThreadedSpringDerivatives(space.shapes.range(), pointsRange, space.springs.range(), derivativeRange, space.shapeMatchingEnabled, profileInfo);
 
     if (space.draggingShapeIndex != -1)
@@ -728,6 +828,13 @@ void RK4Integrator::performRK4Integration(PhysicsSpace &space, ConsoleProfileInf
         Vector2 deltaAcceleration = (rk1d.acceleration + (rk2d.acceleration + rk3d.acceleration) * 2.0f + rk4d.acceleration) * factor;
         space.points.pos[i] += deltaVelocity;
         space.points.velocity[i] += deltaAcceleration;
+
+        float velocityAmplitude = space.points.velocity[i].length();
+
+        if (velocityAmplitude > 2.0f)
+        {
+            space.points.velocity[i] *= 2.0f / velocityAmplitude;
+        }
     }
 }
 
@@ -798,7 +905,7 @@ void updateSortedBoundingBoxes(Array<ShapeBoundingBox> &sortedBoundingBoxes, Arr
     }
 }
 
-PhysicsSpace::PhysicsSpace() : gravityEnabled(true), collisionsEnabled(true), shapeMatchingEnabled(true), draggingShapeIndex(-1), draggingSubShapeIndex(-1)
+PhysicsSpace::PhysicsSpace() : gravityEnabled(true), collisionsEnabled(true), shapeMatchingEnabled(true), springsEnabled(true), draggingShapeIndex(-1), draggingSubShapeIndex(-1)
 {
     shapes.reserve(NUM_SHAPES);
     partialShapes.reserve(NUM_SHAPES);
@@ -846,6 +953,10 @@ void PhysicsSpace::clear()
     shapeMatchingEnabled = true;
 }
 
+PhysicsCollisionSolver::PhysicsCollisionSolver() : collisionMap(0)
+{
+}
+
 void PhysicsCollisionSolver::clear()
 {
     boundingBoxes.clear();
@@ -854,8 +965,40 @@ void PhysicsCollisionSolver::clear()
     sortedStaticBoundingBoxes.clear();
 }
 
-void PhysicsCollisionSolver::handleCollisions(PhysicsSpace &space, float step, ConsoleProfileInfo &profileInfo)
+void PhysicsCollisionSolver::handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSpace, float step, ConsoleProfileInfo &profileInfo)
 {
+    int numElementsWithStatic = space.shapes.size() + space.staticShapes.size();
+
+    for (int i = 0; i < resolvedCollisionPairs.size(); i++)
+    {
+        CollisionPair &pair = resolvedCollisionPairs[i];
+        const Shape &shape1 = space.shapes[pair.shape1Index];
+
+        PointMassesRange range1 = space.points.range(shape1);
+        PointMassesRange range2;
+        if (pair.shape2Index >= space.shapes.size())
+        {
+            range2 = space.staticPoints.range(space.staticShapes[pair.shape2Index - space.shapes.size()]);
+        }
+        else
+        {
+            const Shape &shape2 = space.shapes[pair.shape2Index];
+            range2 = space.points.range(shape2);
+        }
+
+        if (!shapesOverlap(range1, range2))
+        {
+            collisionMap.resetCollision(pair.shape1Index, pair.shape2Index);
+        }
+    }
+
+    resolvedCollisionPairs.clear();
+
+    if (collisionMap.numElements != numElementsWithStatic)
+    {
+        collisionMap.resize(numElementsWithStatic);
+    }
+
     if (boundingBoxes.capacity() == 0)
     {
         boundingBoxes.reserve(space.shapes.size());
@@ -931,9 +1074,43 @@ void PhysicsCollisionSolver::handleCollisions(PhysicsSpace &space, float step, C
                 if (otherBox.y1 <= box.y2 && otherBox.y2 >= box.y1)
                 {
                     // Check for collision
+                    int numCollisions = collisionMap.getCollisionCount(box.shapeIndex, otherBox.shapeIndex);
                     const Shape &shape2 = space.shapes[otherBox.shapeIndex];
-                    calculateCollisions(space.points.range(shape1), space.points.range(shape2), box, otherBox, step);
-                    calculateCollisions(space.points.range(shape2), space.points.range(shape1), otherBox, box, step);
+
+                    if (numCollisions < 128)
+                    {
+                        calculateCollisions(space.points.range(shape1), space.points.range(shape2), prevSpace.points.range(shape2), box, otherBox, step);
+                        calculateCollisions(space.points.range(shape2), space.points.range(shape1), prevSpace.points.range(shape1), otherBox, box, step);
+
+                        if (shapesOverlap(space.points.range(shape1), space.points.range(shape2)))
+                        {
+                            collisionMap.incrementCollision(box.shapeIndex, otherBox.shapeIndex);
+                        }
+                    }
+                    else if (shapesOverlap(space.points.range(shape1), space.points.range(shape2)))
+                    {
+                        resolvedCollisionPairs.push({box.shapeIndex, otherBox.shapeIndex});
+                        PointMassesRange range1 = space.points.range(shape1);
+                        PointMassesRange range2 = space.points.range(shape2);
+                        if (box.shapeIndex < otherBox.shapeIndex)
+                        {
+                            swap(range1, range2);
+                        }
+
+                        for (int i = 0; i < range1.size(); i++)
+                        {
+                            range1.acceleration[i] += Vector2(0.0002f, 0.0002f);
+                        }
+
+                        for (int i = 0; i < range2.size(); i++)
+                        {
+                            range2.acceleration[i] -= Vector2(0.005f, 0.0001f);
+                        }
+                    }
+                    else
+                    {
+                        collisionMap.resetCollision(box.shapeIndex, otherBox.shapeIndex);
+                    }
                 }
             }
             else
@@ -950,11 +1127,69 @@ void PhysicsCollisionSolver::handleCollisions(PhysicsSpace &space, float step, C
         for (int j = staticIndex; j < sortedStaticBoundingBoxes.size(); j++)
         {
             const ShapeBoundingBox &staticBox = sortedStaticBoundingBoxes[j];
+            int staticShapeIndex = staticBox.shapeIndex + space.shapes.size();
+
             if (staticBox.x1 < box.x2)
             {
+                // Due to the sorted nature of the bounding boxes, we already know that
+                // staticBox.x1 >= box.x1, so we only need to check the other axis
+                if (staticBox.y1 > box.y2 || staticBox.y2 < box.y1)
+                {
+                    continue;
+                }
+
                 const Shape &staticShape = space.staticShapes[staticBox.shapeIndex];
-                calculateStaticCollisions(space.staticPoints.range(staticShape), space.points.range(shape1), staticBox, box, step);
-                // Check for collision
+
+                int collisionCount = collisionMap.getCollisionCount(box.shapeIndex, staticShapeIndex);
+                if (collisionCount < 64)
+                {
+                    calculateStaticCollisions(space.staticPoints.range(staticShape), space.points.range(shape1), prevSpace.points.range(shape1), staticBox, box, step);
+                    if (shapesOverlap(space.points.range(shape1), space.staticPoints.range(staticShape)))
+                    {
+                        collisionMap.incrementCollision(box.shapeIndex, staticShapeIndex);
+                    }
+                    else
+                    {
+                        PointMassesRange range1 = space.staticPoints.range(staticShape);
+                        PointMassesRange range2 = space.points.range(shape1);
+                        collisionMap.resetCollision(box.shapeIndex, staticShapeIndex);
+                    }
+                }
+                else
+                {
+                    if (shapesOverlap(space.points.range(shape1), space.staticPoints.range(staticShape)))
+                    {
+                        resolvedCollisionPairs.push({box.shapeIndex, staticShapeIndex});
+                        PointMassesRange range1 = space.points.range(shape1);
+                        PointMassesRange range2 = space.staticPoints.range(staticShape);
+                        Vector2 centerOutsideMovingShape;
+                        int numOutside = 0;
+
+                        for (int i = 0; i < range1.size(); i++)
+                        {
+                            if (!pointInShape(range1.pos[i], range2))
+                            {
+                                centerOutsideMovingShape += range1.pos[i];
+                                numOutside++;
+                            }
+                        }
+
+                        centerOutsideMovingShape /= numOutside;
+
+                        for (int i = 0; i < range1.size(); i++)
+                        {
+                            if (pointInShape(range1.pos[i], range2))
+                            {
+                                Vector2 dirToOutside = centerOutsideMovingShape - range1.pos[i];
+                                range1.acceleration[i] += dirToOutside * 0.001f;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        collisionMap.resetCollision(box.shapeIndex, staticShapeIndex);
+                    }
+                }
             }
             else
             {

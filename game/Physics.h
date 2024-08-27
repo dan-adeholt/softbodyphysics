@@ -4,12 +4,65 @@
 #include "../containers/Span.h"
 #include "../containers/Array.h"
 #include "Vector2.h"
+#include "../utils/Console.h"
 
 extern const float physicsStep;
 
+struct CollisionMap
+{
+    Array<unsigned char> data;
+    int numElements;
+
+    int calculateIndex(int i, int j) const
+    {
+        if (i > j)
+        {
+            int temp = i;
+            i = j;
+            j = temp;
+        }
+
+        return (j * (j - 1) / 2) + i;
+    }
+
+    static int arraySize(int numElements)
+    {
+        return (numElements * (numElements - 1)) / 2;
+    }
+
+    CollisionMap(int numElements) : data(CollisionMap::arraySize(numElements)), numElements(numElements) {}
+
+    void resize(int numElements)
+    {
+        Console::log("Filling");
+        data.fill(0, CollisionMap::arraySize(numElements));
+        this->numElements = numElements;
+    }
+
+    void resetCollision(int i, int j)
+    {
+        int index = calculateIndex(i, j);
+        data[index] = 0;
+    }
+
+    void incrementCollision(int i, int j)
+    {
+        int index = calculateIndex(i, j);
+        if (data[index] < 255)
+        {
+            ++data[index];
+        }
+    }
+
+    unsigned char getCollisionCount(int i, int j) const
+    {
+        return data[calculateIndex(i, j)];
+    }
+};
+
 struct PointMassesRange
 {
-    int size()
+    int size() const
     {
         return this->pos.size;
     }
@@ -217,6 +270,11 @@ struct ShapeBoundingBox
     {
         return point.x >= x1 && point.x <= x2 && point.y >= y1 && point.y <= y2;
     }
+
+    bool overlaps(const ShapeBoundingBox &other) const
+    {
+        return x1 < other.x2 && x2 > other.x1 && y1 < other.y2 && y2 > other.y1;
+    }
 };
 
 template <typename T>
@@ -234,7 +292,8 @@ struct CollisionResult
 
 int calculateCollisions(
     PointMassesRange shape1,
-    PointMassesRange shape2,
+    PointMassesRange movingShape,
+    PointMassesRange movingShapePrevPos,
     const ShapeBoundingBox &box1,
     const ShapeBoundingBox &box2,
     float step);
@@ -242,6 +301,7 @@ int calculateCollisions(
 int calculateStaticCollisions(
     PointMassesRange staticShape,
     PointMassesRange movingShape,
+    PointMassesRange movingShapePrevPos,
     const ShapeBoundingBox &staticBox,
     const ShapeBoundingBox &movingBox,
     float step);
@@ -257,6 +317,10 @@ void shapeMatchAlignInit(PointMassesRange points, Shape &shape);
 void shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes, int draggingShapeIndex);
 
 ShapeBoundingBox calculateShapeBoundingBox(const Shape &shape, int shapeIndex, const PointMasses &points);
+
+bool shapesOverlap(const PointMassesRange &poly1, const PointMassesRange &poly2);
+
+bool pointInShape(const Vector2 &point, const PointMassesRange &shape);
 
 struct PhysicsSpace;
 struct ConsoleProfileInfo;
@@ -303,6 +367,7 @@ struct PhysicsSpace
     bool gravityEnabled;
     bool collisionsEnabled;
     bool shapeMatchingEnabled;
+    bool springsEnabled;
     int draggingShapeIndex;
     int draggingSubShapeIndex;
 };
@@ -313,15 +378,27 @@ struct PhysicsIntegrator
     void performIntegration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo);
 };
 
+struct CollisionPair
+{
+    int shape1Index;
+    int shape2Index;
+};
+
 struct PhysicsCollisionSolver
 {
+    PhysicsCollisionSolver();
     void clear();
-    void handleCollisions(PhysicsSpace &space, float step, ConsoleProfileInfo &profileInfo);
+    void handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSpace, float step, ConsoleProfileInfo &profileInfo);
 
+    CollisionMap collisionMap;
+    Array<CollisionPair> resolvedCollisionPairs;
     Array<ShapeBoundingBox> boundingBoxes;
     Array<ShapeBoundingBox> staticBoundingBoxes;
     Array<ShapeBoundingBox> sortedBoundingBoxes;
     Array<ShapeBoundingBox> sortedStaticBoundingBoxes;
+    Array<int> ejectShapeIndices;
 };
+
+Vector2 intersectLineSegmentPoint(const Vector2 &p0, const Vector2 &p1, Vector2 d);
 
 #endif

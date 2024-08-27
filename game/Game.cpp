@@ -18,7 +18,7 @@
 
 struct Game::Impl
 {
-    Impl() : historicalIndex(0), historyRewindIndex(0), timeBucket(0.0)
+    Impl() : historicalIndex(0), historyRewindIndex(0), timeBucket(0.0), iterationNumber(0), timeSkip(0), paused(false), currentSceneName(nullptr)
     {
     }
 
@@ -37,10 +37,24 @@ struct Game::Impl
     PhysicsIntegrator integrator;
 
     double timeBucket;
+    int iterationNumber;
+    int timeSkip;
+    bool paused;
+    const char *currentSceneName;
 };
 
 Game::Game() : m(new Game::Impl)
 {
+}
+
+void Game::init(const SceneDefinition &scene)
+{
+    clear();
+    PhysicsSpace &space = physicsSpace();
+    space.collisionsEnabled = true;
+    space.gravityEnabled = true;
+    scene.initFunc(this);
+    m->currentSceneName = scene.name;
 }
 
 void Game::init(const char *sceneType)
@@ -50,7 +64,7 @@ void Game::init(const char *sceneType)
         const SceneDefinition &def = SceneDefinition::allScenes[i];
         if (strcmp(def.name, sceneType) == 0)
         {
-            def.initFunc(this);
+            init(def);
             return;
         }
     }
@@ -92,31 +106,48 @@ void Game::forwardHistory()
     updateAfterRewindOrForward();
 }
 
+const float gameStep = 1000.0f / 120.0f;
+
 void Game::update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInfo)
 {
     m->timeBucket += elapsedTimeMilliseconds;
     profileInfo.elapsedStepTimeMillis = elapsedTimeMilliseconds;
-    if (m->timeBucket >= physicsStep)
+    if (m->timeBucket >= gameStep)
     {
         Console::clearFrame();
     }
 
     Timer updateTimer;
     int numIterations = 0;
-
-    while (m->timeBucket > physicsStep)
+    int prevStateIndex = m->historicalIndex - 1;
+    if (prevStateIndex < 0)
     {
-        m->integrator.performIntegration(m->physicsSpace, profileInfo);
+        prevStateIndex = NUM_HISTORICAL_STATES - 1;
+    }
+    PhysicsSpace &prevSpace = m->history[prevStateIndex];
 
-        bool updateCollisions = numIterations % 8 == 0;
-
-        if (m->physicsSpace.collisionsEnabled && updateCollisions)
+    while (m->timeBucket > gameStep)
+    {
+        if (m->timeSkip > 0 && m->iterationNumber % m->timeSkip != 0)
         {
-            m->collisionSolver.handleCollisions(m->physicsSpace, physicsStep, profileInfo);
+            m->timeBucket -= gameStep;
+            m->iterationNumber++;
+            continue;
         }
 
-        m->timeBucket -= physicsStep;
+        for (int i = 0; i < 8; i++)
+        {
+            m->integrator.performIntegration(m->physicsSpace, profileInfo);
+        }
+
+        if (m->physicsSpace.collisionsEnabled)
+        {
+            m->collisionSolver.handleCollisions(m->physicsSpace, prevSpace, physicsStep, profileInfo);
+        }
+
+        m->timeBucket -= gameStep;
         numIterations++;
+        m->iterationNumber++;
 
         if (updateTimer.elapsedMillis() > elapsedTimeMilliseconds)
         {
@@ -125,15 +156,19 @@ void Game::update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInf
         }
     }
 
-    profileInfo.numPhysicsSteps = numIterations;
-    profileInfo.numSprings = m->physicsSpace.springs.size();
-    profileInfo.physicsTimeMillis = updateTimer.elapsedMillis() / numIterations;
-    profileInfo.springsTimeMillis /= numIterations;
+    if (numIterations > 0)
+    {
+        int numPhysicsIterations = 8;
+        profileInfo.numPhysicsSteps = numPhysicsIterations;
+        profileInfo.numSprings = m->physicsSpace.springs.size();
+        profileInfo.physicsTimeMillis = updateTimer.elapsedMillis() / numPhysicsIterations;
+        profileInfo.springsTimeMillis /= numPhysicsIterations;
 
-    m->history[m->historicalIndex].assign(m->physicsSpace);
+        m->history[m->historicalIndex].assign(m->physicsSpace);
 
-    m->historyRewindIndex = m->historicalIndex;
-    m->historicalIndex = (m->historicalIndex + 1) % NUM_HISTORICAL_STATES;
+        m->historyRewindIndex = m->historicalIndex;
+        m->historicalIndex = (m->historicalIndex + 1) % NUM_HISTORICAL_STATES;
+    }
 }
 
 void Game::mouseButtonDown(int x, int y)
@@ -225,6 +260,21 @@ void Game::mouseMove(int x, int y, int relativeX, int relativeY)
 PhysicsSpace &Game::physicsSpace()
 {
     return m->physicsSpace;
+}
+
+const char *Game::currentSceneName()
+{
+    return m->currentSceneName;
+}
+
+int &Game::timeSkip()
+{
+    return m->timeSkip;
+}
+
+bool &Game::paused()
+{
+    return m->paused;
 }
 
 void Game::clear()

@@ -29,15 +29,52 @@ SceneDefinition scenes[] = {
 
          game->physicsSpace().gravityEnabled = false;
      }},
+    {"Stuck quads", [](Game *game)
+     {
+         float size = 100.0f;
+         Vector2 box2Pos(700.0f, 290.0f);
+         PhysicsSpace &space = game->physicsSpace();
+         Shapes::createQuad(space, 400.0f, 220.0f, size, size, 1.0f);
+         Shapes::createQuad(space, 440.0f, 225.0f, size, size, 1.0f);
+         Shape &firstBox = space.shapes[0];
+         Shape &secondBox = space.shapes[1];
+         firstBox.name = "Moving box";
+         secondBox.name = "Static box";
+
+         game->physicsSpace().gravityEnabled = false;
+     }},
+    {"Colliding circles", [](Game *game)
+     {
+         float size = 70.0f;
+         Vector2 box2Pos(700.0f, 290.0f);
+         PhysicsSpace &space = game->physicsSpace();
+         Shapes::createCircle(space, 400.0f, 320.0f, size, 1.0f);
+         Shapes::createCircle(space, 800.0f, 320.5f, size, 1.0f);
+         Shape &firstBox = space.shapes[0];
+         Shape &secondBox = space.shapes[1];
+         firstBox.name = "Moving box";
+         secondBox.name = "Static box";
+         Shapes::createStaticQuad(space, 1099.0f, 90.0f, 50.0f, 600.0f, 1.0f);
+
+         PointMassesRange firstBoxPoints = space.points.range(firstBox);
+         for (Vector2 &velocity : firstBoxPoints.velocity)
+         {
+             velocity.x = 3.5f;
+             //  velocity.y = 0.01f;
+         }
+
+         game->physicsSpace().gravityEnabled = false;
+     }},
     {"Circle", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();
          Shapes::createCircle(space, 600.0f, 350.0f, 110.0f, 0.2f);
-         
-         Shapes::createStaticQuad(space, 149.0f, 90.0f, 50.0f, 600.0f, 1.0f);
-         Shapes::createStaticQuad(space, 1099.0f, 90.0f, 50.0f, 600.0f, 1.0f);
+
+         Shapes::createStaticQuad(space, 149.0f, 91.0f, 50.0f, 598.0f, 1.0f);
+         Shapes::createStaticQuad(space, 1099.0f, 91.0f, 50.0f, 598.0f, 1.0f);
          Shapes::createStaticQuad(space, 149.0f, 690.0f, 1000.0f, 50.0f, 1.0f);
          Shapes::createStaticQuad(space, 149.0f, 40.0f, 1000.0f, 50.0f, 1.0f);
+         space.gravityEnabled = false;
      }},
     {"Collision grid", [](Game *game)
      {

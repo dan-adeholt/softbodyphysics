@@ -139,21 +139,18 @@ void Console::draw(Game &game, ConsoleProfileInfo profileInfo)
             ImGui::EndTabItem();
         }
 
+        const char *currentSceneName = game.currentSceneName();
         if (ImGui::BeginTabItem("Scenes"))
         {
             ImGui::BeginListBox("##empty");
             for (int i = 0; i < SceneDefinition::numScenes; i++)
             {
                 const SceneDefinition &scene = SceneDefinition::allScenes[i];
-                const bool isSelected = (selectedSceneIndex == i);
+
+                const bool isSelected = currentSceneName != nullptr && strcmp(scene.name, currentSceneName) == 0;
                 if (ImGui::Selectable(scene.name, isSelected))
                 {
-                    game.clear();
-                    PhysicsSpace &space = game.physicsSpace();
-                    space.collisionsEnabled = true;
-                    space.gravityEnabled = true;
-                    scene.initFunc(&game);
-                    selectedSceneIndex = i;
+                    game.init(scene);
                 }
 
                 // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
@@ -169,6 +166,53 @@ void Console::draw(Game &game, ConsoleProfileInfo profileInfo)
 
         ImGui::EndTabBar();
     }
+
+    ImGui::SeparatorText("Settings");
+    ImGui::Checkbox("Gravity", &game.physicsSpace().gravityEnabled);
+    ImGui::Checkbox("Collisions", &game.physicsSpace().collisionsEnabled);
+    ImGui::Checkbox("Shape matching", &game.physicsSpace().shapeMatchingEnabled);
+    ImGui::Checkbox("Springs", &game.physicsSpace().springsEnabled);
+    ImGui::DragInt("Slowdown", &game.timeSkip(), 1, 0, 25, "%d", ImGuiSliderFlags_AlwaysClamp);
+
+    ImGui::Text("Playback");
+    const char *currentSceneName = game.currentSceneName();
+
+    ImVec2 buttonSize(ImGui::GetContentRegionAvail().x / 5.0f - 6.0f, 0);
+    if (ImGui::Button("<<|", buttonSize) && currentSceneName != nullptr)
+    {
+        const SceneDefinition *scene = SceneDefinition::getDefinitionFromName(currentSceneName);
+        game.init(*scene);
+    }
+
+    ImGui::PushButtonRepeat(true);
+    ImGui::SameLine();
+
+    if (ImGui::Button("<<", buttonSize))
+    {
+        game.paused() = true;
+        game.rewindHistory();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button(game.paused() ? ">" : "||", buttonSize))
+    {
+        game.paused() = !game.paused();
+    }
+    ImGui::SameLine();
+
+    if (ImGui::Button(".>", buttonSize))
+    {
+        game.update(1000.0 / 120.0, profileInfo);
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::Button(">>", buttonSize))
+    {
+        game.paused() = true;
+        game.forwardHistory();
+    }
+
+    ImGui::PopButtonRepeat();
 
     ImGui::SeparatorText("Profile info");
     ImGui::Text("Total Physics time: %.2lf ms", profileInfo.totalPhysicsTimeMillis);

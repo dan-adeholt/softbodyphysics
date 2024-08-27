@@ -78,6 +78,8 @@ int main(int argc, char *argv[])
     ImGui::StyleColorsLight();
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer2_Init(renderer);
+    ImGui::GetIO().KeyRepeatDelay = 0.06f;
+    ImGui::GetIO().KeyRepeatRate = 0.02f;
 
     SDL_Rect rectangle;
     rectangle.x = (WINDOW_WIDTH - 100) / 2;
@@ -86,12 +88,11 @@ int main(int argc, char *argv[])
     rectangle.h = 100;
 
     bool renderShapeMatching = false;
-    bool paused = false;
     SDL_Event event;
     bool quit = false;
 
     Game game;
-    game.init("Bridge");
+    game.init("Circle");
     uint64_t startNanos = monotonicTimeNanos();
     bool show_demo_window = false;
 
@@ -125,7 +126,7 @@ int main(int argc, char *argv[])
                     game.physicsSpace().shapeMatchingEnabled = !game.physicsSpace().shapeMatchingEnabled;
                     break;
                 case SDLK_F5:
-                    paused = !paused;
+                    game.paused() = !game.paused();
                     break;
                 case SDLK_F8:
                     game.update(1000.0 / 120.0, profileInfo);
@@ -204,7 +205,7 @@ int main(int argc, char *argv[])
 
         // printf("Elapsed milliseconds: %f\n", elapsedMilliseconds);
 
-        if (!paused)
+        if (!game.paused())
         {
             if (Console::executingTest())
             {

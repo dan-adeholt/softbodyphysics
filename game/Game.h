@@ -1,6 +1,7 @@
 #ifndef __GAME_H
 #define __GAME_H
 
+struct SceneDefinition;
 struct PhysicsSpace;
 struct ConsoleProfileInfo;
 
@@ -18,6 +19,7 @@ public:
 
     void clear();
     void init(const char *sceneType);
+    void init(const SceneDefinition &sceneDefinition);
 
     void update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInfo);
 
@@ -29,6 +31,11 @@ public:
     void mouseMove(int x, int y, int relativeX, int relativeY);
 
     PhysicsSpace &physicsSpace();
+
+    int &timeSkip();
+    bool &paused();
+
+    const char *currentSceneName();
 
 private:
     void updateAfterRewindOrForward();
