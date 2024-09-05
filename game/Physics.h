@@ -34,9 +34,13 @@ struct CollisionMap
 
     void resize(int numElements)
     {
-        Console::log("Filling");
         data.fill(0, CollisionMap::arraySize(numElements));
         this->numElements = numElements;
+    }
+
+    void clear()
+    {
+        data.fill(0, CollisionMap::arraySize(this->numElements));
     }
 
     void resetCollision(int i, int j)
@@ -232,17 +236,19 @@ struct Spring
 
 struct Shape
 {
+    Shape() : start(0), end(0), volume(0.0f), subShapeSpan() {}
+    Shape(int start, int end, float volume = 0.0f) : start(start), end(end), volume(volume), subShapeSpan() {}
+
     int start;
     int end;
-    const char *name;
     float volume;
 
     operator Span() const
     {
-        return Span{start, end};
+        return Span(start, end);
     }
 
-    Range<ShapeQuad> subShapes;
+    Span subShapeSpan;
 };
 
 struct ShapeBoundingBox
@@ -310,11 +316,11 @@ void findClosestLineSegmentToPoint(PointMassesRange collisionShape, const Vector
 
 void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<Shape> &shapes, const PointMasses &points);
 
-void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, bool enableShapeMatching);
+void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, Range<ShapeQuad> partialShapes, bool enableShapeMatching);
 
-void shapeMatchAlignInit(PointMassesRange points, Shape &shape);
+void shapeMatchAlignInit(PointMassesRange points, Shape &shape, Range<ShapeQuad> partialShapes);
 
-void shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes, int draggingShapeIndex);
+void shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes, Range<ShapeQuad> partialShapes, int draggingShapeIndex);
 
 ShapeBoundingBox calculateShapeBoundingBox(const Shape &shape, int shapeIndex, const PointMasses &points);
 
@@ -336,7 +342,7 @@ struct RK4Integrator
 
     void prepareRK4Step(PhysicsSpace &PhysicsSpace, float dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo);
     void updateRK4Springs(PhysicsSpace &spaces, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo);
-    void performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange points, Range<Spring> springs, Range<PointDerivative> derivatives, bool enableShapeMatching, ConsoleProfileInfo &profileInfo);
+    void performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange points, Range<Spring> springs, Range<PointDerivative> derivatives, Range<ShapeQuad> partialShapes, bool enableShapeMatching, ConsoleProfileInfo &profileInfo);
     void performRK4Integration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo);
 
     void testRK4Performance(int iterations, PhysicsSpace &space);

@@ -10,6 +10,7 @@ struct Range;
 struct Shape;
 struct PointMassesRange;
 struct Spring;
+struct PhysicsSpace;
 
 struct GameRenderer
 {
@@ -19,7 +20,7 @@ struct GameRenderer
     void renderGame(SDL_Renderer *renderer, Game &game, bool renderShapeMatching, ConsoleProfileInfo &profileInfo);
 
 private:
-    void renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, PointMassesRange &pointMasses, bool renderShapeMatching);
+    void renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, PointMassesRange &pointMasses, PhysicsSpace &space, bool renderShapeMatching);
     void renderSprings(SDL_Renderer *renderer, Range<Spring> springs, const PointMassesRange &points);
 
     // Disable copy constructor and assignment

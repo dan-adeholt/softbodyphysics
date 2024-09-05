@@ -32,7 +32,7 @@ public:
 
     PhysicsSpace &physicsSpace();
 
-    int &timeSkip();
+    int &simulationSpeed();
     bool &paused();
 
     const char *currentSceneName();

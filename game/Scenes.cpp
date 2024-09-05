@@ -18,8 +18,6 @@ SceneDefinition scenes[] = {
          Shapes::createQuad(space, 700.0f, 220.0f, size, size, 1.0f);
          Shape &firstBox = space.shapes[0];
          Shape &secondBox = space.shapes[1];
-         firstBox.name = "Moving box";
-         secondBox.name = "Static box";
 
          PointMassesRange firstBoxPoints = space.points.range(firstBox);
          for (Vector2 &velocity : firstBoxPoints.velocity)
@@ -38,8 +36,6 @@ SceneDefinition scenes[] = {
          Shapes::createQuad(space, 440.0f, 225.0f, size, size, 1.0f);
          Shape &firstBox = space.shapes[0];
          Shape &secondBox = space.shapes[1];
-         firstBox.name = "Moving box";
-         secondBox.name = "Static box";
 
          game->physicsSpace().gravityEnabled = false;
      }},
@@ -52,8 +48,7 @@ SceneDefinition scenes[] = {
          Shapes::createCircle(space, 800.0f, 320.5f, size, 1.0f);
          Shape &firstBox = space.shapes[0];
          Shape &secondBox = space.shapes[1];
-         firstBox.name = "Moving box";
-         secondBox.name = "Static box";
+
          Shapes::createStaticQuad(space, 1099.0f, 90.0f, 50.0f, 600.0f, 1.0f);
 
          PointMassesRange firstBoxPoints = space.points.range(firstBox);

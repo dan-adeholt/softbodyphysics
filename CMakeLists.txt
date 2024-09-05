@@ -67,6 +67,7 @@ find_package(SDL2 REQUIRED)
 
 SET(SOURCE_FILES timer.cpp
 game/Game.cpp
+game/Editor.cpp
 game/Scenes.cpp
 utils/Console.cpp
 utils/UnitTestUtil.cpp
@@ -90,6 +91,7 @@ game/PhysicsSpaceStorage.h
 game/PhysicsSpaceStorage.cpp
 game/PhysicsTests.h
 game/Scenes.h
+game/Editor.h
 tasks/Scheduler.h
 stb_image/stb_image.cpp
 utils/Console.h

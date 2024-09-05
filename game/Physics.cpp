@@ -363,14 +363,14 @@ int calculateCollisions(
     return numCollisions;
 }
 
-void shapeMatchAlignInit(PointMassesRange points, Shape &shape)
+void shapeMatchAlignInit(PointMassesRange points, Shape &shape, Range<ShapeQuad> partialShapes)
 {
-
-    if (shape.subShapes.isValid())
+    if (shape.subShapeSpan.isValid())
     {
-        for (int i = 0; i < shape.subShapes.size; i++)
+        Range<ShapeQuad> subShapes = partialShapes.slice(shape.subShapeSpan);
+        for (int i = 0; i < subShapes.size; i++)
         {
-            ShapeQuad &subShape = shape.subShapes[i];
+            ShapeQuad &subShape = subShapes[i];
             Vector2 center;
 
             for (int i = 0; i < subShape.size; i++)
@@ -405,7 +405,7 @@ void shapeMatchAlignInit(PointMassesRange points, Shape &shape)
     }
 }
 
-void shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes, int draggingShapeIndex)
+void shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes, Range<ShapeQuad> partialShapes, int draggingShapeIndex)
 {
     for (int i = 0; i < shapes.size(); i++)
     {
@@ -415,11 +415,12 @@ void shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes, int dragging
             continue;
         }
 
-        if (shape.subShapes.isValid())
+        if (shape.subShapeSpan.isValid())
         {
-            for (int j = 0; j < shape.subShapes.size; j++)
+            Range<ShapeQuad> subShapes = partialShapes.slice(shape.subShapeSpan);
+            for (int j = 0; j < subShapes.size; j++)
             {
-                ShapeQuad &subShape = shape.subShapes[j];
+                ShapeQuad &subShape = subShapes[j];
                 Vector2 center;
 
                 for (int k = 0; k < subShape.size; k++)
@@ -569,7 +570,7 @@ void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<
 
 float springFactor = 0.085f * 0.001f;
 
-void applySpringDerivatives(Range<Shape> &shapes, PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, bool enableShapeMatching)
+void applySpringDerivatives(Range<Shape> &shapes, PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, Range<ShapeQuad> partialShapes, bool enableShapeMatching)
 {
     for (int i = 0; i < springs.size; i++)
     {
@@ -618,11 +619,12 @@ void applySpringDerivatives(Range<Shape> &shapes, PointMassesRange &points, Rang
     {
         const Shape &shape = shapes[i];
 
-        if (shape.subShapes.isValid())
+        if (shape.subShapeSpan.isValid())
         {
-            for (int j = 0; j < shape.subShapes.size; j++)
+            Range<ShapeQuad> subShapes = partialShapes.slice(shape.subShapeSpan);
+            for (int j = 0; j < subShapes.size; j++)
             {
-                const ShapeQuad &subShape = shape.subShapes[j];
+                const ShapeQuad &subShape = subShapes[j];
                 for (int k = 0; k < subShape.size; k++)
                 {
                     int index = subShape.indices[k];
@@ -721,7 +723,7 @@ void RK4Integrator::updateRK4Springs(PhysicsSpace &space, Array<PointDerivative>
         return;
     }
 
-    performThreadedSpringDerivatives(space.shapes.range(), pointsRange, space.springs.range(), derivativeRange, space.shapeMatchingEnabled, profileInfo);
+    performThreadedSpringDerivatives(space.shapes.range(), pointsRange, space.springs.range(), derivativeRange, space.partialShapes.range(), space.shapeMatchingEnabled, profileInfo);
 
     if (space.draggingShapeIndex != -1)
     {
@@ -741,16 +743,17 @@ struct SpringJobData
     Range<Spring> springs;
     PointMassesRange points;
     Range<PointDerivative> derivatives;
+    Range<ShapeQuad> partialShapes;
     bool enableShapeMatching;
 };
 
 void springJob(void *data)
 {
     SpringJobData *jobData = (SpringJobData *)data;
-    applySpringDerivatives(jobData->shapes, jobData->points, jobData->springs, jobData->derivatives, jobData->enableShapeMatching);
+    applySpringDerivatives(jobData->shapes, jobData->points, jobData->springs, jobData->derivatives, jobData->partialShapes, jobData->enableShapeMatching);
 }
 
-void RK4Integrator::performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange points, Range<Spring> springs, Range<PointDerivative> derivatives, bool enableShapeMatching, ConsoleProfileInfo &profileInfo)
+void RK4Integrator::performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange points, Range<Spring> springs, Range<PointDerivative> derivatives, Range<ShapeQuad> partialShapes, bool enableShapeMatching, ConsoleProfileInfo &profileInfo)
 {
     Timer springsTimer;
     SpringJobData springRanges[Scheduler::maxNumThreads];
@@ -781,6 +784,7 @@ void RK4Integrator::performThreadedSpringDerivatives(Range<Shape> shapeRange, Po
             springs.slice(curStart, curEnd),
             points,
             derivatives,
+            partialShapes,
             enableShapeMatching};
 
         tasks[i].function = springJob;
@@ -869,7 +873,7 @@ void RK4Integrator::testSpringPerformance(int iterations, PhysicsSpace &space)
     auto derivativeRange = rk1.range();
     for (int i = 0; i < iterations; i++)
     {
-        performThreadedSpringDerivatives(space.shapes.range(), space.points.range(), space.springs.range(), derivativeRange, space.shapeMatchingEnabled, profileInfo);
+        performThreadedSpringDerivatives(space.shapes.range(), space.points.range(), space.springs.range(), derivativeRange, space.partialShapes.range(), space.shapeMatchingEnabled, profileInfo);
     }
 }
 
@@ -959,6 +963,8 @@ PhysicsCollisionSolver::PhysicsCollisionSolver() : collisionMap(0)
 
 void PhysicsCollisionSolver::clear()
 {
+    collisionMap.clear();
+    resolvedCollisionPairs.clear();
     boundingBoxes.clear();
     staticBoundingBoxes.clear();
     sortedBoundingBoxes.clear();
@@ -1099,12 +1105,12 @@ void PhysicsCollisionSolver::handleCollisions(PhysicsSpace &space, PhysicsSpace 
 
                         for (int i = 0; i < range1.size(); i++)
                         {
-                            range1.acceleration[i] += Vector2(0.0002f, 0.0002f);
+                            range1.acceleration[i] += Vector2(0.0009f, 0.0009f);
                         }
 
                         for (int i = 0; i < range2.size(); i++)
                         {
-                            range2.acceleration[i] -= Vector2(0.005f, 0.0001f);
+                            range2.acceleration[i] -= Vector2(0.0009f, 0.0009f);
                         }
                     }
                     else
@@ -1209,7 +1215,7 @@ void PhysicsCollisionSolver::handleCollisions(PhysicsSpace &space, PhysicsSpace 
 
 void PhysicsIntegrator::performIntegration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo)
 {
-    shapeMatchAlign(space.points.range(), space.shapes, space.draggingShapeIndex);
+    shapeMatchAlign(space.points.range(), space.shapes, space.partialShapes.range(), space.draggingShapeIndex);
     rk4Integrator.performRK4Integration(space, profileInfo);
 
     for (int i = 0; i < space.staticJoints.size(); i++)

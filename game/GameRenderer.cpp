@@ -165,10 +165,10 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, bool renderSha
 
     PhysicsSpace &physicsSpace = game.physicsSpace();
     PointMassesRange staticPoints = physicsSpace.staticPoints.range();
-    renderShapes(renderer, physicsSpace.staticShapes.range(), staticPoints, renderShapeMatching);
+    renderShapes(renderer, physicsSpace.staticShapes.range(), staticPoints, physicsSpace, renderShapeMatching);
 
     PointMassesRange dynamicPoints = physicsSpace.points.range();
-    renderShapes(renderer, physicsSpace.shapes.range(), dynamicPoints, renderShapeMatching);
+    renderShapes(renderer, physicsSpace.shapes.range(), dynamicPoints, physicsSpace, renderShapeMatching);
     renderSprings(renderer, physicsSpace.springs.range(), dynamicPoints);
 
     for (int i = 0; i < dynamicPoints.size(); i++)
@@ -191,7 +191,7 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, bool renderSha
                           m->vertices.size(), nullptr, 0, 0);
 }
 
-void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, PointMassesRange &pointMasses, bool renderShapeMatching)
+void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, PointMassesRange &pointMasses, PhysicsSpace &space, bool renderShapeMatching)
 {
     for (int i = 0; i < shapes.size; i++)
     {
@@ -220,11 +220,13 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, Poi
             continue;
         }
 
-        if (shape.subShapes.isValid())
+        if (shape.subShapeSpan.isValid())
         {
-            for (int j = 0; j < shape.subShapes.size; j++)
+            Range<ShapeQuad> subshape = space.partialShapes.range(shape.subShapeSpan);
+
+            for (int j = 0; j < subshape.size; j++)
             {
-                const ShapeQuad &subShape = shape.subShapes.data[j];
+                const ShapeQuad &subShape = subshape.data[j];
                 Vector2 startPos = subShape.shapePos[0];
                 Vector2 pos = startPos;
 

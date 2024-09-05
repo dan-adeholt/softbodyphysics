@@ -3,6 +3,7 @@
 #include "containers/Array.h"
 #include "timer.h"
 #include "game/Game.h"
+#include "game/Editor.h"
 #include "./game/Physics.h"
 #include "./game/PhysicsSpaceStorage.h"
 #include "./game/GameRenderer.h"
@@ -14,6 +15,8 @@
 #include "game/Physics.test.h"
 #include "tasks/Scheduler.h"
 #include "utils/UnitTestUtil.h"
+#include "main.h"
+#include "fontawesome/IconsFontAwesome4.h"
 
 // #include "game/PhysicsSIMD.h"
 
@@ -69,7 +72,25 @@ int main(int argc, char *argv[])
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
-    (void)io;
+
+    /////////////
+
+    io.Fonts->AddFontDefault();
+
+    ImFontConfig config;
+    config.RasterizerDensity = 2.0f;
+    // config.OversampleH = 4;
+    // config.OversampleV = 4;
+    config.MergeMode = true;
+    float baseFontSize = 13.0f;                      // 13.0f is the size of the default font. Change to the font size you use.
+    float iconFontSize = baseFontSize * 2.0f / 3.0f; // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
+
+    config.GlyphMinAdvanceX = 13.0f; // Use if you want to make the icon monospaced
+    static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
+    io.Fonts->AddFontFromFileTTF("data/fontawesome-webfont.ttf", iconFontSize, &config, icon_ranges);
+
+    ///////////////
+
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
 
@@ -92,7 +113,9 @@ int main(int argc, char *argv[])
     bool quit = false;
 
     Game game;
-    game.init("Circle");
+    game.init("Collision grid");
+
+    Editor editor;
     uint64_t startNanos = monotonicTimeNanos();
     bool show_demo_window = false;
 
@@ -207,9 +230,9 @@ int main(int argc, char *argv[])
 
         if (!game.paused())
         {
-            if (Console::executingTest())
+            if (editor.executingTest())
             {
-                Console::stepTest(&game, elapsedMilliseconds, profileInfo);
+                editor.stepTest(&game, elapsedMilliseconds, profileInfo);
             }
             else
             {
@@ -238,7 +261,7 @@ int main(int argc, char *argv[])
         // gameRenderer.renderText(renderer, "Press F5 to pause, F6 to save, F7 to load, F8 to step, F3 to rewind, F4 to forward", 10, 10);
         profileInfo.renderTimeMillis = renderTimer.elapsedMillis();
         Console::draw(game, profileInfo);
-
+        editor.renderUI(game, profileInfo);
         // Rendering
 
         ImGui::Render();
@@ -247,6 +270,8 @@ int main(int argc, char *argv[])
         SDL_RenderPresent(renderer);
         profileInfo.swapTimeMillis = extraDrawTimer.elapsedMillis();
     }
+
+    editor.saveState();
     // Cleanup
     ImGui_ImplSDLRenderer2_Shutdown();
     ImGui_ImplSDL2_Shutdown();

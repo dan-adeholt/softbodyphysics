@@ -1,6 +1,5 @@
 #include "Console.h"
 #include "../game/Scenes.h"
-#include "../game/PhysicsTests.h"
 #include "../game/Physics.h"
 #include "../containers/Range.h"
 #include "../game/Game.h"
@@ -9,8 +8,6 @@
 #include <cstdio>
 
 #define MAX_LINE_LENGTH 1000
-
-PhysicsTestDefinition *curTestCase = nullptr;
 
 struct LineEntry
 {
@@ -101,134 +98,7 @@ void Console::draw(Game &game, ConsoleProfileInfo profileInfo)
 {
     ImGuiIO &io = ImGui::GetIO();
     ImVec2 displaySize = io.DisplaySize;
-    ImGui::SetNextWindowSizeConstraints(ImVec2(300, displaySize.y - 20), ImVec2(300, displaySize.y - 20));
-    ImGui::SetNextWindowPos(ImVec2(displaySize.x, 0), ImGuiCond_Always, ImVec2(1, 0));
-    ImGui::Begin("Dev tools", &showingConsole);
 
-    ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
-    if (ImGui::BeginTabBar("DevTools", tab_bar_flags))
-    {
-        if (ImGui::BeginTabItem("Tests"))
-        {
-            ImGui::SeparatorText("All tests");
-
-            for (int i = 0; i < PhysicsTestDefinition::numTests; i++)
-            {
-                PhysicsTestDefinition *testCase = &PhysicsTestDefinition::allTests[i];
-                const bool isSelected = curTestCase == testCase;
-                if (ImGui::Selectable(testCase->name, isSelected))
-                {
-                    curTestCase = testCase;
-                    curTestCase->start(&game);
-                }
-
-                // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
-                if (isSelected)
-                {
-                    ImGui::SetItemDefaultFocus();
-                }
-            }
-
-            if (curTestCase != nullptr)
-            {
-                ImGui::SeparatorText("Test executor");
-                ImGui::Text("Test progress: %d / %d", curTestCase->time, curTestCase->duration);
-                ImGui::Text("Failed: %s", curTestCase->invariantResult != nullptr ? curTestCase->invariantResult : "false");
-            }
-
-            ImGui::EndTabItem();
-        }
-
-        const char *currentSceneName = game.currentSceneName();
-        if (ImGui::BeginTabItem("Scenes"))
-        {
-            ImGui::BeginListBox("##empty");
-            for (int i = 0; i < SceneDefinition::numScenes; i++)
-            {
-                const SceneDefinition &scene = SceneDefinition::allScenes[i];
-
-                const bool isSelected = currentSceneName != nullptr && strcmp(scene.name, currentSceneName) == 0;
-                if (ImGui::Selectable(scene.name, isSelected))
-                {
-                    game.init(scene);
-                }
-
-                // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
-                if (isSelected)
-                {
-                    ImGui::SetItemDefaultFocus();
-                }
-            }
-            ImGui::EndListBox();
-
-            ImGui::EndTabItem();
-        }
-
-        ImGui::EndTabBar();
-    }
-
-    ImGui::SeparatorText("Settings");
-    ImGui::Checkbox("Gravity", &game.physicsSpace().gravityEnabled);
-    ImGui::Checkbox("Collisions", &game.physicsSpace().collisionsEnabled);
-    ImGui::Checkbox("Shape matching", &game.physicsSpace().shapeMatchingEnabled);
-    ImGui::Checkbox("Springs", &game.physicsSpace().springsEnabled);
-    ImGui::DragInt("Slowdown", &game.timeSkip(), 1, 0, 25, "%d", ImGuiSliderFlags_AlwaysClamp);
-
-    ImGui::Text("Playback");
-    const char *currentSceneName = game.currentSceneName();
-
-    ImVec2 buttonSize(ImGui::GetContentRegionAvail().x / 5.0f - 6.0f, 0);
-    if (ImGui::Button("<<|", buttonSize) && currentSceneName != nullptr)
-    {
-        const SceneDefinition *scene = SceneDefinition::getDefinitionFromName(currentSceneName);
-        game.init(*scene);
-    }
-
-    ImGui::PushButtonRepeat(true);
-    ImGui::SameLine();
-
-    if (ImGui::Button("<<", buttonSize))
-    {
-        game.paused() = true;
-        game.rewindHistory();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button(game.paused() ? ">" : "||", buttonSize))
-    {
-        game.paused() = !game.paused();
-    }
-    ImGui::SameLine();
-
-    if (ImGui::Button(".>", buttonSize))
-    {
-        game.update(1000.0 / 120.0, profileInfo);
-    }
-
-    ImGui::SameLine();
-
-    if (ImGui::Button(">>", buttonSize))
-    {
-        game.paused() = true;
-        game.forwardHistory();
-    }
-
-    ImGui::PopButtonRepeat();
-
-    ImGui::SeparatorText("Profile info");
-    ImGui::Text("Total Physics time: %.2lf ms", profileInfo.totalPhysicsTimeMillis);
-    ImGui::Text("Elapsed step time: %.2lf ms", profileInfo.elapsedStepTimeMillis);
-    ImGui::Text("Physics iterations: %d", profileInfo.numPhysicsSteps);
-    ImGui::Text("Num springs: %d", profileInfo.numSprings);
-    ImGui::Text("Physics time: %.2lf ms", profileInfo.physicsTimeMillis);
-    ImGui::Text("Render time: %.2lf ms", profileInfo.renderTimeMillis);
-    ImGui::Text("Swap time: %.2lf ms", profileInfo.swapTimeMillis);
-    ImGui::Text("Springs time: %.2lf ms", profileInfo.springsTimeMillis);
-    ImGui::Text("Bounding box time: %.2lf ms", profileInfo.boundingBoxTimeMillis);
-    ImGui::Text("Num bboxes: %d", profileInfo.numBboxes);
-    ImGui::Text("Num bbox checks: %d", profileInfo.numBbboxChecks);
-    ImGui::Text("Collisions time: %.2lf ms", profileInfo.collisionTimeMillis);
-
-    ImGui::End();
 
     ImGui::SetNextWindowSizeConstraints(ImVec2(displaySize.x, 200), ImVec2(displaySize.x, 200));
     ImGui::SetNextWindowPos(ImVec2(displaySize.x, displaySize.y - 200), ImGuiCond_Always, ImVec2(1, 0));
@@ -269,19 +139,6 @@ void Console::draw(Game &game, ConsoleProfileInfo profileInfo)
         {
             foreground->AddLine(ImVec2(entry.x, entry.y), ImVec2(entry.x + entry.vx, entry.y + entry.vy), IM_COL32(255, 0, 0, 255), 1.0f);
         }
-    }
-}
-
-bool Console::executingTest()
-{
-    return curTestCase != nullptr && curTestCase->time < curTestCase->duration && curTestCase->invariantResult == nullptr;
-}
-
-void Console::stepTest(Game *game, double elapsedMilliseconds, ConsoleProfileInfo &profileInfo)
-{
-    if (curTestCase != nullptr)
-    {
-        curTestCase->step(game, elapsedMilliseconds, profileInfo);
     }
 }
 
