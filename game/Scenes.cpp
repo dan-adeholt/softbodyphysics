@@ -2,7 +2,7 @@
 #include <cstdio>
 #include "Shapes.h"
 #include "Game.h"
-#include "Physics.h"
+#include "PhysicsSpace.h"
 #include "../containers/Array.h"
 #include "../utils/Console.h"
 #include <cstring>
@@ -71,32 +71,106 @@ SceneDefinition scenes[] = {
          Shapes::createStaticQuad(space, 149.0f, 40.0f, 1000.0f, 50.0f, 1.0f);
          space.gravityEnabled = false;
      }},
-    {"Collision grid", [](Game *game)
+    {"Stacked boxes", [](Game *game)
+     {
+         float size = 30.0f;
+         float spacing = (size + 1.0f) * 3.0f;
+         PhysicsSpace &space = game->physicsSpace();
+         for (int y = 0; y < 5; y++)
+         {
+             float x = 15;
+
+             Shapes::createQuad(space, 150.0f + y * 2.0f, 100.0f + y * spacing, size, size, 0.25f);
+
+             //  if (y < 4)
+             //  {
+
+             //  }
+         }
+
+         //  space.gravityEnabled = false;
+
+         Shapes::createStaticQuad(space, -36.0f, 0.0f, 40.0f, 755.0f, 1.0f);
+         Shapes::createStaticQuad(space, 1214.0f, 0.0f, 40.0f, 755.0f, 1.0f);
+         Shapes::createStaticQuad(space, 1.0f, 755.0f, 1217.0f, 80.0f, 1.0f);
+     }},
+
+    {"Inside shape", [](Game *game)
      {
          float size = 7.0f;
          float spacing = (size + 1.0f) * 2.0f;
          PhysicsSpace &space = game->physicsSpace();
-         for (int y = 0; y < 45; y++)
-         {
-             for (int x = 0; x < 75; x++)
-             {
-                 Shapes::createQuad(space, spacing + x * spacing, spacing * 2 + y * spacing + x * 0.01f, size, size, 0.25f);
+         float mass = 0.25f;
+         Shapes::createQuad(space, 200.0f, 200.0f, 50.0f, 50.0f, mass);
 
-                 if (x < 10)
-                 {
-                     for (int i = 0; i < 4; i++)
-                     {
-                         space.points.velocity[space.points.size() - 1 - i].x = 0.15f;
-                     }
-                 }
+         Shapes::createQuad(space, 100.0f, 100.0f, 500.0f, 500.0f, mass);
+
+         game->scheduleCallback([](Game *game, void *data)
+                                {
+            PhysicsSpace &space = game->physicsSpace();   
+            for (int i = 0; i < space.points.size(); i++)
+            {
+                space.points.velocity[i].y = 0.00002f;
+            } }, nullptr, 1000.0f);
+
+         space.gravityEnabled = false;
+     }},
+    {"Crusher", [](Game *game)
+     {
+         float size = 170.0f;
+         float spacing = (size + 1.0f) * 2.0f;
+         PhysicsSpace &space = game->physicsSpace();
+
+         Shapes::createQuad(space, 400.0f, 460.0f, 480.0f, 80.0f, 15.0f);
+         Shapes::createQuad(space, 600.0f, 660.0f, 80.0f, 80.0f, 0.25f);
+         //  for (int y = 0; y < 32; y++)
+         //  {
+         //      for (int x = 0; x < 7; x++)
+         //      {
+         //          Shapes::createQuad(space, spacing + x * spacing + y * 1.0f + 200.0f, spacing + y * spacing + x * 0.01f, size, size, 0.25f);
+
+         //          //  if (x < 10)
+         //          //  {
+         //          //      for (int i = 0; i < 4; i++)
+         //          //      {
+         //          //          space.points.velocity[space.points.size() - 1 - i].x = 0.15f;
+         //          //      }
+         //          //  }
+         //      }
+         //  }
+
+         space.gravityEnabled = true;
+
+         Shapes::createStaticQuad(space, -36.0f, 0.0f, 40.0f, 755.0f, 30.0f);
+         Shapes::createStaticQuad(space, 1214.0f, 0.0f, 40.0f, 755.0f, 30.0f);
+         Shapes::createStaticQuad(space, 1.0f, 755.0f, 1217.0f, 80.0f, 30.0f);
+     }},
+    {"Collision grid", [](Game *game)
+     {
+         float size = 14.0f;
+         float spacing = (size + 1.0f) * 1.5f;
+         PhysicsSpace &space = game->physicsSpace();
+         for (int y = 0; y < 75; y++)
+         {
+             for (int x = 0; x < 50; x++)
+             {
+                 Shapes::createQuad(space, spacing + x * spacing + y * 1.0f, spacing + y * spacing + x * 0.01f, size, size, 0.25f);
+
+                 //  if (x < 10)
+                 //  {
+                 //      for (int i = 0; i < 4; i++)
+                 //      {
+                 //          space.points.velocity[space.points.size() - 1 - i].x = 0.15f;
+                 //      }
+                 //  }
              }
          }
 
-         space.gravityEnabled = false;
+         space.gravityEnabled = true;
 
-         Shapes::createStaticQuad(space, 1.0f, 0.0f, 4.0f, 755.0f, 1.0f);
-         Shapes::createStaticQuad(space, 1214.0f, 0.0f, 4.0f, 755.0f, 1.0f);
-         Shapes::createStaticQuad(space, 1.0f, 755.0f, 1217.0f, 4.0f, 1.0f);
+         Shapes::createStaticQuad(space, -36.0f, 0.0f, 40.0f, 755.0f, 1.0f);
+         Shapes::createStaticQuad(space, 1214.0f, 0.0f, 40.0f, 755.0f, 1.0f);
+         Shapes::createStaticQuad(space, -50.0f, 755.0f, 1317.0f, 80.0f, 1.0f);
      }},
     {"Circle grid", [](Game *game)
      {

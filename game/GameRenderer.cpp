@@ -11,6 +11,7 @@
 #include "../utils/MinMax.h"
 #include "stddef.h"
 #include "Physics.h"
+#include "PhysicsSpace.h"
 #include "Game.h"
 
 float MIN_LINE_POS = -100000;
@@ -102,9 +103,9 @@ AtlasCoordinate whiteColor(0, 0, 15, 15);
 AtlasCoordinate circle(17, 1, 13, 13);
 AtlasCoordinate springData(50, 0, 3, 512);
 
-void addCircle(Array<Vertex> &vertices, float x, float y, SDL_Color color)
+void addCircle(Array<Vertex> &vertices, float x, float y, float scale, SDL_Color color)
 {
-    float size = circle.w * 0.5f;
+    float size = circle.w * 0.5f / scale;
     float cx = x - size * 0.5f;
     float cy = y - size * 0.5f;
 
@@ -128,9 +129,9 @@ void addCircle(Array<Vertex> &vertices, float x, float y, SDL_Color color)
                    circle.topLeft});
 }
 
-void addLine(Array<Vertex> &vertices, float p0x, float p0y, float p1x, float p1y, SDL_Color color)
+void addLine(Array<Vertex> &vertices, float p0x, float p0y, float p1x, float p1y, float scale, SDL_Color color)
 {
-    float lineWidth = 1.0f;
+    float lineWidth = 1.0f / scale;
     float dx = p1x - p0x;
     float dy = p1y - p0y;
     float length = Vector2::vec2length(dx, dy);
@@ -161,28 +162,36 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, bool renderSha
 {
     m->vertices.clear();
 
+    Vector2 &offset = game.offset();
+    float &scale = game.scale();
+
     Range<Shape> shapes;
 
     PhysicsSpace &physicsSpace = game.physicsSpace();
     PointMassesRange staticPoints = physicsSpace.staticPoints.range();
-    renderShapes(renderer, physicsSpace.staticShapes.range(), staticPoints, physicsSpace, renderShapeMatching);
+    renderShapes(renderer, physicsSpace.staticShapes.range(), staticPoints, physicsSpace, renderShapeMatching, scale);
 
     PointMassesRange dynamicPoints = physicsSpace.points.range();
-    renderShapes(renderer, physicsSpace.shapes.range(), dynamicPoints, physicsSpace, renderShapeMatching);
-    renderSprings(renderer, physicsSpace.springs.range(), dynamicPoints);
+    renderShapes(renderer, physicsSpace.shapes.range(), dynamicPoints, physicsSpace, renderShapeMatching, scale);
+    renderSprings(renderer, physicsSpace.springs.range(), dynamicPoints, scale);
 
     for (int i = 0; i < dynamicPoints.size(); i++)
     {
         Vector2 pos = dynamicPoints.pos[i];
-        addCircle(m->vertices, pos.x, pos.y, {255, 255, 255, 255});
+        addCircle(m->vertices, pos.x, pos.y, scale, {255, 255, 255, 255});
     }
-
-    Vector2 offset(700, 20);
 
     Vertex *vtx_buffer = &m->vertices[0];
     const float *xy = (const float *)(const void *)((const char *)(vtx_buffer) + offsetof(Vertex, pos));
     const float *uv = (const float *)(const void *)((const char *)(vtx_buffer) + offsetof(Vertex, uv));
     const SDL_Color *color = (const SDL_Color *)(const void *)((const char *)(vtx_buffer) + offsetof(Vertex, color)); // SDL 2.0.19+
+
+    for (int i = 0; i < m->vertices.size(); i++)
+    {
+        // Scale coordinates by scale and translate by offset
+        m->vertices[i].pos.x = m->vertices[i].pos.x * scale + offset.x;
+        m->vertices[i].pos.y = m->vertices[i].pos.y * scale + offset.y;
+    }
 
     SDL_RenderGeometryRaw(renderer, m->texture,
                           xy, (int)sizeof(Vertex),
@@ -191,7 +200,7 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, bool renderSha
                           m->vertices.size(), nullptr, 0, 0);
 }
 
-void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, PointMassesRange &pointMasses, PhysicsSpace &space, bool renderShapeMatching)
+void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, PointMassesRange &pointMasses, PhysicsSpace &space, bool renderShapeMatching, float scale)
 {
     for (int i = 0; i < shapes.size; i++)
     {
@@ -209,11 +218,11 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, Poi
                 continue;
             }
 
-            addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, {0, 0, 0, 255});
+            addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, {0, 0, 0, 255});
             pos = nextPos;
         }
 
-        addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, {0, 0, 0, 255});
+        addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, {0, 0, 0, 255});
 
         if (!renderShapeMatching)
         {
@@ -239,11 +248,11 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, Poi
                         continue;
                     }
 
-                    addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, {0, 255, 0, 255});
+                    addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, {0, 255, 0, 255});
                     pos = nextPos;
                 }
 
-                addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, {0, 255, 0, 255});
+                addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, {0, 255, 0, 255});
             }
         }
         else
@@ -260,20 +269,20 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, Poi
                     continue;
                 }
 
-                addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, {0, 255, 0, 255});
+                addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, {0, 255, 0, 255});
                 pos = nextPos;
             }
 
-            addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, {0, 255, 0, 255});
+            addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, {0, 255, 0, 255});
         }
     }
 }
 
-inline void addSpring(Array<Vertex> &vertices, float p0x, float p0y, float p1x, float p1y, float springLength)
+inline void addSpring(Array<Vertex> &vertices, float p0x, float p0y, float p1x, float p1y, float springLength, float scale)
 {
-    AtlasCoordinate springDataMod(springData.x, springData.y, springData.w, min(512.0f, springLength));
+    AtlasCoordinate springDataMod(springData.x, springData.y, springData.w, min(512.0f, springLength) * scale);
 
-    float lineWidth = 1.5f;
+    float lineWidth = 1.5f / scale;
 
     float dx = p1x - p0x;
     float dy = p1y - p0y;
@@ -304,7 +313,7 @@ inline void addSpring(Array<Vertex> &vertices, float p0x, float p0y, float p1x, 
                    springDataMod.topRight});
 }
 
-void GameRenderer::renderSprings(SDL_Renderer *renderer, Range<Spring> springs, const PointMassesRange &points)
+void GameRenderer::renderSprings(SDL_Renderer *renderer, Range<Spring> springs, const PointMassesRange &points, float scale)
 {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 
@@ -320,7 +329,7 @@ void GameRenderer::renderSprings(SDL_Renderer *renderer, Range<Spring> springs, 
             p1.x > MIN_LINE_POS && p1.x < MAX_LINE_POS &&
             p1.y > MIN_LINE_POS && p1.y < MAX_LINE_POS)
         {
-            addSpring(m->vertices, p0.x, p0.y, p1.x, p1.y, spring.length);
+            addSpring(m->vertices, p0.x, p0.y, p1.x, p1.y, spring.length, scale);
         }
     }
 }

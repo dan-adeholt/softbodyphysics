@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "game/Game.h"
 #include "game/Physics.h"
+#include "game/PhysicsIntegrator.h"
 #include "tasks/Scheduler.h"
 #include "timer.h"
 #include "containers/Array.h"

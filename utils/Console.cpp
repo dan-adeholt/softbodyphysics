@@ -94,11 +94,10 @@ void Console::logVectorFrame(float x, float y, float vx, float vy, const char *f
 int selectedSceneIndex = -1;
 bool showingConsole = true;
 
-void Console::draw(Game &game, ConsoleProfileInfo profileInfo)
+void Console::draw(ConsoleProfileInfo profileInfo)
 {
     ImGuiIO &io = ImGui::GetIO();
     ImVec2 displaySize = io.DisplaySize;
-
 
     ImGui::SetNextWindowSizeConstraints(ImVec2(displaySize.x, 200), ImVec2(displaySize.x, 200));
     ImGui::SetNextWindowPos(ImVec2(displaySize.x, displaySize.y - 200), ImGuiCond_Always, ImVec2(1, 0));
@@ -123,6 +122,7 @@ void Console::draw(Game &game, ConsoleProfileInfo profileInfo)
     ImGui::End();
 
     ImDrawList *foreground = ImGui::GetForegroundDrawList();
+
 
     // for (int i = 0; i < pointMasses.size; i++)
     // {

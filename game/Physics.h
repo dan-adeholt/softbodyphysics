@@ -4,65 +4,8 @@
 #include "../containers/Span.h"
 #include "../containers/Array.h"
 #include "Vector2.h"
-#include "../utils/Console.h"
 
 extern const float physicsStep;
-
-struct CollisionMap
-{
-    Array<unsigned char> data;
-    int numElements;
-
-    int calculateIndex(int i, int j) const
-    {
-        if (i > j)
-        {
-            int temp = i;
-            i = j;
-            j = temp;
-        }
-
-        return (j * (j - 1) / 2) + i;
-    }
-
-    static int arraySize(int numElements)
-    {
-        return (numElements * (numElements - 1)) / 2;
-    }
-
-    CollisionMap(int numElements) : data(CollisionMap::arraySize(numElements)), numElements(numElements) {}
-
-    void resize(int numElements)
-    {
-        data.fill(0, CollisionMap::arraySize(numElements));
-        this->numElements = numElements;
-    }
-
-    void clear()
-    {
-        data.fill(0, CollisionMap::arraySize(this->numElements));
-    }
-
-    void resetCollision(int i, int j)
-    {
-        int index = calculateIndex(i, j);
-        data[index] = 0;
-    }
-
-    void incrementCollision(int i, int j)
-    {
-        int index = calculateIndex(i, j);
-        if (data[index] < 255)
-        {
-            ++data[index];
-        }
-    }
-
-    unsigned char getCollisionCount(int i, int j) const
-    {
-        return data[calculateIndex(i, j)];
-    }
-};
 
 struct PointMassesRange
 {
@@ -76,7 +19,6 @@ struct PointMassesRange
     Range<Vector2> shapePos;
     Range<float> mass;
     Range<Vector2> velocity;
-    Range<Vector2> acceleration;
 };
 
 struct ShapeQuad
@@ -124,7 +66,6 @@ struct PointMasses
         pos.clear();
         mass.clear();
         velocity.clear();
-        acceleration.clear();
         shapePos.clear();
         shapeOriginalPos.clear();
     }
@@ -134,7 +75,6 @@ struct PointMasses
         pos.append(other.pos);
         mass.append(other.mass);
         velocity.append(other.velocity);
-        acceleration.append(other.acceleration);
         shapePos.append(other.shapePos);
         shapeOriginalPos.append(other.shapeOriginalPos);
     }
@@ -144,7 +84,6 @@ struct PointMasses
         pos.replace(other.pos);
         mass.replace(other.mass);
         velocity.replace(other.velocity);
-        acceleration.replace(other.acceleration);
         shapePos.replace(other.shapePos);
         shapeOriginalPos.replace(other.shapeOriginalPos);
     }
@@ -156,7 +95,6 @@ struct PointMasses
         this->shapeOriginalPos.push({x, y});
         this->mass.push(mass);
         this->velocity.push({velocityX, velocityY});
-        this->acceleration.push({0.0f, 0.0f});
     }
 
     int size()
@@ -176,8 +114,7 @@ struct PointMasses
             shapeOriginalPos.range(start, end),
             shapePos.range(start, end),
             mass.range(start, end),
-            velocity.range(start, end),
-            acceleration.range(start, end)};
+            velocity.range(start, end)};
     }
 
     PointMassesRange range() const
@@ -190,7 +127,6 @@ struct PointMasses
         pos.reserve(size);
         mass.reserve(size);
         velocity.reserve(size);
-        acceleration.reserve(size);
         shapePos.reserve(size);
         shapeOriginalPos.reserve(size);
     }
@@ -205,7 +141,6 @@ struct PointMasses
     Array<Vector2> shapePos;
     Array<float> mass;
     Array<Vector2> velocity;
-    Array<Vector2> acceleration;
 };
 
 struct PointDerivative
@@ -251,160 +186,13 @@ struct Shape
     Span subShapeSpan;
 };
 
-struct ShapeBoundingBox
-{
-    int shapeIndex;
-    float x1, y1;
-    float x2, y2;
-
-    float width() const
-    {
-        return x2 - x1;
-    }
-
-    float height() const
-    {
-        return y2 - y1;
-    }
-
-    Vector2 center() const
-    {
-        return Vector2(x1 + (x2 - x1) * 0.5f, y1 + (y2 - y1) * 0.5f);
-    }
-
-    bool includes(const Vector2 &point) const
-    {
-        return point.x >= x1 && point.x <= x2 && point.y >= y1 && point.y <= y2;
-    }
-
-    bool overlaps(const ShapeBoundingBox &other) const
-    {
-        return x1 < other.x2 && x2 > other.x1 && y1 < other.y2 && y2 > other.y1;
-    }
-};
 
 template <typename T>
 class Array;
 template <typename T>
 struct Range;
 
-struct CollisionResult
-{
-    int shape1PointIndex;
-    int shape2PointIndex;
-    float x;
-    float y;
-};
-
-int calculateCollisions(
-    PointMassesRange shape1,
-    PointMassesRange movingShape,
-    PointMassesRange movingShapePrevPos,
-    const ShapeBoundingBox &box1,
-    const ShapeBoundingBox &box2,
-    float step);
-
-int calculateStaticCollisions(
-    PointMassesRange staticShape,
-    PointMassesRange movingShape,
-    PointMassesRange movingShapePrevPos,
-    const ShapeBoundingBox &staticBox,
-    const ShapeBoundingBox &movingBox,
-    float step);
-
-void findClosestLineSegmentToPoint(PointMassesRange collisionShape, const Vector2 &point, const Vector2 &velocity, int &minIndex, Vector2 &minPoint, float &minT);
-
-void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<Shape> &shapes, const PointMasses &points);
-
 void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, Range<ShapeQuad> partialShapes, bool enableShapeMatching);
 
-void shapeMatchAlignInit(PointMassesRange points, Shape &shape, Range<ShapeQuad> partialShapes);
-
-void shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes, Range<ShapeQuad> partialShapes, int draggingShapeIndex);
-
-ShapeBoundingBox calculateShapeBoundingBox(const Shape &shape, int shapeIndex, const PointMasses &points);
-
-bool shapesOverlap(const PointMassesRange &poly1, const PointMassesRange &poly2);
-
-bool pointInShape(const Vector2 &point, const PointMassesRange &shape);
-
-struct PhysicsSpace;
-struct ConsoleProfileInfo;
-
-struct RK4Integrator
-{
-    Array<PointDerivative> rk1;
-    Array<PointDerivative> rk2;
-    Array<PointDerivative> rk3;
-    Array<PointDerivative> rk4;
-    PointMasses rkTemp;
-    Array<PointDerivative> rkEmptyDerivatives;
-
-    void prepareRK4Step(PhysicsSpace &PhysicsSpace, float dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo);
-    void updateRK4Springs(PhysicsSpace &spaces, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo);
-    void performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange points, Range<Spring> springs, Range<PointDerivative> derivatives, Range<ShapeQuad> partialShapes, bool enableShapeMatching, ConsoleProfileInfo &profileInfo);
-    void performRK4Integration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo);
-
-    void testRK4Performance(int iterations, PhysicsSpace &space);
-    void testRK4PreparePerformance(int iterations, PhysicsSpace &space);
-    void testSpringPerformance(int iterations, PhysicsSpace &space);
-};
-
-struct PhysicsSpace
-{
-    PhysicsSpace();
-
-    void assign(PhysicsSpace &other);
-
-    int nextShapeIndex() const;
-    int nextStaticShapeIndex() const;
-
-    void clear();
-
-    Array<Shape> shapes;
-    Array<ShapeQuad> partialShapes;
-    PointMasses points;
-    Array<Shape> staticShapes;
-    PointMasses staticPoints;
-    Array<Spring> springs;
-    Array<StaticJoint> staticJoints;
-
-    StaticJoint mouseJoint;
-    bool gravityEnabled;
-    bool collisionsEnabled;
-    bool shapeMatchingEnabled;
-    bool springsEnabled;
-    int draggingShapeIndex;
-    int draggingSubShapeIndex;
-};
-
-struct PhysicsIntegrator
-{
-    RK4Integrator rk4Integrator;
-    void performIntegration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo);
-};
-
-struct CollisionPair
-{
-    int shape1Index;
-    int shape2Index;
-};
-
-struct PhysicsCollisionSolver
-{
-    PhysicsCollisionSolver();
-    void clear();
-    void handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSpace, float step, ConsoleProfileInfo &profileInfo);
-
-    CollisionMap collisionMap;
-    Array<CollisionPair> resolvedCollisionPairs;
-    Array<ShapeBoundingBox> boundingBoxes;
-    Array<ShapeBoundingBox> staticBoundingBoxes;
-    Array<ShapeBoundingBox> sortedBoundingBoxes;
-    Array<ShapeBoundingBox> sortedStaticBoundingBoxes;
-    Array<int> ejectShapeIndices;
-};
-
-Vector2 intersectLineSegmentPoint(const Vector2 &p0, const Vector2 &p1, Vector2 d);
 
 #endif

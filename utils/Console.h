@@ -27,7 +27,7 @@ public:
     static void log(const char *format, ...);
     static void logFrame(float x, float y, const char *format, ...);
     static void logVectorFrame(float x, float y, float vx, float vy, const char *format, ...);
-    static void draw(Game &game, ConsoleProfileInfo profileInfo);
+    static void draw(ConsoleProfileInfo profileInfo);
 
     static bool executingTest();
     static void stepTest(Game *game, double elapsedTimeMillis, ConsoleProfileInfo &profileInfo);

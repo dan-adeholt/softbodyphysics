@@ -21,6 +21,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         -Werror=uninitialized
         -Wno-unused-variable
         -Wno-unused-parameter
+        -Wno-unused-but-set-variable        
     )
 endif()
 
@@ -87,9 +88,21 @@ game/GameRenderer.cpp
 game/GameRenderer.h
 game/Physics.test.h
 game/Physics.h
+game/PhysicsSpace.h
+game/PhysicsSpace.cpp
+game/PhysicsSprings.h
+game/PhysicsSprings.cpp
+game/PhysicsCollisionSolver.h
+game/PhysicsCollisionSolver.cpp
+game/PhysicsIntegrator.h
+game/PhysicsIntegrator.cpp
 game/PhysicsSpaceStorage.h
 game/PhysicsSpaceStorage.cpp
+game/PhysicsShapeMatching.h
+game/PhysicsShapeMatching.cpp
 game/PhysicsTests.h
+game/Vector2.h
+game/Vector2.cpp
 game/Scenes.h
 game/Editor.h
 tasks/Scheduler.h

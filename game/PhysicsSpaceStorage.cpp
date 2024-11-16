@@ -1,7 +1,8 @@
 #include "PhysicsSpaceStorage.h"
-#include "Physics.h"
+#include "PhysicsSpace.h"
 #include <stdio.h>
 #include <assert.h>
+#include "../utils/Console.h"
 
 void readVector2QuadArray(FILE *file, Vector2 *array)
 {
@@ -168,7 +169,6 @@ void readPointMasses(FILE *file, PointMasses &points)
     readFloatArray(file, points.mass);
     readVector2Array(file, points.pos);
     readVector2Array(file, points.velocity);
-    readVector2Array(file, points.acceleration);
     readVector2Array(file, points.shapeOriginalPos);
     readVector2Array(file, points.shapePos);
 }
@@ -178,7 +178,6 @@ void dumpPointMasses(FILE *file, PointMasses &points)
     dumpFloatArray(file, &points.mass[0], points.size());
     dumpVector2Array(file, &points.pos[0], points.size());
     dumpVector2Array(file, &points.velocity[0], points.size());
-    dumpVector2Array(file, &points.acceleration[0], points.size());
     dumpVector2Array(file, &points.shapeOriginalPos[0], points.size());
     dumpVector2Array(file, &points.shapePos[0], points.size());
 }

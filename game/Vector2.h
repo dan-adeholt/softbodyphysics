@@ -191,4 +191,6 @@ public:
     }
 };
 
+Vector2 intersectLineSegmentPoint(const Vector2 &p0, const Vector2 &p1, Vector2 d);
+
 #endif

@@ -204,6 +204,17 @@ public:
         }
     }
 
+    void remove(int index)
+    {
+        m_data[index].~T();
+        for (int i = index; i < m_size - 1; i++)
+        {
+            m_data[i] = m_data[i + 1];
+        }
+
+        m_size--;
+    }
+
 private:
     int m_size;
     int m_capacity;

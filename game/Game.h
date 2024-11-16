@@ -4,6 +4,8 @@
 struct SceneDefinition;
 struct PhysicsSpace;
 struct ConsoleProfileInfo;
+struct ShapeBoundingBox;
+class Vector2;
 
 template <typename T>
 struct Range;
@@ -26,16 +28,32 @@ public:
     void rewindHistory();
     void forwardHistory();
 
-    void mouseButtonDown(int x, int y);
-    void mouseButtonUp(int x, int y);
+    void mouseButtonDown(int button, int x, int y, bool shiftDown);
+    void mouseButtonUp(int button, int x, int y, bool shiftDown);
     void mouseMove(int x, int y, int relativeX, int relativeY);
+    void mouseWheel(int x, int y);
+
+    Array<ShapeBoundingBox> &shapeBoundingBoxes();
 
     PhysicsSpace &physicsSpace();
 
     int &simulationSpeed();
-    bool &paused();
+    bool paused();
+
+    void updateBoundingBoxes();
+
+
+    void setPaused();
+    void togglePaused();
 
     const char *currentSceneName();
+
+    Vector2 &offset();
+    float &scale();
+
+    void scheduleCallback(void (*function)(Game *, void *), void *args, float delay);
+
+    int selectedShapeIndex() const;
 
 private:
     void updateAfterRewindOrForward();

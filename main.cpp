@@ -4,7 +4,7 @@
 #include "timer.h"
 #include "game/Game.h"
 #include "game/Editor.h"
-#include "./game/Physics.h"
+#include "./game/PhysicsSpace.h"
 #include "./game/PhysicsSpaceStorage.h"
 #include "./game/GameRenderer.h"
 #include "imgui.h"
@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
     uint64_t startNanos = monotonicTimeNanos();
     bool show_demo_window = false;
 
-    UnitTestUtil::runTests();
+    // UnitTestUtil::runTests();
     Console::log("Refresh rate: %dhz | Startup time: %.1lf ms\n", displayMode.refresh_rate, (monotonicTimeNanos() - programStartNanos) / 1000000.0);
 
     SDL_RaiseWindow(window);
@@ -149,10 +149,11 @@ int main(int argc, char *argv[])
                     game.physicsSpace().shapeMatchingEnabled = !game.physicsSpace().shapeMatchingEnabled;
                     break;
                 case SDLK_F5:
-                    game.paused() = !game.paused();
+                    game.togglePaused();
                     break;
                 case SDLK_F8:
                     game.update(1000.0 / 120.0, profileInfo);
+                    game.updateBoundingBoxes();
                     break;
                 case SDLK_F3:
                     game.rewindHistory();
@@ -191,11 +192,14 @@ int main(int argc, char *argv[])
                     break;
                 }
                 break;
+            case SDL_MOUSEWHEEL:
+                game.mouseWheel(event.wheel.x, event.wheel.y);
+                break;
             case SDL_MOUSEBUTTONDOWN:
-                game.mouseButtonDown(event.button.x, event.button.y);
+                game.mouseButtonDown(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
                 break;
             case SDL_MOUSEBUTTONUP:
-                game.mouseButtonUp(event.button.x, event.button.y);
+                game.mouseButtonUp(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
                 break;
             case SDL_MOUSEMOTION:
                 game.mouseMove(event.motion.x, event.motion.y, event.motion.xrel, event.motion.yrel);
@@ -260,7 +264,7 @@ int main(int argc, char *argv[])
         gameRenderer.renderGame(renderer, game, renderShapeMatching, profileInfo);
         // gameRenderer.renderText(renderer, "Press F5 to pause, F6 to save, F7 to load, F8 to step, F3 to rewind, F4 to forward", 10, 10);
         profileInfo.renderTimeMillis = renderTimer.elapsedMillis();
-        Console::draw(game, profileInfo);
+        Console::draw(profileInfo);
         editor.renderUI(game, profileInfo);
         // Rendering
 

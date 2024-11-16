@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include "./Editor.h"
 #include "Game.h"
-#include "Physics.h"
+#include "PhysicsSpace.h"
 #include "Shapes.h"
 #include "../game/Scenes.h"
 #include "../utils/Console.h"
@@ -213,13 +213,14 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
         }
         if (ImGui::Button(ICON_FA_BACKWARD, buttonSize))
         {
-            game.paused() = true;
+            game.setPaused();
+
             game.rewindHistory();
         }
         ImGui::SameLine();
         if (ImGui::Button(game.paused() ? ICON_FA_PLAY : ICON_FA_PAUSE, buttonSize))
         {
-            game.paused() = !game.paused();
+            game.togglePaused();
         }
         ImGui::SameLine();
 
@@ -232,7 +233,7 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 
         if (ImGui::Button(ICON_FA_FORWARD, buttonSize))
         {
-            game.paused() = true;
+            game.setPaused();
             game.forwardHistory();
         }
         ImGui::PopButtonRepeat();
@@ -255,6 +256,29 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
         ImGui::Text("Num bboxes: %d", profileInfo.numBboxes);
         ImGui::Text("Num bbox checks: %d", profileInfo.numBbboxChecks);
         ImGui::Text("Collisions time: %.2lf ms", profileInfo.collisionTimeMillis);
+
+        ImGui::End();
+    }
+
+    int selectedShapeIndex = game.selectedShapeIndex();
+    PhysicsSpace &space = game.physicsSpace();
+
+    if (selectedShapeIndex != -1)
+    {
+        ImGui::Begin("Shape properties");
+        ImGui::Text("Selected shape: %d", selectedShapeIndex);
+        if (space.shapes.size() > selectedShapeIndex)
+        {
+            Shape &shape = space.shapes[selectedShapeIndex];
+            ImGui::Text("Start: %d", shape.start);
+            ImGui::Text("End: %d", shape.end);
+
+            for (int i = shape.start; i < shape.end; i++)
+            {
+                ImGui::Text("Point %d: (%.1f, %.1f) Vel %.1f %.1f", i, space.points.pos[i].x, space.points.pos[i].y,
+                            space.points.velocity[i].x, space.points.velocity[i].y);
+            }
+        }
 
         ImGui::End();
     }

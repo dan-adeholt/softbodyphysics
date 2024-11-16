@@ -2,10 +2,13 @@
 #define __PHYSICS__TEST_H
 
 #include "Physics.h"
+#include "./PhysicsSpace.h"
 #include "../containers/Array.h"
 #include "./Shapes.h"
 #include "../utils/Console.h"
 #include "../utils/UnitTestUtil.h"
+#include "PhysicsCollisionSolver.h"
+#include "PhysicsShapeMatching.h"
 
 void testCase(Shape &shape1, Shape &shape2, PointMasses &points, int expectedCollisions)
 {
@@ -20,7 +23,7 @@ void testCase(Shape &shape1, Shape &shape2, PointMasses &points, int expectedCol
     PointMassesRange shape1Points = points.range(shape1);
     PointMassesRange shape2Points = points.range(shape2);
 
-    testExpectInt(calculateCollisions(shape1Points, shape2Points, shape2Points, boundingBoxes[0], boundingBoxes[1], 1.0), expectedCollisions);
+    testExpectInt(calculateCollisions(shape1Points, shape2Points, shape2Points, boundingBoxes[0], boundingBoxes[1], 0, 1, 1.0), expectedCollisions);
 }
 
 UNIT_TEST(testFindClosestLineSegmentToPoint, "Physics")
@@ -60,7 +63,7 @@ UNIT_TEST(testShapeMatching, "Physics")
 
     printf("Rotated by: %f\n", -PI / 2.0f);
 
-    shapeMatchAlign(space.points.range(), space.shapes, space.partialShapes.range(), space.draggingShapeIndex);
+    PhysicsShapeMatching::shapeMatchAlign(space.points.range(), space.shapes, space.partialShapes.range(), space.draggingShapeIndex);
 
     for (int i = 0; i < range.size(); i++)
     {

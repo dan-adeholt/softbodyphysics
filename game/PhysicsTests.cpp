@@ -1,6 +1,7 @@
 #include "PhysicsTests.h"
 #include "Scenes.h"
 #include "Physics.h"
+#include "PhysicsSpace.h"
 #include <cstring>
 #include <cstdio>
 #include "Game.h"
