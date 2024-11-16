@@ -2,7 +2,7 @@
 #include <cstdio>
 #include "Shapes.h"
 #include "Game.h"
-#include "PhysicsSpace.h"
+#include "../physics/PhysicsSpace.h"
 #include "../containers/Array.h"
 #include "../utils/Console.h"
 #include <cstring>

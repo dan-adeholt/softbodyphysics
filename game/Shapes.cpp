@@ -1,7 +1,7 @@
 #include "Shapes.h"
 #include "../containers/Array.h"
-#include "./PhysicsSpace.h"
-#include "./PhysicsShapeMatching.h"
+#include "../physics/PhysicsSpace.h"
+#include "../physics/PhysicsShapeMatching.h"
 #include <math.h>
 
 int wrapIndex(int index, int size)

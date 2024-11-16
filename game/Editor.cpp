@@ -3,15 +3,15 @@
 #include <stdio.h>
 #include "./Editor.h"
 #include "Game.h"
-#include "PhysicsSpace.h"
+#include "../physics/PhysicsSpace.h"
 #include "Shapes.h"
 #include "../game/Scenes.h"
 #include "../utils/Console.h"
 #include "../utils/ParseIniFile.h"
 #include "../containers/Array.h"
 #include "../imgui/imgui.h"
-#include "../game/PhysicsSpaceStorage.h"
-#include "../game/PhysicsTests.h"
+#include "../physics/PhysicsSpaceStorage.h"
+#include "../physics/PhysicsTests.h"
 #include "../fontawesome/IconsFontAwesome4.h"
 
 #ifdef __APPLE__

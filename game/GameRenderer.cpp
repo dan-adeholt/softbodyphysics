@@ -10,8 +10,8 @@
 #include "../utils/Console.h"
 #include "../utils/MinMax.h"
 #include "stddef.h"
-#include "Physics.h"
-#include "PhysicsSpace.h"
+#include "../physics/Physics.h"
+#include "../physics/PhysicsSpace.h"
 #include "Game.h"
 
 float MIN_LINE_POS = -100000;

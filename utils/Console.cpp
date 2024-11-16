@@ -1,6 +1,6 @@
 #include "Console.h"
 #include "../game/Scenes.h"
-#include "../game/Physics.h"
+#include "../physics/Physics.h"
 #include "../containers/Range.h"
 #include "../game/Game.h"
 #include "imgui.h"
@@ -122,7 +122,6 @@ void Console::draw(ConsoleProfileInfo profileInfo)
     ImGui::End();
 
     ImDrawList *foreground = ImGui::GetForegroundDrawList();
-
 
     // for (int i = 0; i < pointMasses.size; i++)
     // {

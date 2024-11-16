@@ -1,10 +1,10 @@
 #include "PhysicsTests.h"
-#include "Scenes.h"
+#include "../game/Scenes.h"
 #include "Physics.h"
 #include "PhysicsSpace.h"
 #include <cstring>
 #include <cstdio>
-#include "Game.h"
+#include "../game/Game.h"
 #include "../containers/Array.h"
 #include "../utils/Console.h"
 #include <cassert>

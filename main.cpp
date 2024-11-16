@@ -4,21 +4,21 @@
 #include "timer.h"
 #include "game/Game.h"
 #include "game/Editor.h"
-#include "./game/PhysicsSpace.h"
-#include "./game/PhysicsSpaceStorage.h"
+#include "./physics/PhysicsSpace.h"
+#include "./physics/PhysicsSpaceStorage.h"
 #include "./game/GameRenderer.h"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_sdlrenderer2.h"
 #include "utils/Console.h"
 #include "containers/Array.test.h"
-#include "game/Physics.test.h"
+#include "physics/Physics.test.h"
 #include "tasks/Scheduler.h"
 #include "utils/UnitTestUtil.h"
 #include "main.h"
 #include "fontawesome/IconsFontAwesome4.h"
 
-// #include "game/PhysicsSIMD.h"
+// #include "physics/PhysicsSIMD.h"
 
 const int WINDOW_WIDTH = 1524;
 const int WINDOW_HEIGHT = 960;

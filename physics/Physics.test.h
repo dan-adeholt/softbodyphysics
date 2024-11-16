@@ -4,7 +4,7 @@
 #include "Physics.h"
 #include "./PhysicsSpace.h"
 #include "../containers/Array.h"
-#include "./Shapes.h"
+#include "../game/Shapes.h"
 #include "../utils/Console.h"
 #include "../utils/UnitTestUtil.h"
 #include "PhysicsCollisionSolver.h"

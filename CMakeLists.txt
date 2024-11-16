@@ -56,12 +56,12 @@ find_package(SDL2 REQUIRED)
 # ISPC compilation
 # add_custom_command(
 #     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o
-#     COMMAND ispc ${CMAKE_CURRENT_SOURCE_DIR}/game/PhysicsSIMD.ispc
+#     COMMAND ispc ${CMAKE_CURRENT_SOURCE_DIR}/physics/PhysicsSIMD.ispc
 #             -o ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o
 #             -h ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD_ispc.h
 #             ${CMAKE_ISPC_FLAGS}
 #             --target=${CMAKE_ISPC_INSTRUCTION_SETS}
-#     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/game/PhysicsSIMD.ispc
+#     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/physics/PhysicsSIMD.ispc
 #     COMMENT "Compiling ISPC file PhysicsSIMD.ispc"
 # )
 
@@ -74,8 +74,8 @@ utils/Console.cpp
 utils/UnitTestUtil.cpp
 containers/ContainerPlatform.cpp
 game/Shapes.cpp
-game/Physics.cpp
-game/PhysicsTests.cpp
+physics/Physics.cpp
+physics/PhysicsTests.cpp
 imgui/imgui.cpp
 imgui/imgui_demo.cpp
 imgui/imgui_draw.cpp
@@ -86,21 +86,21 @@ imgui/imgui_impl_sdl2.cpp
 tasks/Scheduler.cpp
 game/GameRenderer.cpp
 game/GameRenderer.h
-game/Physics.test.h
-game/Physics.h
-game/PhysicsSpace.h
-game/PhysicsSpace.cpp
-game/PhysicsSprings.h
-game/PhysicsSprings.cpp
-game/PhysicsCollisionSolver.h
-game/PhysicsCollisionSolver.cpp
-game/PhysicsIntegrator.h
-game/PhysicsIntegrator.cpp
-game/PhysicsSpaceStorage.h
-game/PhysicsSpaceStorage.cpp
-game/PhysicsShapeMatching.h
-game/PhysicsShapeMatching.cpp
-game/PhysicsTests.h
+physics/Physics.test.h
+physics/Physics.h
+physics/PhysicsSpace.h
+physics/PhysicsSpace.cpp
+physics/PhysicsSprings.h
+physics/PhysicsSprings.cpp
+physics/PhysicsCollisionSolver.h
+physics/PhysicsCollisionSolver.cpp
+physics/PhysicsIntegrator.h
+physics/PhysicsIntegrator.cpp
+physics/PhysicsSpaceStorage.h
+physics/PhysicsSpaceStorage.cpp
+physics/PhysicsShapeMatching.h
+physics/PhysicsShapeMatching.cpp
+physics/PhysicsTests.h
 math/Vector2.h
 math/Vector2.cpp
 game/Scenes.h

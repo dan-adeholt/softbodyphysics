@@ -1,6 +1,6 @@
 #include <cstdio>
 #include "containers/Array.test.h"
-#include "game/Physics.test.h"
+#include "physics/Physics.test.h"
 #include "utils/Console.h"
 #include "utils/UnitTestUtil.h"
 
