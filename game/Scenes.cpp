@@ -154,7 +154,7 @@ SceneDefinition scenes[] = {
          {
              for (int x = 0; x < 50; x++)
              {
-                 Shapes::createQuad(space, spacing + x * spacing + y * 1.0f, spacing + y * spacing + x * 0.01f, size, size, 0.25f);
+                 Shapes::createQuad(space, spacing + x * spacing + y * 1.0f, spacing + y * spacing + x * 0.01f - 1100.0f, size, size, 0.25f);
 
                  //  if (x < 10)
                  //  {
