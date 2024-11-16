@@ -1,4 +1,4 @@
-#include "PhysicsCollisionSolver.h"
+#include "CollisionSolver.h"
 #include "../utils/MinMax.h"
 #include "../utils/Console.h"
 #include "../timer.h"
@@ -462,11 +462,11 @@ int calculateCollisions(
     return numCollisions;
 }
 
-PhysicsCollisionSolver::PhysicsCollisionSolver() : collisionMap(0)
+CollisionSolver::CollisionSolver() : collisionMap(0)
 {
 }
 
-void PhysicsCollisionSolver::clear()
+void CollisionSolver::clear()
 {
     collisionMap.clear();
     resolvedCollisionPairs.clear();
@@ -475,7 +475,7 @@ void PhysicsCollisionSolver::clear()
     sortedBoundingBoxes.clear();
     sortedStaticBoundingBoxes.clear();
 }
-void PhysicsCollisionSolver::updateBoundingBoxes(PhysicsSpace &space, ConsoleProfileInfo &profileInfo)
+void CollisionSolver::updateBoundingBoxes(PhysicsSpace &space, ConsoleProfileInfo &profileInfo)
 {
     int numElementsWithStatic = space.shapes.size() + space.staticShapes.size();
 
@@ -558,7 +558,7 @@ void PhysicsCollisionSolver::updateBoundingBoxes(PhysicsSpace &space, ConsolePro
     profileInfo.numBbboxChecks = 0;
 }
 
-void PhysicsCollisionSolver::handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSpace, float step, ConsoleProfileInfo &profileInfo)
+void CollisionSolver::handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSpace, float step, ConsoleProfileInfo &profileInfo)
 {
     Timer collisionsTimer;
     updateBoundingBoxes(space, profileInfo);
@@ -712,7 +712,7 @@ void PhysicsCollisionSolver::handleCollisions(PhysicsSpace &space, PhysicsSpace 
     profileInfo.collisionTimeMillis = collisionsTimer.elapsedMillis();
 }
 
-void PhysicsCollisionSolver::assign(PhysicsCollisionSolver &other)
+void CollisionSolver::assign(CollisionSolver &other)
 {
     collisionMap.assign(other.collisionMap);
     resolvedCollisionPairs.replace(other.resolvedCollisionPairs);

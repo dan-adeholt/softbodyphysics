@@ -1,6 +1,6 @@
-#include "PhysicsShapeMatching.h"
+#include "ShapeMatching.h"
 
-void PhysicsShapeMatching::shapeMatchAlignInit(PointMassesRange points, Shape &shape, Range<ShapeQuad> partialShapes)
+void ShapeMatching::shapeMatchAlignInit(PointMassesRange points, Shape &shape, Range<ShapeQuad> partialShapes)
 {
     if (shape.subShapeSpan.isValid())
     {
@@ -42,7 +42,7 @@ void PhysicsShapeMatching::shapeMatchAlignInit(PointMassesRange points, Shape &s
     }
 }
 
-void PhysicsShapeMatching::shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes, Range<ShapeQuad> partialShapes, int draggingShapeIndex)
+void ShapeMatching::shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes, Range<ShapeQuad> partialShapes, int draggingShapeIndex)
 {
     for (int i = 0; i < shapes.size(); i++)
     {

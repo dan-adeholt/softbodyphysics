@@ -5,7 +5,7 @@
 
 struct ConsoleProfileInfo;
 
-struct PhysicsSprings
+struct Springs
 {
     static void performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange points, Range<Spring> springs, Range<PointDerivative> derivatives, Range<ShapeQuad> partialShapes, bool enableShapeMatching, ConsoleProfileInfo &profileInfo);
 };

@@ -1,8 +1,8 @@
-#include "PhysicsIntegrator.h"
+#include "Integrator.h"
 #include "PhysicsSpace.h"
 #include "../utils/Console.h"
-#include "./PhysicsSprings.h"
-#include "./PhysicsShapeMatching.h"
+#include "./Springs.h"
+#include "./ShapeMatching.h"
 
 void RK4Integrator::prepareRK4Step(PhysicsSpace &space, float dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo)
 {
@@ -55,7 +55,7 @@ void RK4Integrator::updateRK4Springs(PhysicsSpace &space, Array<PointDerivative>
         return;
     }
 
-    PhysicsSprings::performThreadedSpringDerivatives(space.shapes.range(), pointsRange, space.springs.range(), derivativeRange, space.partialShapes.range(), space.shapeMatchingEnabled, profileInfo);
+    Springs::performThreadedSpringDerivatives(space.shapes.range(), pointsRange, space.springs.range(), derivativeRange, space.partialShapes.range(), space.shapeMatchingEnabled, profileInfo);
 
     if (space.draggingShapeIndex != -1)
     {
@@ -71,9 +71,9 @@ void RK4Integrator::updateRK4Springs(PhysicsSpace &space, Array<PointDerivative>
 
 float maxDistFromCenter = 14.0f;
 
-void PhysicsIntegrator::performIntegration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo)
+void Integrator::performIntegration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo)
 {
-    PhysicsShapeMatching::shapeMatchAlign(space.points.range(), space.shapes, space.partialShapes.range(), space.draggingShapeIndex);
+    ShapeMatching::shapeMatchAlign(space.points.range(), space.shapes, space.partialShapes.range(), space.draggingShapeIndex);
     rk4Integrator.performRK4Integration(space, profileInfo);
 
     for (int i = 0; i < space.staticJoints.size(); i++)
@@ -218,6 +218,6 @@ void RK4Integrator::testSpringPerformance(int iterations, PhysicsSpace &space)
     auto derivativeRange = rk1.range();
     for (int i = 0; i < iterations; i++)
     {
-        PhysicsSprings::performThreadedSpringDerivatives(space.shapes.range(), space.points.range(), space.springs.range(), derivativeRange, space.partialShapes.range(), space.shapeMatchingEnabled, profileInfo);
+        Springs::performThreadedSpringDerivatives(space.shapes.range(), space.points.range(), space.springs.range(), derivativeRange, space.partialShapes.range(), space.shapeMatchingEnabled, profileInfo);
     }
 }

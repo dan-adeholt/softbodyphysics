@@ -1,7 +1,7 @@
 #include "Shapes.h"
 #include "../containers/Array.h"
 #include "../physics/PhysicsSpace.h"
-#include "../physics/PhysicsShapeMatching.h"
+#include "../physics/ShapeMatching.h"
 #include <math.h>
 
 int wrapIndex(int index, int size)
@@ -59,7 +59,7 @@ namespace Shapes
 
         Shape circle = Shape(startIndex, curIndex, 300.0f);
         space.shapes.push(circle);
-        PhysicsShapeMatching::shapeMatchAlignInit(space.points.range(), circle, space.partialShapes.range());
+        ShapeMatching::shapeMatchAlignInit(space.points.range(), circle, space.partialShapes.range());
         return circle;
     }
 
@@ -127,7 +127,7 @@ namespace Shapes
 
         Shape bridge = Shape(startIndex, curIndex);
         bridge.subShapeSpan = {partialShapesStart, space.partialShapes.size()};
-        PhysicsShapeMatching::shapeMatchAlignInit(space.points.range(), bridge, space.partialShapes.range());
+        ShapeMatching::shapeMatchAlignInit(space.points.range(), bridge, space.partialShapes.range());
         space.shapes.push(bridge);
         return bridge;
     }
@@ -141,7 +141,7 @@ namespace Shapes
 
         const Span span(space.staticPoints.size() - 4, space.staticPoints.size());
         Shape quad = Shape(span.start, span.end);
-        PhysicsShapeMatching::shapeMatchAlignInit(space.staticPoints.range(), quad, space.partialShapes.range());
+        ShapeMatching::shapeMatchAlignInit(space.staticPoints.range(), quad, space.partialShapes.range());
         space.staticShapes.push(quad);
 
         return quad;
@@ -157,7 +157,7 @@ namespace Shapes
 
         const Span span(space.points.size() - 4, space.points.size());
         Shape quad = Shape(span.start, span.end);
-        PhysicsShapeMatching::shapeMatchAlignInit(space.points.range(), quad, space.partialShapes.range());
+        ShapeMatching::shapeMatchAlignInit(space.points.range(), quad, space.partialShapes.range());
 
         Vector2 p0 = space.points.pos[span.start];
         Vector2 p1 = space.points.pos[span.start + 1];
@@ -186,7 +186,7 @@ namespace Shapes
         space.points.push(x + sideOffset, y + height, mass);
 
         Shape parallelogram = Shape(space.points.size() - 4, space.points.size());
-        PhysicsShapeMatching::shapeMatchAlignInit(space.points.range(), parallelogram, space.partialShapes.range());
+        ShapeMatching::shapeMatchAlignInit(space.points.range(), parallelogram, space.partialShapes.range());
         space.shapes.push(parallelogram);
         return parallelogram;
     }
@@ -201,7 +201,7 @@ namespace Shapes
         const Span span(points.size() - 3, points.size());
 
         Shape triangle = Shape(span.start, span.end);
-        PhysicsShapeMatching::shapeMatchAlignInit(points.range(), triangle, space.partialShapes.range());
+        ShapeMatching::shapeMatchAlignInit(points.range(), triangle, space.partialShapes.range());
         if (isStatic)
         {
             space.staticShapes.push(triangle);
@@ -224,7 +224,7 @@ namespace Shapes
         float lineLength = Vector2::vec2distance(x0, y0, x1, y1);
         space.springs.push(Spring(span.start, span.start + 1, lineLength, 1.5f, 28.9f, shapeIndex));
         Shape line = Shape(span.start, span.end);
-        PhysicsShapeMatching::shapeMatchAlignInit(space.points.range(), line, space.partialShapes.range());
+        ShapeMatching::shapeMatchAlignInit(space.points.range(), line, space.partialShapes.range());
         space.shapes.push(line);
         return line;
     }

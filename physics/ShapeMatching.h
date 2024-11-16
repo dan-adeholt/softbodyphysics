@@ -3,7 +3,7 @@
 
 #include "Physics.h"
 
-struct PhysicsShapeMatching
+struct ShapeMatching
 {
     static void shapeMatchAlignInit(PointMassesRange points, Shape &shape, Range<ShapeQuad> partialShapes);
 

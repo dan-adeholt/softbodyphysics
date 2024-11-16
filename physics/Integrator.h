@@ -1,5 +1,5 @@
-#ifndef __GAME_PHYSICSINTEGRATOR_H__
-#define __GAME_PHYSICSINTEGRATOR_H__
+#ifndef __GAME_Integrator_H__
+#define __GAME_Integrator_H__
 
 #include "Physics.h"
 
@@ -16,7 +16,7 @@ struct RK4Integrator
     Array<PointDerivative> rkEmptyDerivatives;
 
     void prepareRK4Step(PhysicsSpace &PhysicsSpace, float dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo);
-    void updateRK4Springs(PhysicsSpace &spaces, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo);    
+    void updateRK4Springs(PhysicsSpace &spaces, Array<PointDerivative> &outDerivatives, ConsoleProfileInfo &profileInfo);
     void performRK4Integration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo);
 
     void testRK4Performance(int iterations, PhysicsSpace &space);
@@ -24,10 +24,10 @@ struct RK4Integrator
     void testSpringPerformance(int iterations, PhysicsSpace &space);
 };
 
-struct PhysicsIntegrator
+struct Integrator
 {
     RK4Integrator rk4Integrator;
     void performIntegration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo);
 };
 
-#endif // __GAME_PHYSICSINTEGRATOR_H__
+#endif // __GAME_Integrator_H__

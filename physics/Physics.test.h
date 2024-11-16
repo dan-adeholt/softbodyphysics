@@ -7,8 +7,8 @@
 #include "../game/Shapes.h"
 #include "../utils/Console.h"
 #include "../utils/UnitTestUtil.h"
-#include "PhysicsCollisionSolver.h"
-#include "PhysicsShapeMatching.h"
+#include "CollisionSolver.h"
+#include "ShapeMatching.h"
 
 void testCase(Shape &shape1, Shape &shape2, PointMasses &points, int expectedCollisions)
 {
@@ -63,7 +63,7 @@ UNIT_TEST(testShapeMatching, "Physics")
 
     printf("Rotated by: %f\n", -PI / 2.0f);
 
-    PhysicsShapeMatching::shapeMatchAlign(space.points.range(), space.shapes, space.partialShapes.range(), space.draggingShapeIndex);
+    ShapeMatching::shapeMatchAlign(space.points.range(), space.shapes, space.partialShapes.range(), space.draggingShapeIndex);
 
     for (int i = 0; i < range.size(); i++)
     {

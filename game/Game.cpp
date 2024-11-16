@@ -5,8 +5,8 @@
 #include "../containers/Array.h"
 #include "../physics/Physics.h"
 #include "../physics/PhysicsSpace.h"
-#include "../physics/PhysicsIntegrator.h"
-#include "../physics/PhysicsCollisionSolver.h"
+#include "../physics/Integrator.h"
+#include "../physics/CollisionSolver.h"
 #include <stdio.h>
 #include "Shapes.h"
 #include "Scenes.h"
@@ -43,8 +43,8 @@ struct Game::Impl
     int historyRewindIndex;
 
     PhysicsSpace physicsSpace;
-    PhysicsCollisionSolver collisionSolver;
-    PhysicsIntegrator integrator;
+    CollisionSolver collisionSolver;
+    Integrator integrator;
 
     int selectedShapeIndex;
     double timeBucket;

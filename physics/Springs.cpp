@@ -1,4 +1,4 @@
-#include "PhysicsSprings.h"
+#include "Springs.h"
 #include "../tasks/Scheduler.h"
 #include "../timer.h"
 #include "../utils/MinMax.h"
@@ -127,7 +127,7 @@ void springJob(void *data)
     applySpringDerivatives(jobData->shapes, jobData->points, jobData->springs, jobData->derivatives, jobData->partialShapes, jobData->enableShapeMatching);
 }
 
-void PhysicsSprings::performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange points, Range<Spring> springs, Range<PointDerivative> derivatives, Range<ShapeQuad> partialShapes, bool enableShapeMatching, ConsoleProfileInfo &profileInfo)
+void Springs::performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange points, Range<Spring> springs, Range<PointDerivative> derivatives, Range<ShapeQuad> partialShapes, bool enableShapeMatching, ConsoleProfileInfo &profileInfo)
 {
     Timer springsTimer;
     SpringJobData springRanges[Scheduler::maxNumThreads];

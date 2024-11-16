@@ -1,5 +1,5 @@
-#ifndef __GAME_PHYSICSCOLLISIONSOLVER_H__
-#define __GAME_PHYSICSCOLLISIONSOLVER_H__
+#ifndef __GAME_CollisionSolver_H__
+#define __GAME_CollisionSolver_H__
 
 #include "../containers/Array.h"
 #include "./Physics.h"
@@ -132,14 +132,14 @@ struct CollisionMap
 
 struct ConsoleProfileInfo;
 
-struct PhysicsCollisionSolver
+struct CollisionSolver
 {
-    PhysicsCollisionSolver();
+    CollisionSolver();
     void clear();
     void updateBoundingBoxes(PhysicsSpace &space, ConsoleProfileInfo &profileInfo);
     void handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSpace, float step, ConsoleProfileInfo &profileInfo);
 
-    void assign(PhysicsCollisionSolver &other);
+    void assign(CollisionSolver &other);
 
     CollisionMap collisionMap;
     Array<CollisionPair> resolvedCollisionPairs;
@@ -160,4 +160,4 @@ bool shapesOverlap(const PointMassesRange &poly1, const PointMassesRange &poly2)
 
 bool pointInShape(const Vector2 &point, const PointMassesRange &shape);
 
-#endif // __GAME_PHYSICSCOLLISIONSOLVER_H__
+#endif // __GAME_CollisionSolver_H__
