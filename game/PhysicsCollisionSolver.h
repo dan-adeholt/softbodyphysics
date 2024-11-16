@@ -2,7 +2,6 @@
 #define __GAME_PHYSICSCOLLISIONSOLVER_H__
 
 #include "../containers/Array.h"
-#include "Vector2.h"
 #include "./Physics.h"
 
 struct PhysicsSpace;

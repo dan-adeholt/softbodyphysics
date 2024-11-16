@@ -3,7 +3,7 @@
 
 #include "../containers/Span.h"
 #include "../containers/Array.h"
-#include "Vector2.h"
+#include "../math/Vector2.h"
 
 extern const float physicsStep;
 
@@ -186,13 +186,11 @@ struct Shape
     Span subShapeSpan;
 };
 
-
 template <typename T>
 class Array;
 template <typename T>
 struct Range;
 
 void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, Range<ShapeQuad> partialShapes, bool enableShapeMatching);
-
 
 #endif

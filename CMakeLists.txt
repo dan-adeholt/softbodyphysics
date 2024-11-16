@@ -101,8 +101,8 @@ game/PhysicsSpaceStorage.cpp
 game/PhysicsShapeMatching.h
 game/PhysicsShapeMatching.cpp
 game/PhysicsTests.h
-game/Vector2.h
-game/Vector2.cpp
+math/Vector2.h
+math/Vector2.cpp
 game/Scenes.h
 game/Editor.h
 tasks/Scheduler.h
