@@ -58,7 +58,7 @@ int main()
     // return 0;
     Scheduler::instance->start();
 
-    Game game;
+    Game game("");
     game.init("Circle grid");
     RK4Integrator integrator;
     Timer timer;

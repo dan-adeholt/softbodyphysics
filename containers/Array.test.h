@@ -49,13 +49,13 @@ void testSentinelsInner()
     testAssert(array.size() == 3);
 }
 
-UNIT_TEST(testSentinels, "Array")
+UNIT_TEST(ArrayTestSentinels)
 {
     testSentinelsInner();
     testAssert(numConstructed == numDestructed);
 }
 
-UNIT_TEST(testInts, "Array")
+UNIT_TEST(ArrayTestInts)
 {
     Array<int> ints;
     ints.push(0);

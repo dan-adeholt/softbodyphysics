@@ -6,7 +6,6 @@
 struct UnitTest
 {
     const char *name;
-    const char *category;
     void (*testFunction)();
 };
 
@@ -16,31 +15,38 @@ static Array<UnitTest> &getAllTests()
     return allTests;
 }
 
-void UnitTestUtil::registerTest(const char *name, void (*testFunction)(), const char *category)
+void UnitTestUtil::registerTest(const char *name, void (*testFunction)())
 {
     UnitTest test = {
         name,
-        category,
         testFunction};
 
     getAllTests().push(test);
 }
 
-void UnitTestUtil::runTests(const char *category)
+void UnitTestUtil::runTest(const char *test)
 {
     Array<UnitTest> &allTests = getAllTests();
 
     for (int i = 0; i < allTests.size(); i++)
     {
-        printf("Executing test %d/%d: %s:%s\n",
-               i + 1, allTests.size(),
-               allTests[i].category,
-               allTests[i].name);
-        fflush(stdout);
-
-        if (category == nullptr || strcmp(allTests[i].category, category) == 0)
+        if (strcmp(allTests[i].name, test) == 0)
         {
+            printf("Executing test %d/%d: %s\n",
+                   i + 1, allTests.size(),
+                   allTests[i].name);
+            fflush(stdout);
+
             allTests[i].testFunction();
         }
     }
 }
+
+bool testFailed = false;
+
+void UnitTestUtil::setTestFailed()
+{
+    testFailed = true;
+}
+
+bool UnitTestUtil::getTestFailed() { return testFailed; }

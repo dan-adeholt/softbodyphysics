@@ -171,12 +171,13 @@ struct Spring
 
 struct Shape
 {
-    Shape() : start(0), end(0), volume(0.0f), subShapeSpan() {}
-    Shape(int start, int end, float volume = 0.0f) : start(start), end(end), volume(volume), subShapeSpan() {}
+    Shape() : start(0), end(0), volume(0.0f), isStatic(false), subShapeSpan() {}
+    Shape(int start, int end, float volume = 0.0f) : start(start), end(end), volume(volume), isStatic(false), subShapeSpan() {}
 
     int start;
     int end;
     float volume;
+    bool isStatic;
 
     operator Span() const
     {

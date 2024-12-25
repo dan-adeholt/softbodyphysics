@@ -38,126 +38,97 @@ struct ShapeBoundingBox
     }
 };
 
-int calculateCollisions(
-    PointMassesRange shape1,
-    PointMassesRange movingShape,
-    PointMassesRange movingShapePrevPos,
-    const ShapeBoundingBox &box1,
-    const ShapeBoundingBox &box2,
-    int shapeIndex1,
-    int shapeIndex2,
-    float step);
-
-int calculateStaticCollisions(
-    PointMassesRange staticShape,
-    PointMassesRange movingShape,
-    PointMassesRange movingShapePrevPos,
-    const ShapeBoundingBox &staticBox,
-    const ShapeBoundingBox &movingBox,
-    float step);
-
-struct CollisionPair
-{
-    int shape1Index;
-    int shape2Index;
-};
-
-struct CollisionMap
-{
-    Array<unsigned char> data;
-    int numElements;
-
-    int calculateIndex(int i, int j) const
-    {
-        if (i > j)
-        {
-            int temp = i;
-            i = j;
-            j = temp;
-        }
-
-        return (j * (j - 1) / 2) + i;
-    }
-
-    static int arraySize(int numElements)
-    {
-        return (numElements * (numElements - 1)) / 2;
-    }
-
-    CollisionMap(int numElements) : data(CollisionMap::arraySize(numElements)), numElements(numElements) {}
-
-    void resize(int numElements)
-    {
-        data.fill(0, CollisionMap::arraySize(numElements));
-        this->numElements = numElements;
-    }
-
-    void assign(const CollisionMap &other)
-    {
-        data.fill(0, CollisionMap::arraySize(other.numElements));
-
-        for (int i = 0; i < other.numElements; i++)
-        {
-            data[i] = other.data[i];
-        }
-
-        numElements = other.numElements;
-    }
-
-    void clear()
-    {
-        data.fill(0, CollisionMap::arraySize(this->numElements));
-    }
-
-    void resetCollision(int i, int j)
-    {
-        int index = calculateIndex(i, j);
-        data[index] = 0;
-    }
-
-    void incrementCollision(int i, int j)
-    {
-        int index = calculateIndex(i, j);
-        if (data[index] < 255)
-        {
-            ++data[index];
-        }
-    }
-
-    unsigned char getCollisionCount(int i, int j) const
-    {
-        return data[calculateIndex(i, j)];
-    }
-};
-
 struct ConsoleProfileInfo;
+
+enum class EdgeStrategy
+{
+    ClosestSegment,
+    RelativeVelocitySegment,
+    NumStrategies,
+    IntersectionPrevAndCurrent
+};
+
+const char *edgeStrategyToString(EdgeStrategy strategy);
 
 struct CollisionSolver
 {
     CollisionSolver();
+    ~CollisionSolver();
+
+    CollisionSolver(const CollisionSolver &) = delete;
+    // Delete the copy assignment operator
+    CollisionSolver &operator=(const CollisionSolver &) = delete;
+
     void clear();
     void updateBoundingBoxes(PhysicsSpace &space, ConsoleProfileInfo &profileInfo);
-    void handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSpace, float step, ConsoleProfileInfo &profileInfo);
+    void handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSpace, ConsoleProfileInfo &profileInfo);
 
     void assign(CollisionSolver &other);
 
-    CollisionMap collisionMap;
-    Array<CollisionPair> resolvedCollisionPairs;
-    Array<ShapeBoundingBox> boundingBoxes;
-    Array<ShapeBoundingBox> staticBoundingBoxes;
-    Array<ShapeBoundingBox> sortedBoundingBoxes;
-    Array<ShapeBoundingBox> sortedStaticBoundingBoxes;
-    Array<int> ejectShapeIndices;
+    static void findEntryEdge(
+        EdgeStrategy strategy,
+        PointMassesRange collisionShape,
+        PointMassesRange prevShape,
+        const Vector2 &point,
+        const Vector2 &prevPoint,
+        const Vector2 &velocity,
+        int &vertexHitIndex,
+        int &minIndex,
+        Vector2 &minPoint,
+        float &minT);
+
+    static void findEntryEdgeClosestSegment(
+        PointMassesRange collisionShape,
+        PointMassesRange prevShape,
+        const Vector2 &point,
+        const Vector2 &prevPoint,
+        const Vector2 &velocity,
+        int &vertexHitIndex,
+        int &minIndex,
+        Vector2 &minPoint,
+        float &minT);
+
+    static void findEntryEdgeRelativeVelocitySegment(
+        PointMassesRange collisionShape,
+        PointMassesRange prevShape,
+        const Vector2 &point,
+        const Vector2 &prevPoint,
+        const Vector2 &velocity,
+        int &vertexHitIndex,
+        int &minIndex,
+        Vector2 &minPoint,
+        float &minT);
+
+    static void findEntryEdgeIntersectionPrevAndCurrentSegment(
+        PointMassesRange collisionShape,
+        PointMassesRange prevShape,
+        const Vector2 &point,
+        const Vector2 &prevPoint,
+        const Vector2 &velocity,
+        int &vertexHitIndex,
+        int &minIndex,
+        Vector2 &minPoint,
+        float &minT);
+
+    static ShapeBoundingBox calculateShapeBoundingBox(int shapeIndex, const PointMassesRange &range);
+    static void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<Shape> &shapes, const PointMasses &points);
+
+    static int calculateCollisions(
+        PointMassesRange collisionShape,
+        PointMassesRange movingShape,
+        PointMassesRange prevCollisionShape,
+        PointMassesRange prevMovingShape,
+        const ShapeBoundingBox &collisionBox,
+        const ShapeBoundingBox &box2,
+        bool isStatiCollisionShape,
+        bool isStaticMovingShape,
+        EdgeStrategy strategy);
+
+    Array<ShapeBoundingBox> &boundingBoxes();
+
+private:
+    struct Impl;
+    Impl *m;
 };
-
-void findClosestLineSegmentToPoint(PointMassesRange collisionShape, const Vector2 &point, const Vector2 &velocity, int &minIndex, Vector2 &minPoint, float &minT);
-
-void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<Shape> &shapes, const PointMasses &points);
-
-ShapeBoundingBox calculateShapeBoundingBox(const Shape &shape, int shapeIndex, const PointMasses &points);
-
-bool shapesOverlap(const PointMassesRange &poly1, const PointMassesRange &poly2);
-
-bool pointInShape(const Vector2 &point, const PointMassesRange &shape);
 
 #endif // __GAME_CollisionSolver_H__

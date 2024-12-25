@@ -13,6 +13,8 @@ public:
 
     void saveState();
 
+    const char* lastSceneName();
+    
     bool executingTest();
 
     void stepTest(Game *game, double elapsedMilliseconds, ConsoleProfileInfo &profileInfo);

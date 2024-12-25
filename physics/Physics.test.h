@@ -18,24 +18,24 @@ void testCase(Shape &shape1, Shape &shape2, PointMasses &points, int expectedCol
     boundingBoxes.clear();
     shapes.append({shape1, shape2});
 
-    calculateBoundingBoxes(boundingBoxes, shapes, points);
+    CollisionSolver::calculateBoundingBoxes(boundingBoxes, shapes, points);
 
     PointMassesRange shape1Points = points.range(shape1);
     PointMassesRange shape2Points = points.range(shape2);
 
-    testExpectInt(calculateCollisions(shape1Points, shape2Points, shape2Points, boundingBoxes[0], boundingBoxes[1], 0, 1, 1.0), expectedCollisions);
+    testExpectInt(CollisionSolver::calculateCollisions(shape1Points, shape2Points, shape1Points, shape2Points, boundingBoxes[0], boundingBoxes[1], 0, 1, EdgeStrategy::ClosestSegment), expectedCollisions);
 }
 
-UNIT_TEST(testFindClosestLineSegmentToPoint, "Physics")
+UNIT_TEST(PhysicsTestfindEntryEdge)
 {
     PhysicsSpace space;
     Shape shelf = Shapes::createTriangle(space, false, 50.0f, 700.0f, 800.0f, 500.0f, 800.0f, 700.0f, 0.0f);
     Vector2 pos1(500.0, 588.0);
+    int minVertexIndex = -1;
     int minIndex = -1;
     float minT = 0.0f;
     Vector2 minPoint = {0.0f, 0.0f};
-
-    findClosestLineSegmentToPoint(space.points.range(shelf), pos1, Vector2(1.0f, 0.0f), minIndex, minPoint, minT);
+    CollisionSolver::findEntryEdge(EdgeStrategy::ClosestSegment, space.points.range(shelf), space.points.range(shelf), pos1, pos1, Vector2(0, 0), minIndex, minVertexIndex, minPoint, minT);
     testExpectInt(minIndex, 0);
 }
 
@@ -49,7 +49,7 @@ void setVelocity(PointMasses &points, Shape shape, float vx, float vy)
     }
 }
 
-UNIT_TEST(testShapeMatching, "Physics")
+UNIT_TEST(PhysicsTestShapeMatching)
 {
     PhysicsSpace space;
     Shape shape = Shapes::createQuad(space, -0.5f, -0.5f, 1.0f, 1.0f, 1.0f);
@@ -72,7 +72,7 @@ UNIT_TEST(testShapeMatching, "Physics")
     }
 }
 
-UNIT_TEST(testCollisions, "Physics")
+UNIT_TEST(PhysicsTestCollisions)
 {
     PhysicsSpace space;
 

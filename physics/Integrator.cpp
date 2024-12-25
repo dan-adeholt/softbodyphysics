@@ -19,6 +19,7 @@ void RK4Integrator::prepareRK4Step(PhysicsSpace &space, float dt, Array<PointDer
     {
         outDerivative.acceleration = Vector2(0.0f, 0.00015f); // Gravity
     }
+
     outDerivatives.fill(outDerivative, space.points.size());
 
     Vector2 *posOut = &rkTemp.pos[0];
@@ -34,7 +35,6 @@ void RK4Integrator::prepareRK4Step(PhysicsSpace &space, float dt, Array<PointDer
 
     while (posOut != posOutEnd)
     {
-
         PointDerivative derivative = *inDerivative++;
         Vector2 originalVelocity = *velIn++;
         Vector2 originalPos = *posIn++;
@@ -149,7 +149,9 @@ void Integrator::performIntegration(PhysicsSpace &space, ConsoleProfileInfo &pro
     // }
 }
 
-float prevMaxVelocity = 0.0f;
+float maxVelocity = 1.0f;
+float maxVelocitySquared = maxVelocity * maxVelocity;
+
 void RK4Integrator::performRK4Integration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo)
 {
     if (rkEmptyDerivatives.size() != space.points.size())
@@ -168,6 +170,25 @@ void RK4Integrator::performRK4Integration(PhysicsSpace &space, ConsoleProfileInf
 
     float factor = (1.0f / 6.0f) * physicsStep;
 
+    for (int i = 0; i < space.shapes.size(); i++)
+    {
+        const Shape &shape = space.shapes[i];
+        if (shape.isStatic)
+        {
+            for (int j = shape.start; j < shape.end; j++)
+            {
+                rk1[j].velocity = Vector2();
+                rk1[j].acceleration = Vector2();
+                rk2[j].velocity = Vector2();
+                rk2[j].acceleration = Vector2();
+                rk3[j].velocity = Vector2();
+                rk3[j].acceleration = Vector2();
+                rk4[j].velocity = Vector2();
+                rk4[j].acceleration = Vector2();
+            }
+        }
+    }
+
     for (int i = 0; i < space.points.size(); i++)
     {
         PointDerivative rk1d = rk1[i];
@@ -177,13 +198,18 @@ void RK4Integrator::performRK4Integration(PhysicsSpace &space, ConsoleProfileInf
 
         Vector2 deltaVelocity = (rk1d.velocity + (rk2d.velocity + rk3d.velocity) * 2.0f + rk4d.velocity) * factor;
         Vector2 deltaAcceleration = (rk1d.acceleration + (rk2d.acceleration + rk3d.acceleration) * 2.0f + rk4d.acceleration) * factor;
+
         space.points.pos[i] += deltaVelocity;
         space.points.velocity[i] += deltaAcceleration;
 
-        // if (velocityAmplitude > 3.0f)
-        // {
-        //     space.points.velocity[i] *= 3.0f / velocityAmplitude;
-        // }
+        float lengthSquared = space.points.velocity[i].lengthSquared();
+
+        if (lengthSquared > maxVelocitySquared)
+        {
+            float length = sqrtf(lengthSquared);
+            float scale = maxVelocity / length;
+            space.points.velocity[i] *= scale;
+        }
     }
 }
 

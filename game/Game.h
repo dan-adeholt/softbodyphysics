@@ -7,23 +7,32 @@ struct ConsoleProfileInfo;
 struct ShapeBoundingBox;
 class Vector2;
 
+enum class GameKeyCode : int;
+
 template <typename T>
 struct Range;
 
 template <typename T>
 class Array;
 
+struct GameRenderSettings
+{
+    bool renderSprings = true;
+    bool renderPoints = true;
+    bool renderShapeLines = true;
+};
+
 class Game
 {
 public:
-    Game();
+    Game(const char *path);
     ~Game();
 
     void clear();
     void init(const char *sceneType);
     void init(const SceneDefinition &sceneDefinition);
 
-    void update(double elapsedTimeMilliseconds, ConsoleProfileInfo &profileInfo);
+    void update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfileInfo &profileInfo);
 
     void rewindHistory();
     void forwardHistory();
@@ -33,15 +42,23 @@ public:
     void mouseMove(int x, int y, int relativeX, int relativeY);
     void mouseWheel(int x, int y);
 
+    void keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profileInfo);
+    void keyUp(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profileInfo);
+
+    bool keyWasPressed(GameKeyCode keyCode);
+
     Array<ShapeBoundingBox> &shapeBoundingBoxes();
 
     PhysicsSpace &physicsSpace();
+    PhysicsSpace &lastCollisionSpace();
 
     int &simulationSpeed();
     bool paused();
 
-    void updateBoundingBoxes();
+    void setShouldQuit();
+    bool shouldQuit();
 
+    void updateBoundingBoxes();
 
     void setPaused();
     void togglePaused();
@@ -52,9 +69,16 @@ public:
     float &scale();
 
     void scheduleCallback(void (*function)(Game *, void *), void *args, float delay);
+    void scheduleFrameCallback(void (*function)(Game *, void *), void *args);
 
     int selectedShapeIndex() const;
 
+    void runFor(int timeMillis, bool pauseAfter = false);
+
+    void setStopPointWhenDragging(bool stopPointWhenDragging);
+
+    GameRenderSettings renderSettings();
+    void setRenderSettings(const GameRenderSettings &settings);
 private:
     void updateAfterRewindOrForward();
 

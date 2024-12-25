@@ -134,20 +134,105 @@ namespace Shapes
 
     Shape createStaticQuad(PhysicsSpace &space, float x, float y, float width, float height, float mass)
     {
-        space.staticPoints.push(x, y, mass);
-        space.staticPoints.push(x + width, y, mass);
-        space.staticPoints.push(x + width, y + height, mass);
-        space.staticPoints.push(x, y + height, mass);
+        space.points.push(x, y, mass);
+        space.points.push(x + width, y, mass);
+        space.points.push(x + width, y + height, mass);
+        space.points.push(x, y + height, mass);
 
-        const Span span(space.staticPoints.size() - 4, space.staticPoints.size());
+        const Span span(space.points.size() - 4, space.points.size());
         Shape quad = Shape(span.start, span.end);
-        ShapeMatching::shapeMatchAlignInit(space.staticPoints.range(), quad, space.partialShapes.range());
-        space.staticShapes.push(quad);
+        quad.isStatic = true;
+        ShapeMatching::shapeMatchAlignInit(space.points.range(), quad, space.partialShapes.range());
+        space.shapes.push(quad);
 
         return quad;
     }
 
-    Shape createQuad(PhysicsSpace &space, float x, float y, float width, float height, float mass)
+    Shape createRoundedQuad(PhysicsSpace &space, float x, float y, float width, float height, float mass, float stiffnessFactor)
+    {
+        int shapeIndex = space.nextShapeIndex();
+
+        float cornerSize = width / 8.0f;
+
+        space.points.push(x, y + cornerSize, mass);
+        space.points.push(x + cornerSize, y, mass);
+        space.points.push(x + width - cornerSize, y, mass);
+        space.points.push(x + width, y + cornerSize, mass);
+        space.points.push(x + width, y + height - cornerSize, mass);
+        space.points.push(x + width - cornerSize, y + height, mass);
+        space.points.push(x + cornerSize, y + height, mass);
+        space.points.push(x, y + height - cornerSize, mass);
+
+        const Span span(space.points.size() - 8, space.points.size());
+        Shape quad = Shape(span.start, span.end);
+        ShapeMatching::shapeMatchAlignInit(space.points.range(), quad, space.partialShapes.range());
+
+        Vector2 p0 = space.points.pos[span.start];
+        Vector2 p1 = space.points.pos[span.start + 1];
+
+        Vector2 p2 = space.points.pos[span.start + 2];
+        Vector2 p3 = space.points.pos[span.start + 3];
+
+        Vector2 p4 = space.points.pos[span.start + 4];
+        Vector2 p5 = space.points.pos[span.start + 5];
+
+        Vector2 p6 = space.points.pos[span.start + 6];
+        Vector2 p7 = space.points.pos[span.start + 7];
+
+        float stiffness = stiffnessFactor * mass;
+        float damping = 28.9f * mass;
+
+        for (int corner = 0; corner < 4; corner++)
+        {
+            int indexP0 = span.start + corner * 2;
+            int indexP1 = span.start + corner * 2 + 1;
+            int indexP2 = span.start + ((corner * 2 + 2) % 8);
+            int indexP3 = span.start + ((corner * 2 + 3) % 8);
+
+            Vector2 p0 = space.points.pos[indexP0];
+            Vector2 p1 = space.points.pos[indexP1];
+            Vector2 p2 = space.points.pos[indexP2];
+            Vector2 p3 = space.points.pos[indexP3];
+
+            space.springs.push(Spring(indexP0, indexP1, Vector2::vec2distance(p0.x, p0.y, p1.x, p1.y), stiffness, damping, shapeIndex));
+            space.springs.push(Spring(indexP1, indexP2, Vector2::vec2distance(p1.x, p1.y, p2.x, p2.y), stiffness, damping, shapeIndex));
+            space.springs.push(Spring(indexP2, indexP3, Vector2::vec2distance(p2.x, p2.y, p3.x, p3.y), stiffness, damping, shapeIndex));
+            space.springs.push(Spring(indexP0, indexP3, Vector2::vec2distance(p0.x, p0.y, p3.x, p3.y), stiffness, damping, shapeIndex));
+
+            space.springs.push(Spring(indexP1, indexP3, Vector2::vec2distance(p1.x, p1.y, p3.x, p3.y), stiffness, damping, shapeIndex));
+
+            space.springs.push(Spring(indexP0, indexP2, Vector2::vec2distance(p0.x, p0.y, p2.x, p2.y), stiffness, damping, shapeIndex));
+        }
+
+        for (int side = 0; side < 2; side++)
+        {
+            int indexP0 = span.start + side * 2;
+            int indexP1 = span.start + side * 2 + 1;
+
+            int indexP2 = span.start + ((side * 2 + 4) % 8);
+            int indexP3 = span.start + ((side * 2 + 5) % 8);
+
+            Vector2 p0 = space.points.pos[indexP0];
+            Vector2 p1 = space.points.pos[indexP1];
+            Vector2 p2 = space.points.pos[indexP2];
+            Vector2 p3 = space.points.pos[indexP3];
+            space.springs.push(Spring(indexP0, indexP3, Vector2::vec2distance(p0.x, p0.y, p3.x, p3.y), stiffness, damping, shapeIndex));
+            space.springs.push(Spring(indexP1, indexP2, Vector2::vec2distance(p1.x, p1.y, p2.x, p2.y), stiffness, damping, shapeIndex));
+        }
+
+        // space.springs.push(Spring(span.start, span.start + 1, Vector2::vec2distance(p0.x, p0.y, p1.x, p1.y), stiffness, damping, shapeIndex));
+        // space.springs.push(Spring(span.start + 1, span.start + 2, Vector2::vec2distance(p1.x, p1.y, p2.x, p2.y), stiffness, damping, shapeIndex));
+        // space.springs.push(Spring(span.start + 2, span.start + 3, Vector2::vec2distance(p2.x, p2.y, p3.x, p3.y), stiffness, damping, shapeIndex));
+        // space.springs.push(Spring(span.start + 3, span.start, Vector2::vec2distance(p3.x, p3.y, p0.x, p0.y), stiffness, damping, shapeIndex));
+        // space.springs.push(Spring(span.start, span.start + 2, Vector2::vec2distance(p0.x, p0.y, p2.x, p2.y), stiffness, damping, shapeIndex));
+        // space.springs.push(Spring(span.start + 1, span.start + 3, Vector2::vec2distance(p1.x, p1.y, p3.x, p3.y), stiffness, damping, shapeIndex));
+
+        space.shapes.push(quad);
+
+        return quad;
+    }
+
+    Shape createQuad(PhysicsSpace &space, float x, float y, float width, float height, float mass, float stiffnessFactor)
     {
         int shapeIndex = space.nextShapeIndex();
         space.points.push(x, y, mass);
@@ -164,7 +249,7 @@ namespace Shapes
         Vector2 p2 = space.points.pos[span.start + 2];
         Vector2 p3 = space.points.pos[span.start + 3];
 
-        float stiffness = 2.5f * mass;
+        float stiffness = stiffnessFactor * mass;
         float damping = 28.9f * mass;
 
         space.springs.push(Spring(span.start, span.start + 1, Vector2::vec2distance(p0.x, p0.y, p1.x, p1.y), stiffness, damping, shapeIndex));
@@ -193,23 +278,17 @@ namespace Shapes
 
     Shape createTriangle(PhysicsSpace &space, bool isStatic, float x0, float y0, float x1, float y1, float x2, float y2, float mass)
     {
-        PointMasses &points = isStatic ? space.staticPoints : space.points;
-        points.push(x0, y0, mass);
-        points.push(x1, y1, mass);
-        points.push(x2, y2, mass);
+        space.points.push(x0, y0, mass);
+        space.points.push(x1, y1, mass);
+        space.points.push(x2, y2, mass);
 
-        const Span span(points.size() - 3, points.size());
+        const Span span(space.points.size() - 3, space.points.size());
 
         Shape triangle = Shape(span.start, span.end);
-        ShapeMatching::shapeMatchAlignInit(points.range(), triangle, space.partialShapes.range());
-        if (isStatic)
-        {
-            space.staticShapes.push(triangle);
-        }
-        else
-        {
-            space.shapes.push(triangle);
-        }
+        triangle.isStatic = isStatic;
+        ShapeMatching::shapeMatchAlignInit(space.points.range(), triangle, space.partialShapes.range());
+        triangle.isStatic = isStatic;
+        space.shapes.push(triangle);
 
         return triangle;
     }

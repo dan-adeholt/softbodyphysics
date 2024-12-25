@@ -18,8 +18,14 @@ class Vector2
 public:
     Vector2() : x(0.0f), y(0.0f) {}
     Vector2(float x, float y) : x(x), y(y) {}
+
     float x;
     float y;
+
+    bool isZero() const
+    {
+        return x == 0.0f && y == 0.0f;
+    }
 
     static float vec2distance(float x1, float y1, float x2, float y2)
     {
@@ -56,6 +62,12 @@ public:
         float length = sqrtf(x * x + y * y);
         return {x / length, y / length};
     }
+
+    // Unary negation operator
+    Vector2 operator-() const
+    {
+        return Vector2(-x, -y);
+    }   
 
     Vector2 reflect(const Vector2 &normal) const
     {

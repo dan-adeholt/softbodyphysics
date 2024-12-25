@@ -35,15 +35,16 @@ struct FileEntry
 
 struct Editor::Impl
 {
-    Impl() : fileList(MAX_FILES), isPlaying(false)
+    Impl() : fileList(MAX_FILES)
     {
         lastOpenedFile[0] = '\0';
     }
 
     bool showProfiler;
     Array<FileEntry> fileList;
-    char lastOpenedFile[MAX_FILENAME_LENGTH];
-    bool isPlaying;
+    char lastOpenedFile[MAX_FILENAME_LENGTH] = {'\0'};
+    char lastScene[MAX_FILENAME_LENGTH] = {'\0'};
+    bool isPlaying = false;
 };
 
 Editor::Editor()
@@ -94,6 +95,10 @@ void Editor::readIniValue(const char *section, const char *name, const char *val
         if (strcmp(name, "LastOpenedFile") == 0)
         {
             strcpy(m->lastOpenedFile, value);
+        }
+        if (strcmp(name, "LastScene") == 0)
+        {
+            strcpy(m->lastScene, value);
         }
         else if (strcmp(name, "ShowProfiler") == 0)
         {
@@ -163,7 +168,9 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
                 const bool isSelected = currentSceneName != nullptr && strcmp(scene.name, currentSceneName) == 0;
                 if (ImGui::MenuItem(scene.name))
                 {
+                    strncpy(m->lastScene, scene.name, MAX_FILENAME_LENGTH);
                     game.init(scene);
+                    saveState();
                 }
 
                 // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
@@ -222,11 +229,12 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
         {
             game.togglePaused();
         }
+
         ImGui::SameLine();
 
         if (ImGui::Button(ICON_FA_STEP_FORWARD, buttonSize))
         {
-            game.update(1000.0 / 120.0, profileInfo);
+            game.update(1000.0 / 120.0, true, profileInfo);
         }
 
         ImGui::SameLine();
@@ -236,6 +244,10 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
             game.setPaused();
             game.forwardHistory();
         }
+
+        const char *curSceneName = game.currentSceneName();
+        ImGui::Text("%s", curSceneName != nullptr ? curSceneName : "No scene selected");
+
         ImGui::PopButtonRepeat();
 
         ImGui::EndMainMenuBar();
@@ -244,6 +256,7 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
     if (m->showProfiler)
     {
         ImGui::Begin("Profiler");
+        ImGui::Text("Slowdown factor: %.2lf", profileInfo.slowdownFactor);
         ImGui::Text("Total Physics time: %.2lf ms", profileInfo.totalPhysicsTimeMillis);
         ImGui::Text("Elapsed step time: %.2lf ms", profileInfo.elapsedStepTimeMillis);
         ImGui::Text("Physics iterations: %d", profileInfo.numPhysicsSteps);
@@ -255,6 +268,8 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
         ImGui::Text("Bounding box time: %.2lf ms", profileInfo.boundingBoxTimeMillis);
         ImGui::Text("Num bboxes: %d", profileInfo.numBboxes);
         ImGui::Text("Num bbox checks: %d", profileInfo.numBbboxChecks);
+        ImGui::Text("Num bbox overlaps: %d", profileInfo.numBboxOverlaps);
+        ImGui::Text("Num collisions: %d", profileInfo.numCollisions);
         ImGui::Text("Collisions time: %.2lf ms", profileInfo.collisionTimeMillis);
 
         ImGui::End();
@@ -300,6 +315,7 @@ void Editor::saveState()
 
     writeIniSection(stateFile, "Editor");
     writeIniProperty(stateFile, "LastOpenedFile", m->lastOpenedFile);
+    writeIniProperty(stateFile, "LastScene", m->lastScene);
     writeIniProperty(stateFile, "ShowProfiler", m->showProfiler ? "1" : "0");
 
     // Flush the file buffer
@@ -307,6 +323,11 @@ void Editor::saveState()
 
     // Close the file
     fclose(stateFile);
+}
+
+const char *Editor::lastSceneName()
+{
+    return m->lastScene;
 }
 
 bool Editor::executingTest()

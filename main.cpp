@@ -17,14 +17,127 @@
 #include "utils/UnitTestUtil.h"
 #include "main.h"
 #include "fontawesome/IconsFontAwesome4.h"
+#include "game/GameKeyCode.h"
 
 // #include "physics/PhysicsSIMD.h"
 
 const int WINDOW_WIDTH = 1524;
 const int WINDOW_HEIGHT = 960;
 
+int getSdlModState()
+{
+    int modState = 0;
+
+    if (SDL_GetModState() & KMOD_ALT)
+    {
+        modState |= (int)GameModkey::Alt;
+    }
+
+    if (SDL_GetModState() & KMOD_SHIFT)
+    {
+        modState |= (int)GameModkey::Shift;
+    }
+
+    if (SDL_GetModState() & KMOD_CTRL)
+    {
+        modState |= (int)GameModkey::Ctrl;
+    }
+
+    return modState;
+}
+
+GameKeyCode convertSdlKeycode(SDL_KeyCode code)
+{
+    switch (code)
+    {
+    case SDLK_F1:
+        return GameKeyCode::F1;
+    case SDLK_F2:
+        return GameKeyCode::F2;
+    case SDLK_F3:
+        return GameKeyCode::F3;
+    case SDLK_F4:
+        return GameKeyCode::F4;
+    case SDLK_F5:
+        return GameKeyCode::F5;
+    case SDLK_F6:
+        return GameKeyCode::F6;
+    case SDLK_F7:
+        return GameKeyCode::F7;
+    case SDLK_F8:
+        return GameKeyCode::F8;
+    case SDLK_F9:
+        return GameKeyCode::F9;
+    case SDLK_F10:
+        return GameKeyCode::F10;
+    case SDLK_F11:
+        return GameKeyCode::F11;
+    case SDLK_F12:
+        return GameKeyCode::F12;
+    case SDLK_PLUS:
+        return GameKeyCode::PLUS;
+    case SDLK_MINUS:
+        return GameKeyCode::MINUS;
+    case SDLK_a:
+        return GameKeyCode::A;
+    case SDLK_b:
+        return GameKeyCode::B;
+    case SDLK_c:
+        return GameKeyCode::C;
+    case SDLK_d:
+        return GameKeyCode::D;
+    case SDLK_e:
+        return GameKeyCode::E;
+    case SDLK_f:
+        return GameKeyCode::F;
+    case SDLK_g:
+        return GameKeyCode::G;
+    case SDLK_h:
+        return GameKeyCode::H;
+    case SDLK_i:
+        return GameKeyCode::I;
+    case SDLK_j:
+        return GameKeyCode::J;
+    case SDLK_k:
+        return GameKeyCode::K;
+    case SDLK_l:
+        return GameKeyCode::L;
+    case SDLK_m:
+        return GameKeyCode::M;
+    case SDLK_n:
+        return GameKeyCode::N;
+    case SDLK_o:
+        return GameKeyCode::O;
+    case SDLK_p:
+        return GameKeyCode::P;
+    case SDLK_q:
+        return GameKeyCode::Q;
+    case SDLK_r:
+        return GameKeyCode::R;
+    case SDLK_s:
+        return GameKeyCode::S;
+    case SDLK_t:
+        return GameKeyCode::T;
+    case SDLK_u:
+        return GameKeyCode::U;
+    case SDLK_v:
+        return GameKeyCode::V;
+    case SDLK_w:
+        return GameKeyCode::W;
+    case SDLK_x:
+        return GameKeyCode::X;
+    case SDLK_y:
+        return GameKeyCode::Y;
+    case SDLK_z:
+        return GameKeyCode::Z;
+    default:
+        return GameKeyCode::NUM_KEY_CODES;
+    }
+}
+
 int main(int argc, char *argv[])
 {
+
     Scheduler::instance->start();
     uint64_t programStartNanos = monotonicTimeNanos();
 
@@ -33,11 +146,19 @@ int main(int argc, char *argv[])
         fprintf(stderr, "SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
         return 1;
     }
+    SDL_DisplayMode displayMode;
+    if (SDL_GetCurrentDisplayMode(0, &displayMode) != 0)
+    {
+        fprintf(stderr, "SDL_GetCurrentDisplayMode failed: %s\n", SDL_GetError());
+        return 1;
+    }
+
+    double frameTime = 1000.0 / displayMode.refresh_rate;
 
     SDL_Window *window = SDL_CreateWindow("SDL2 Window",
                                           SDL_WINDOWPOS_UNDEFINED,
                                           SDL_WINDOWPOS_UNDEFINED,
-                                          WINDOW_WIDTH, WINDOW_HEIGHT,
+                                          displayMode.w, displayMode.h,
                                           SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
 
     if (window == nullptr)
@@ -64,10 +185,6 @@ int main(int argc, char *argv[])
     }
 
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-    SDL_DisplayMode displayMode;
-    SDL_GetCurrentDisplayMode(0, &displayMode);
-
-    double frameTime = 1000.0 / displayMode.refresh_rate;
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -110,12 +227,15 @@ int main(int argc, char *argv[])
 
     bool renderShapeMatching = false;
     SDL_Event event;
-    bool quit = false;
 
-    Game game;
-    game.init("Collision grid");
+    char *path = SDL_GetPrefPath("tightloop", "softbodyphysics");
 
     Editor editor;
+
+    Game game(path);
+    game.init(editor.lastSceneName());
+
+    Console::log("Last scene: %s\n", editor.lastSceneName());
     uint64_t startNanos = monotonicTimeNanos();
     bool show_demo_window = false;
 
@@ -128,7 +248,7 @@ int main(int argc, char *argv[])
     GameRenderer gameRenderer(renderer);
 
     startNanos = monotonicTimeNanos();
-    while (!quit)
+    while (!game.shouldQuit())
     {
         while (SDL_PollEvent(&event))
         {
@@ -137,63 +257,46 @@ int main(int argc, char *argv[])
             switch (event.type)
             {
             case SDL_QUIT:
-                quit = true;
+                game.setShouldQuit();
                 break;
             case SDL_KEYDOWN:
-                switch (event.key.keysym.sym)
+            {
+                GameKeyCode keyCode = convertSdlKeycode((SDL_KeyCode)event.key.keysym.sym);
+
+                if (keyCode == GameKeyCode::F1)
                 {
-                case SDLK_F1:
                     renderShapeMatching = !renderShapeMatching;
-                    break;
-                case SDLK_F2:
-                    game.physicsSpace().shapeMatchingEnabled = !game.physicsSpace().shapeMatchingEnabled;
-                    break;
-                case SDLK_F5:
-                    game.togglePaused();
-                    break;
-                case SDLK_F8:
-                    game.update(1000.0 / 120.0, profileInfo);
-                    game.updateBoundingBoxes();
-                    break;
-                case SDLK_F3:
-                    game.rewindHistory();
-                    break;
-                case SDLK_F4:
-                    game.forwardHistory();
-                    break;
-                case SDLK_F7:
-                case SDLK_F6:
+                }
+
+                if (keyCode != GameKeyCode::NUM_KEY_CODES)
                 {
-                    char *path = SDL_GetPrefPath("tightloop", "softbodyphysics");
-
-                    if (path)
-                    {
-                        printf("Preferred path: %s\n", path);
-                        char buf[500];
-                        snprintf(path, sizeof(buf), "%s%s", path, "dump.txt");
-                        if (event.key.keysym.sym == SDLK_F6)
-                        {
-                            PhysicsSpaceStorage::dumpToFile(game.physicsSpace(), path);
-                            printf("Wrote to %s\n", path);
-                        }
-                        else
-                        {
-                            printf("Attempting read from %s\n", path);
-                            PhysicsSpaceStorage::loadFromFile(game.physicsSpace(), path);
-                            printf("Read from %s\n", path);
-                        }
-
-                        SDL_free(path);
-                    }
+                    game.keyDown(keyCode, getSdlModState(), profileInfo);
                 }
+
                 break;
-                case SDLK_ESCAPE:
-                    quit = true;
-                    break;
+            }
+            case SDL_KEYUP:
+            {
+                GameKeyCode keyCode = convertSdlKeycode((SDL_KeyCode)event.key.keysym.sym);
+
+                if (keyCode == GameKeyCode::F1)
+                {
+                    renderShapeMatching = !renderShapeMatching;
                 }
+
+                if (keyCode != GameKeyCode::NUM_KEY_CODES)
+                {
+                    game.keyUp(keyCode, getSdlModState(), profileInfo);
+                }
+
                 break;
+            }
             case SDL_MOUSEWHEEL:
-                game.mouseWheel(event.wheel.x, event.wheel.y);
+                if (SDL_GetModState() & KMOD_ALT)
+                {
+                    game.mouseWheel(event.wheel.x, event.wheel.y);
+                }
+
                 break;
             case SDL_MOUSEBUTTONDOWN:
                 game.mouseButtonDown(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
@@ -241,7 +344,7 @@ int main(int argc, char *argv[])
             else
             {
                 Timer totalPhysicsTimer;
-                game.update(elapsedMilliseconds, profileInfo);
+                game.update(elapsedMilliseconds, false, profileInfo);
                 profileInfo.totalPhysicsTimeMillis = totalPhysicsTimer.elapsedMillis();
             }
         }
@@ -264,7 +367,7 @@ int main(int argc, char *argv[])
         gameRenderer.renderGame(renderer, game, renderShapeMatching, profileInfo);
         // gameRenderer.renderText(renderer, "Press F5 to pause, F6 to save, F7 to load, F8 to step, F3 to rewind, F4 to forward", 10, 10);
         profileInfo.renderTimeMillis = renderTimer.elapsedMillis();
-        Console::draw(profileInfo);
+        Console::draw(profileInfo, game.scale(), game.offset());
         editor.renderUI(game, profileInfo);
         // Rendering
 
@@ -283,6 +386,7 @@ int main(int argc, char *argv[])
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    SDL_free(path);
     SDL_Quit();
 
     return 0;

@@ -10,15 +10,12 @@ struct PhysicsSpace
     void assign(PhysicsSpace &other);
 
     int nextShapeIndex() const;
-    int nextStaticShapeIndex() const;
 
     void clear();
 
     Array<Shape> shapes;
     Array<ShapeQuad> partialShapes;
     PointMasses points;
-    Array<Shape> staticShapes;
-    PointMasses staticPoints;
     Array<Spring> springs;
     Array<StaticJoint> staticJoints;
 

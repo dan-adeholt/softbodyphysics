@@ -242,9 +242,7 @@ void PhysicsSpaceStorage::loadFromFile(PhysicsSpace &space, const char *filename
         return;
     }
     readPointMasses(file, space.points);
-    readPointMasses(file, space.staticPoints);
     readShapeArray(file, space.shapes);
-    readShapeArray(file, space.staticShapes);
     readSprings(file, space.springs);
     readStaticJoints(file, space.staticJoints);
 
@@ -261,9 +259,7 @@ void PhysicsSpaceStorage::dumpToFile(PhysicsSpace &space, const char *filename)
     }
 
     dumpPointMasses(file, space.points);
-    dumpPointMasses(file, space.staticPoints);
     dumpShapeArray(file, &space.shapes[0], space.shapes.size());
-    dumpShapeArray(file, &space.staticShapes[0], space.staticShapes.size());
     dumpSprings(file, space.springs);
     dumpStaticJoints(file, space.staticJoints);
 

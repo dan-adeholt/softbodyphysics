@@ -168,18 +168,39 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, bool renderSha
     Range<Shape> shapes;
 
     PhysicsSpace &physicsSpace = game.physicsSpace();
-    PointMassesRange staticPoints = physicsSpace.staticPoints.range();
-    renderShapes(renderer, physicsSpace.staticShapes.range(), staticPoints, physicsSpace, renderShapeMatching, scale);
+    PointMassesRange points = physicsSpace.points.range();
+    float scaleForGeometry = min(3.1f, scale);
 
-    PointMassesRange dynamicPoints = physicsSpace.points.range();
-    renderShapes(renderer, physicsSpace.shapes.range(), dynamicPoints, physicsSpace, renderShapeMatching, scale);
-    renderSprings(renderer, physicsSpace.springs.range(), dynamicPoints, scale);
+    GameRenderSettings renderSettings = game.renderSettings();
 
-    for (int i = 0; i < dynamicPoints.size(); i++)
+    if (renderSettings.renderShapeLines)
     {
-        Vector2 pos = dynamicPoints.pos[i];
-        addCircle(m->vertices, pos.x, pos.y, scale, {255, 255, 255, 255});
+        renderShapes(renderer, physicsSpace.shapes.range(), points, physicsSpace, renderShapeMatching, scaleForGeometry);
     }
+
+    if (renderSettings.renderSprings)
+    {
+        renderSprings(renderer, physicsSpace.springs.range(), points, scaleForGeometry);
+    }
+
+    if (renderSettings.renderPoints)
+    {
+
+        for (int i = 0; i < points.size(); i++)
+        {
+            Vector2 pos = points.pos[i];
+            addCircle(m->vertices, pos.x, pos.y, scale, {255, 255, 255, 255});
+
+            // Vector2 velocity = points.velocity[i];
+
+            // Vector2 target = pos + velocity * 200.0f;
+            // addLine(m->vertices, pos.x, pos.y, target.x, target.y, scale, {255, 0, 255, 255});
+            // addCircle(m->vertices, target.x, target.y, scale, {255, 255, 255, 255});
+        }
+    }
+
+    PhysicsSpace &prevPhysicsSpace = game.lastCollisionSpace();
+    PointMassesRange lastCollisionPoints = physicsSpace.points.range();
 
     Vertex *vtx_buffer = &m->vertices[0];
     const float *xy = (const float *)(const void *)((const char *)(vtx_buffer) + offsetof(Vertex, pos));

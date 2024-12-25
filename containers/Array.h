@@ -12,7 +12,7 @@ class Array
 {
 public:
     Array() : m_size(0), m_capacity(0), m_data(nullptr) {}
-    Array(const Array<T> &list) : m_size(list.size()), m_capacity(list.capacity()), m_data(reinterpret_cast<T *>(new char[sizeof(T) * list.size()]))
+    Array(const Array<T> &list) : m_size(list.size()), m_capacity(list.capacity()), m_data(reinterpret_cast<T *>(new char[sizeof(T) * (size_t)list.size()]))
     {
         for (int i = 0; i < list.size(); i++)
         {
