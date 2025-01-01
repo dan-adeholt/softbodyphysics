@@ -13,6 +13,7 @@ enum class GameModkey : int
 enum class GameKeyCode : int
 {
     ESCAPE = 0,
+    BACKSPACE,
     F1,
     F2,
     F3,

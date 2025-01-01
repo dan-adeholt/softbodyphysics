@@ -61,6 +61,50 @@ struct PointMasses
     {
     }
 
+    PointMasses(
+        const Array<Vector2> &otherPos,
+        const Array<Vector2> &otherVelocity,
+        const Array<float> &otherMass,
+        const Array<Vector2> &otherShapeOriginalPos,
+        const Array<Vector2> &otherShapePos)
+    {
+        pos.append(otherPos);
+        mass.append(otherMass);
+        velocity.append(otherVelocity);
+        shapePos.append(otherShapePos);
+        shapeOriginalPos.append(otherShapeOriginalPos);
+    }
+
+    PointMasses &withPos(const Array<Vector2> &otherPos)
+    {
+        pos.append(otherPos);
+        return *this;
+    }
+
+    PointMasses &withMass(const Array<float> &otherMass)
+    {
+        mass.append(otherMass);
+        return *this;
+    }
+
+    PointMasses &withVelocity(const Array<Vector2> &otherVelocity)
+    {
+        velocity.append(otherVelocity);
+        return *this;
+    }
+
+    PointMasses &withShapePos(const Array<Vector2> &otherShapePos)
+    {
+        shapePos.append(otherShapePos);
+        return *this;
+    }
+
+    PointMasses &withShapeOriginalPos(const Array<Vector2> &otherShapeOriginalPos)
+    {
+        shapeOriginalPos.append(otherShapeOriginalPos);
+        return *this;
+    }
+
     void clear()
     {
         pos.clear();
@@ -158,9 +202,13 @@ struct StaticJoint
 
 struct Spring
 {
-    Spring() : pointA(0), pointB(0), length(0.0f), stiffness(0.0f), damping(0.0f), shapeIndex(0) {}
+
+    Spring()
+    {
+    }
     Spring(int pointA, int pointB, float length, float stiffness, float damping, int shapeIndex)
         : pointA(pointA), pointB(pointB), length(length), stiffness(stiffness), damping(damping), shapeIndex(shapeIndex) {}
+
     int pointA;
     int pointB;
     float length;

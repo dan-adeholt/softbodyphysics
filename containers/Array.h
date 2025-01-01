@@ -21,7 +21,7 @@ public:
         }
     }
 
-    Array(const std::initializer_list<T> &list) : m_size(list.size()), m_capacity(list.size()), m_data(reinterpret_cast<T *>(new char[sizeof(T) * list.size()]))
+    Array(const std::initializer_list<T> &list) : m_size((int)list.size()), m_capacity((int)list.size()), m_data(reinterpret_cast<T *>(new char[sizeof(T) * list.size()]))
     {
         int i = 0;
         for (const T &element : list)
@@ -213,6 +213,32 @@ public:
         }
 
         m_size--;
+    }
+
+    void removeRange(Span span)
+    {
+        removeRange(span.start, span.end);
+    }
+
+    void removeRange(int start, int end)
+    {
+        for (int i = start; i < end; i++)
+        {
+            remove(start);
+        }
+        // for (int i = start; i < end; i++)
+        // {
+        //     m_data[i].~T();
+        // }
+
+        // int count = end - start;
+
+        // for (int i = end; i < m_size; i++)
+        // {
+        //     m_data[i - count] = m_data[i];
+        // }
+
+        // m_size -= (end - start);
     }
 
 private:

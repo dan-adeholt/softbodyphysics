@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <assert.h>
 #include "../utils/Console.h"
+#include <SDL.h>
+#include <dirent.h>
 
 void readVector2QuadArray(FILE *file, Vector2 *array)
 {
@@ -266,4 +268,94 @@ void PhysicsSpaceStorage::dumpToFile(PhysicsSpace &space, const char *filename)
     fflush(file);
     fclose(file);
     Console::log("Dumped physics space to file %s", filename);
+}
+
+int getHighestFileNumber(const char *directory, const char *format)
+{
+    DIR *dir;
+    struct dirent *entry;
+    int max_number = 0;
+
+    dir = opendir(directory);
+    if (!dir)
+    {
+        perror("opendir");
+        return -1;
+    }
+
+    while ((entry = readdir(dir)) != NULL)
+    {
+        int number;
+        if (sscanf(entry->d_name, format, &number) == 1)
+        {
+            if (number > max_number)
+            {
+                max_number = number;
+            }
+        }
+    }
+
+    closedir(dir);
+    return max_number;
+}
+
+void PhysicsSpaceStorage::dumpToUnitTest(PhysicsSpace &space)
+{
+    int saveNumber = getHighestFileNumber("scenedefs", "unit_%d.txt") + 1;
+    char filename[256];
+    snprintf(filename, sizeof(filename), "scenedefs/unit_%d.txt", saveNumber);
+    dumpToFile(space, filename);
+
+    const char *tempFileName = "/tmp/physics_space_copy.txt";
+
+    FILE *f = fopen(tempFileName, "w");
+
+    fprintf(f, "    {\"New Unit Test %d\", [](Game *game)\n", saveNumber);
+    fprintf(f, "      {\n");
+    fprintf(f, "         PhysicsSpace &space = game->physicsSpace();\n");
+    fprintf(f, "         PhysicsSpaceStorage::loadFromFile(space, \"%s\");\n", filename);
+    fprintf(f, "         game->setPaused();\n");
+    fprintf(f, "    }},\n");
+    fclose(f);
+    fflush(f);
+
+    // Open the file
+    FILE *file = fopen(tempFileName, "r");
+    if (!file)
+    {
+        fprintf(stderr, "Failed to open file: %s\n", tempFileName);
+        return;
+    }
+
+    // Determine the file size
+    fseek(file, 0, SEEK_END);
+    size_t fileSize = (size_t)ftell(file);
+    rewind(file);
+
+    // Allocate memory to read the file contents
+    char *buffer = (char *)malloc(fileSize + 1);
+    if (!buffer)
+    {
+        fprintf(stderr, "Failed to allocate memory for file contents.\n");
+        fclose(file);
+        return;
+    }
+
+    // Read the file contents
+    size_t bytesRead = fread(buffer, 1, fileSize, file);
+    buffer[bytesRead] = '\0'; // Null-terminate the string
+    fclose(file);
+
+    // Set the clipboard text using SDL
+    if (SDL_SetClipboardText(buffer) != 0)
+    {
+        fprintf(stderr, "Failed to set clipboard text: %s\n", SDL_GetError());
+    }
+    else
+    {
+        printf("Clipboard updated successfully!\n");
+    }
+
+    // Free the buffer
+    free(buffer);
 }

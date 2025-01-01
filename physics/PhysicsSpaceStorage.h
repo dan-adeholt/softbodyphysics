@@ -8,6 +8,8 @@ struct PhysicsSpaceStorage
     static void loadFromFile(PhysicsSpace &space, const char *filename);
 
     static void dumpToFile(PhysicsSpace &space, const char *filename);
+
+    static void dumpToUnitTest(PhysicsSpace &space);
 };
 
 #endif

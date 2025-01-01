@@ -6,6 +6,19 @@
 
 struct PhysicsSpace;
 
+struct IntersectionResult
+{
+    Vector2 point;
+    float t;
+    int segmentIndex;
+    bool found;
+};
+
+bool lineSegmentIntersection(
+    const Vector2 &p1, const Vector2 &p2,
+    const Vector2 &q1, const Vector2 &q2,
+    float &t_p, float &t_q);
+
 struct ShapeBoundingBox
 {
     int shapeIndex;
@@ -32,6 +45,11 @@ struct ShapeBoundingBox
         return point.x >= x1 && point.x <= x2 && point.y >= y1 && point.y <= y2;
     }
 
+    bool encloses(const ShapeBoundingBox &other) const
+    {
+        return x1 <= other.x1 && x2 >= other.x2 && y1 <= other.y1 && y2 >= other.y2;
+    }
+
     bool overlaps(const ShapeBoundingBox &other) const
     {
         return x1 < other.x2 && x2 > other.x1 && y1 < other.y2 && y2 > other.y1;
@@ -40,15 +58,28 @@ struct ShapeBoundingBox
 
 struct ConsoleProfileInfo;
 
-enum class EdgeStrategy
-{
-    ClosestSegment,
-    RelativeVelocitySegment,
-    NumStrategies,
-    IntersectionPrevAndCurrent
-};
+// enum class EdgeStrategy
+// {
+//     ClosestSegment,
+//     RelativeVelocitySegment,
+//     NumStrategies,
+//     IntersectionPrevAndCurrent
+// };
 
-const char *edgeStrategyToString(EdgeStrategy strategy);
+// const char *edgeStrategyToString(EdgeStrategy strategy);
+
+struct ClosestSegmentResult
+{
+    int entryEdgeIndex0;
+    Vector2 closestPoint0;
+    Vector2 pointOutside0;
+    float entryTime0;
+
+    int entryEdgeIndex1;
+    Vector2 closestPoint1;
+    Vector2 pointOutside1;
+    float entryTime1;
+};
 
 struct CollisionSolver
 {
@@ -65,50 +96,40 @@ struct CollisionSolver
 
     void assign(CollisionSolver &other);
 
-    static void findEntryEdge(
-        EdgeStrategy strategy,
-        PointMassesRange collisionShape,
-        PointMassesRange prevShape,
-        const Vector2 &point,
-        const Vector2 &prevPoint,
-        const Vector2 &velocity,
-        int &vertexHitIndex,
-        int &minIndex,
-        Vector2 &minPoint,
-        float &minT);
+    // static void findEntryEdge(
+    //     EdgeStrategy strategy,
+    //     PointMassesRange collisionShape,
+    //     PointMassesRange prevShape,
+    //     const Vector2 &point,
+    //     const Vector2 &prevPoint,
+    //     const Vector2 &velocity,
+    //     int &minIndex,
+    //     Vector2 &minPoint,
+    //     float &minT);
 
-    static void findEntryEdgeClosestSegment(
+    static ClosestSegmentResult findEntryEdgeClosestSegment(
         PointMassesRange collisionShape,
-        PointMassesRange prevShape,
-        const Vector2 &point,
-        const Vector2 &prevPoint,
-        const Vector2 &velocity,
-        int &vertexHitIndex,
-        int &minIndex,
-        Vector2 &minPoint,
-        float &minT);
+        const Vector2 &point, bool log = false);
 
-    static void findEntryEdgeRelativeVelocitySegment(
-        PointMassesRange collisionShape,
-        PointMassesRange prevShape,
-        const Vector2 &point,
-        const Vector2 &prevPoint,
-        const Vector2 &velocity,
-        int &vertexHitIndex,
-        int &minIndex,
-        Vector2 &minPoint,
-        float &minT);
+    // static void findEntryEdgeRelativeVelocitySegment(
+    //     PointMassesRange collisionShape,
+    //     PointMassesRange prevShape,
+    //     const Vector2 &point,
+    //     const Vector2 &prevPoint,
+    //     const Vector2 &velocity,
+    //     int &minIndex,
+    //     Vector2 &minPoint,
+    //     float &minT);
 
-    static void findEntryEdgeIntersectionPrevAndCurrentSegment(
-        PointMassesRange collisionShape,
-        PointMassesRange prevShape,
-        const Vector2 &point,
-        const Vector2 &prevPoint,
-        const Vector2 &velocity,
-        int &vertexHitIndex,
-        int &minIndex,
-        Vector2 &minPoint,
-        float &minT);
+    // static void findEntryEdgeIntersectionPrevAndCurrentSegment(
+    //     PointMassesRange collisionShape,
+    //     PointMassesRange prevShape,
+    //     const Vector2 &point,
+    //     const Vector2 &prevPoint,
+    //     const Vector2 &velocity,
+    //     int &minIndex,
+    //     Vector2 &minPoint,
+    //     float &minT);
 
     static ShapeBoundingBox calculateShapeBoundingBox(int shapeIndex, const PointMassesRange &range);
     static void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<Shape> &shapes, const PointMasses &points);
@@ -122,7 +143,7 @@ struct CollisionSolver
         const ShapeBoundingBox &box2,
         bool isStatiCollisionShape,
         bool isStaticMovingShape,
-        EdgeStrategy strategy);
+        int numIterationsTouching);
 
     Array<ShapeBoundingBox> &boundingBoxes();
 

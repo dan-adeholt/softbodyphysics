@@ -1,5 +1,7 @@
 build-osx
+build-output.log
 build-release
 .DS_Store
 .vscode
 build
+window_settings.txt

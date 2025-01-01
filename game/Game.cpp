@@ -103,7 +103,7 @@ void Game::init(const SceneDefinition &scene)
     m->stopPointWhenDragging = true;
     m->frameCallbacks.clear();
     m->scale = 1.0f;
-    m->offset = Vector2();
+    m->offset = Vector2(400, 0);
     m->paused = false;
     scene.initFunc(this);
     m->currentSceneName = scene.name;
@@ -356,8 +356,6 @@ void Game::mouseButtonDown(int button, int x, int y, bool shiftDown)
 
         testedBoxes++;
     }
-
-    Console::log("Tested %d boxes, shiftdown %d", testedBoxes, shiftDown);
 }
 
 void Game::mouseWheel(int x, int y)
@@ -380,6 +378,13 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
 
     switch (keyCode)
     {
+    case GameKeyCode::BACKSPACE:
+        m->physicsSpace.removeShape(m->selectedShapeIndex);
+        updateBoundingBoxes(true);
+        break;
+    case GameKeyCode::F1:
+        PhysicsSpaceStorage::dumpToUnitTest(m->physicsSpace);
+        break;
     case GameKeyCode::F2:
         physicsSpace().shapeMatchingEnabled = !physicsSpace().shapeMatchingEnabled;
         break;
@@ -540,6 +545,16 @@ void Game::setPaused()
 void Game::togglePaused()
 {
     m->paused = !m->paused;
+
+    if (m->paused)
+    {
+        Scheduler::instance->stop();
+    }
+    else
+    {
+        Scheduler::instance->start();
+    }
+
     updateBoundingBoxes();
 }
 
@@ -548,9 +563,14 @@ bool Game::paused()
     return m->paused;
 }
 
-void Game::updateBoundingBoxes()
+void Game::updateBoundingBoxes(bool clear)
 {
     ConsoleProfileInfo profileInfo;
+    if (clear)
+    {
+        m->collisionSolver.clear();
+    }
+
     m->collisionSolver.updateBoundingBoxes(m->physicsSpace, profileInfo);
 }
 

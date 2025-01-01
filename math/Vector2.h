@@ -1,6 +1,8 @@
 #ifndef __VECTOR2__h
 #define __VECTOR2__h
 
+#include <initializer_list>
+
 extern "C"
 {
     extern float sqrtf(float __x);
@@ -18,6 +20,13 @@ class Vector2
 public:
     Vector2() : x(0.0f), y(0.0f) {}
     Vector2(float x, float y) : x(x), y(y) {}
+    // Implicit constructor for brace initialization
+    Vector2(std::initializer_list<float> list)
+    {
+        auto it = list.begin();
+        x = (it != list.end()) ? *it++ : 0.0f;
+        y = (it != list.end()) ? *it++ : 0.0f;
+    }
 
     float x;
     float y;
@@ -67,7 +76,7 @@ public:
     Vector2 operator-() const
     {
         return Vector2(-x, -y);
-    }   
+    }
 
     Vector2 reflect(const Vector2 &normal) const
     {

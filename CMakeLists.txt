@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 # Set the compiler flags for the debug build type
-#set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Og -g -fno-omit-frame-pointer -finline-functions")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Og -g -fno-omit-frame-pointer -finline-functions")
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(
@@ -121,6 +121,7 @@ SET(SOURCE_FILES timer.cpp
     physics/PhysicsSpaceStorage.cpp
     physics/ShapeMatching.h
     physics/ShapeMatching.cpp
+    utils/CustomFont.cpp
     physics/PhysicsTests.h
     math/Vector2.h
     math/Vector2.cpp
@@ -128,9 +129,13 @@ SET(SOURCE_FILES timer.cpp
     game/Editor.h
     tasks/Scheduler.h
     stb_image/stb_image.cpp
+    utils/DynamicLibrary.cpp
     utils/Console.h
     utils/UnitTestUtil.h
     utils/MinMax.h
+    utils/DynamicLibrary.h
+    utils/CustomFont.h
+
     containers/Array.h
     containers/ContainerPlatform.h
     containers/Range.h
@@ -138,10 +143,26 @@ SET(SOURCE_FILES timer.cpp
     # ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o
 )
 
-add_executable(SoftBodyPhysics
+# This is our icon
+set(MYGAME_ICON "${CMAKE_CURRENT_SOURCE_DIR}/icon.icns")
+
+# Mark it as a resource file in the macOS bundle
+set_source_files_properties(${MYGAME_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+
+
+add_library(SoftBodyPhysicsShared SHARED
     main.cpp
     ${SOURCE_FILES}
 )
+
+add_executable(SoftBodyPhysics MACOSX_BUNDLE
+    shell.cpp
+    ${SOURCE_FILES}
+    ${MYGAME_ICON}
+)
+
+# Add to make xcode happy
+# target_link_libraries(SoftBodyPhysics PRIVATE SoftBodyPhysicsShared)
 
  add_executable(PerfTest
     perftest.cpp
@@ -153,6 +174,7 @@ add_executable(SoftBodyPhysics
     ${SOURCE_FILES}
  )  
 
+target_include_directories(SoftBodyPhysicsShared PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
 target_include_directories(SoftBodyPhysics PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
 target_include_directories(PerfTest PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
 target_include_directories(SoftBodyPhysicsTests PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
@@ -163,8 +185,11 @@ if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     target_link_libraries(SoftBodyPhysics PRIVATE c)
     target_link_libraries(PerfTest PRIVATE c)
     target_link_libraries(SoftBodyPhysicsTests PRIVATE c)
-
+    target_link_libraries(SoftBodyPhysicsShared PRIVATE c)
 endif()
+
+target_include_directories(SoftBodyPhysicsShared PRIVATE ${SDL2_INCLUDE_DIRS})
+target_link_libraries(SoftBodyPhysicsShared PRIVATE ${SDL2_LIBRARIES})
 
 target_include_directories(SoftBodyPhysics PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_libraries(SoftBodyPhysics PRIVATE ${SDL2_LIBRARIES})

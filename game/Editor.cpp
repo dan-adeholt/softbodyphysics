@@ -40,7 +40,6 @@ struct Editor::Impl
         lastOpenedFile[0] = '\0';
     }
 
-    bool showProfiler;
     Array<FileEntry> fileList;
     char lastOpenedFile[MAX_FILENAME_LENGTH] = {'\0'};
     char lastScene[MAX_FILENAME_LENGTH] = {'\0'};
@@ -50,7 +49,6 @@ struct Editor::Impl
 Editor::Editor()
 {
     m = new Impl;
-    m->showProfiler = false;
 #ifdef __APPLE__
     DIR *dir = opendir(levelsDirectory);
     if (dir == NULL)
@@ -100,16 +98,20 @@ void Editor::readIniValue(const char *section, const char *name, const char *val
         {
             strcpy(m->lastScene, value);
         }
-        else if (strcmp(name, "ShowProfiler") == 0)
-        {
-            m->showProfiler = atoi(value) != 0;
-        }
     }
 }
 
 Editor::~Editor()
 {
     delete m;
+}
+
+bool ImGuiBeginTallerMenu(const char *menuName)
+{
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 18.0f));
+    bool ret = ImGui::BeginMenu(menuName);
+    ImGui::PopStyleVar();
+    return ret;
 }
 
 void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
@@ -119,20 +121,26 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
     ImGui::SetNextWindowSizeConstraints(ImVec2(displaySize.x, 0), ImVec2(displaySize.x, 0));
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always, ImVec2(0, 0));
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.85f, 0.85f, 0.85f, 1.0f)); // Menu bar background color
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.8f, 0.8f, 1.0f));     // Menu bar background color
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));     // Menu bar background color
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4.0f, 9.0f));
 
     if (ImGui::BeginMainMenuBar())
     {
-        if (ImGui::BeginMenu("File"))
+        if (ImGuiBeginTallerMenu("File"))
         {
             if (ImGui::MenuItem("Save") && m->lastOpenedFile[0] != '\0')
             {
                 PhysicsSpaceStorage::dumpToFile(game.physicsSpace(), m->lastOpenedFile);
             }
+            if (ImGui::MenuItem("Dump to unit test"))
+            {
+                PhysicsSpaceStorage::dumpToUnitTest(game.physicsSpace());
+            }
             ImGui::EndMenu();
         }
 
-        if (ImGui::BeginMenu("Levels"))
+        if (ImGuiBeginTallerMenu("Levels"))
         {
             for (int i = 0; i < m->fileList.size(); i++)
             {
@@ -147,9 +155,8 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
             ImGui::EndMenu();
         }
 
-        if (ImGui::BeginMenu("Settings"))
+        if (ImGuiBeginTallerMenu("Settings"))
         {
-            ImGui::Checkbox("Show profiler", &m->showProfiler);
             ImGui::Checkbox("Gravity", &game.physicsSpace().gravityEnabled);
             ImGui::Checkbox("Collisions", &game.physicsSpace().collisionsEnabled);
             ImGui::Checkbox("Shape matching", &game.physicsSpace().shapeMatchingEnabled);
@@ -158,32 +165,7 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
             ImGui::EndMenu();
         }
 
-        const char *currentSceneName = game.currentSceneName();
-        if (ImGui::BeginMenu("Scenes"))
-        {
-            for (int i = 0; i < SceneDefinition::numScenes; i++)
-            {
-                const SceneDefinition &scene = SceneDefinition::allScenes[i];
-
-                const bool isSelected = currentSceneName != nullptr && strcmp(scene.name, currentSceneName) == 0;
-                if (ImGui::MenuItem(scene.name))
-                {
-                    strncpy(m->lastScene, scene.name, MAX_FILENAME_LENGTH);
-                    game.init(scene);
-                    saveState();
-                }
-
-                // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
-                if (isSelected)
-                {
-                    ImGui::SetItemDefaultFocus();
-                }
-            }
-
-            ImGui::EndMenu();
-        }
-
-        if (ImGui::BeginMenu("Tests"))
+        if (ImGuiBeginTallerMenu("Tests"))
         {
             for (int i = 0; i < PhysicsTestDefinition::numTests; i++)
             {
@@ -211,94 +193,149 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 
             ImGui::EndMenu();
         }
-        ImVec2 buttonSize(32.0f, 18.0f);
-        ImGui::PushButtonRepeat(true);
-        if (ImGui::Button(ICON_FA_STEP_BACKWARD, buttonSize) && currentSceneName != nullptr)
-        {
-            const SceneDefinition *scene = SceneDefinition::getDefinitionFromName(currentSceneName);
-            game.init(*scene);
-        }
-        if (ImGui::Button(ICON_FA_BACKWARD, buttonSize))
-        {
-            game.setPaused();
-
-            game.rewindHistory();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button(game.paused() ? ICON_FA_PLAY : ICON_FA_PAUSE, buttonSize))
-        {
-            game.togglePaused();
-        }
-
-        ImGui::SameLine();
-
-        if (ImGui::Button(ICON_FA_STEP_FORWARD, buttonSize))
-        {
-            game.update(1000.0 / 120.0, true, profileInfo);
-        }
-
-        ImGui::SameLine();
-
-        if (ImGui::Button(ICON_FA_FORWARD, buttonSize))
-        {
-            game.setPaused();
-            game.forwardHistory();
-        }
-
-        const char *curSceneName = game.currentSceneName();
-        ImGui::Text("%s", curSceneName != nullptr ? curSceneName : "No scene selected");
-
-        ImGui::PopButtonRepeat();
 
         ImGui::EndMainMenuBar();
     }
+    ImGui::PopStyleVar();
 
-    if (m->showProfiler)
+    ImGui::SetNextWindowSizeConstraints(ImVec2(250, displaySize.y - 283), ImVec2(250, displaySize.y - 283));
+    ImGui::SetNextWindowPos(ImVec2(250, 34), ImGuiCond_Always, ImVec2(1, 0));
+    ImGui::Begin("Editor");
+
+    ImVec2 buttonSize(32.0f, 25.0f);
+    ImGui::PushButtonRepeat(true);
+
+    float buttonVerticalMargin = 30.0f;
+    const char *currentSceneName = game.currentSceneName();
+
+    if (ImGui::Button(ICON_FA_STEP_BACKWARD, buttonSize) && currentSceneName != nullptr)
     {
-        ImGui::Begin("Profiler");
-        ImGui::Text("Slowdown factor: %.2lf", profileInfo.slowdownFactor);
-        ImGui::Text("Total Physics time: %.2lf ms", profileInfo.totalPhysicsTimeMillis);
-        ImGui::Text("Elapsed step time: %.2lf ms", profileInfo.elapsedStepTimeMillis);
-        ImGui::Text("Physics iterations: %d", profileInfo.numPhysicsSteps);
-        ImGui::Text("Num springs: %d", profileInfo.numSprings);
-        ImGui::Text("Physics time: %.2lf ms", profileInfo.physicsTimeMillis);
-        ImGui::Text("Render time: %.2lf ms", profileInfo.renderTimeMillis);
-        ImGui::Text("Swap time: %.2lf ms", profileInfo.swapTimeMillis);
-        ImGui::Text("Springs time: %.2lf ms", profileInfo.springsTimeMillis);
-        ImGui::Text("Bounding box time: %.2lf ms", profileInfo.boundingBoxTimeMillis);
-        ImGui::Text("Num bboxes: %d", profileInfo.numBboxes);
-        ImGui::Text("Num bbox checks: %d", profileInfo.numBbboxChecks);
-        ImGui::Text("Num bbox overlaps: %d", profileInfo.numBboxOverlaps);
-        ImGui::Text("Num collisions: %d", profileInfo.numCollisions);
-        ImGui::Text("Collisions time: %.2lf ms", profileInfo.collisionTimeMillis);
+        const SceneDefinition *scene = SceneDefinition::getDefinitionFromName(currentSceneName);
+        game.init(*scene);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button(ICON_FA_BACKWARD, buttonSize))
+    {
+        game.setPaused();
 
-        ImGui::End();
+        game.rewindHistory();
     }
 
-    int selectedShapeIndex = game.selectedShapeIndex();
-    PhysicsSpace &space = game.physicsSpace();
+    ImGui::SameLine();
 
-    if (selectedShapeIndex != -1)
+    if (ImGui::Button(game.paused() ? ICON_FA_PLAY : ICON_FA_PAUSE, buttonSize))
     {
-        ImGui::Begin("Shape properties");
-        ImGui::Text("Selected shape: %d", selectedShapeIndex);
-        if (space.shapes.size() > selectedShapeIndex)
-        {
-            Shape &shape = space.shapes[selectedShapeIndex];
-            ImGui::Text("Start: %d", shape.start);
-            ImGui::Text("End: %d", shape.end);
+        game.togglePaused();
+    }
 
-            for (int i = shape.start; i < shape.end; i++)
+    ImGui::SameLine();
+
+    if (ImGui::Button(ICON_FA_STEP_FORWARD, buttonSize))
+    {
+        game.update(1000.0 / 120.0, true, profileInfo);
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::Button(ICON_FA_FORWARD, buttonSize))
+    {
+        game.setPaused();
+        game.forwardHistory();
+    }
+
+    ImGui::Dummy(ImVec2(10.0f, 0.0f));
+    ImGui::PopButtonRepeat();
+
+    ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
+
+    if (ImGui::BeginTabBar("MyTabBar", tab_bar_flags))
+    {
+
+        if (ImGui::BeginTabItem("Scenes"))
+        {
+            for (int i = 0; i < SceneDefinition::numScenes; i++)
             {
-                ImGui::Text("Point %d: (%.1f, %.1f) Vel %.1f %.1f", i, space.points.pos[i].x, space.points.pos[i].y,
-                            space.points.velocity[i].x, space.points.velocity[i].y);
+                const SceneDefinition &scene = SceneDefinition::allScenes[i];
+
+                const bool isSelected = currentSceneName != nullptr && strcmp(scene.name, currentSceneName) == 0;
+
+                if (isSelected)
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+                }
+                if (ImGui::Button(scene.name))
+                {
+                    strncpy(m->lastScene, scene.name, MAX_FILENAME_LENGTH);
+                    game.init(scene);
+                    saveState();
+                }
+
+                if (isSelected)
+                {
+                    ImGui::PopStyleColor();
+                }
+
+                // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+                if (isSelected)
+                {
+                    ImGui::SetItemDefaultFocus();
+                }
             }
+
+            ImGui::EndTabItem();
         }
 
-        ImGui::End();
+        if (ImGui::BeginTabItem("Profiler"))
+        {
+            ImGui::Text("Slowdown factor: %.2lf", profileInfo.slowdownFactor);
+            ImGui::Text("Total Physics time: %.2lf ms", profileInfo.totalPhysicsTimeMillis);
+            ImGui::Text("Elapsed step time: %.2lf ms", profileInfo.elapsedStepTimeMillis);
+            ImGui::Text("Physics iterations: %d", profileInfo.numPhysicsSteps);
+            ImGui::Text("Num springs: %d", profileInfo.numSprings);
+            ImGui::Text("Physics time: %.2lf ms", profileInfo.physicsTimeMillis);
+            ImGui::Text("Render time: %.2lf ms", profileInfo.renderTimeMillis);
+            ImGui::Text("Swap time: %.2lf ms", profileInfo.swapTimeMillis);
+            ImGui::Text("Springs time: %.2lf ms", profileInfo.springsTimeMillis);
+            ImGui::Text("Bounding box time: %.2lf ms", profileInfo.boundingBoxTimeMillis);
+            ImGui::Text("Num bboxes: %d", profileInfo.numBboxes);
+            ImGui::Text("Num bbox checks: %d", profileInfo.numBbboxChecks);
+            ImGui::Text("Num bbox overlaps: %d", profileInfo.numBboxOverlaps);
+            ImGui::Text("Num collisions: %d", profileInfo.numCollisions);
+            ImGui::Text("Collisions time: %.2lf ms", profileInfo.collisionTimeMillis);
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Shape"))
+        {
+            int selectedShapeIndex = game.selectedShapeIndex();
+            PhysicsSpace &space = game.physicsSpace();
+
+            if (selectedShapeIndex != -1)
+            {
+                ImGui::Text("Selected shape: %d", selectedShapeIndex);
+                if (space.shapes.size() > selectedShapeIndex)
+                {
+                    Shape &shape = space.shapes[selectedShapeIndex];
+                    ImGui::Text("Start: %d", shape.start);
+                    ImGui::Text("End: %d", shape.end);
+
+                    for (int i = shape.start; i < shape.end; i++)
+                    {
+                        ImGui::Text("Point %d: (%.1f, %.1f) Vel %.1f %.1f", i, space.points.pos[i].x, space.points.pos[i].y,
+                                    space.points.velocity[i].x, space.points.velocity[i].y);
+                    }
+                }
+
+                ImGui::End();
+            }
+            ImGui::EndTabItem();
+        }
     }
 
+    // ImGui::End();
+
     ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar();
 }
 
 void Editor::saveState()
@@ -316,7 +353,6 @@ void Editor::saveState()
     writeIniSection(stateFile, "Editor");
     writeIniProperty(stateFile, "LastOpenedFile", m->lastOpenedFile);
     writeIniProperty(stateFile, "LastScene", m->lastScene);
-    writeIniProperty(stateFile, "ShowProfiler", m->showProfiler ? "1" : "0");
 
     // Flush the file buffer
     fflush(stateFile);

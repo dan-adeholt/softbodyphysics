@@ -43,6 +43,7 @@ public:
     static Scheduler *instance;
 
     void start();
+    void stop();
     void schedule(Task *tasks, int numTasks);
 
     static constexpr int maxNumThreads = 64;

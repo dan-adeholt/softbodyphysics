@@ -18,11 +18,18 @@
 #include "main.h"
 #include "fontawesome/IconsFontAwesome4.h"
 #include "game/GameKeyCode.h"
+#include "utils/DynamicLibrary.h"
+#include "utils/CustomFont.h"
+
+void dumpWindowGeometry(int windowPosX, int windowPosY, int windowWidth, int windowHeight)
+{
+    FILE *f = fopen("window_settings.txt", "w");
+    fprintf(f, "%d %d %d %d\n", windowPosX, windowPosY, windowWidth, windowHeight);
+    fclose(f);
+    fflush(f);
+}
 
 // #include "physics/PhysicsSIMD.h"
-
-const int WINDOW_WIDTH = 1524;
-const int WINDOW_HEIGHT = 960;
 
 int getSdlModState()
 {
@@ -50,6 +57,8 @@ GameKeyCode convertSdlKeycode(SDL_KeyCode code)
 {
     switch (code)
     {
+    case SDLK_BACKSPACE:
+        return GameKeyCode::BACKSPACE;
     case SDLK_F1:
         return GameKeyCode::F1;
     case SDLK_F2:
@@ -135,56 +144,25 @@ GameKeyCode convertSdlKeycode(SDL_KeyCode code)
     }
 }
 
-int main(int argc, char *argv[])
+extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, double frameTime, ConsoleState *consoleState)
 {
-
     Scheduler::instance->start();
-    uint64_t programStartNanos = monotonicTimeNanos();
+    Console::setConsoleState(consoleState);
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0)
+    // Get the number of video displays
+    int num_displays = SDL_GetNumVideoDisplays();
+    if (num_displays < 1)
     {
-        fprintf(stderr, "SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
-        return 1;
-    }
-    SDL_DisplayMode displayMode;
-    if (SDL_GetCurrentDisplayMode(0, &displayMode) != 0)
-    {
-        fprintf(stderr, "SDL_GetCurrentDisplayMode failed: %s\n", SDL_GetError());
-        return 1;
-    }
-
-    double frameTime = 1000.0 / displayMode.refresh_rate;
-
-    SDL_Window *window = SDL_CreateWindow("SDL2 Window",
-                                          SDL_WINDOWPOS_UNDEFINED,
-                                          SDL_WINDOWPOS_UNDEFINED,
-                                          displayMode.w, displayMode.h,
-                                          SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-
-    if (window == nullptr)
-    {
-        fprintf(stderr, "Window could not be created! SDL_Error: %s\n", SDL_GetError());
+        printf("SDL_GetNumVideoDisplays failed: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
     }
 
-    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (renderer == nullptr)
+    float ddpi, hdpi, vdpi;
+    if (SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi) != 0)
     {
-        fprintf(stderr, "Renderer could not be created! SDL_Error: %s\n", SDL_GetError());
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
+        printf("SDL_GetDisplayDPI failed for display 0: %s\n", SDL_GetError());
     }
-
-    bool vsync = false;
-
-    if (vsync)
-    {
-        SDL_RenderSetVSync(renderer, 1);
-    }
-
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -192,19 +170,35 @@ int main(int argc, char *argv[])
 
     /////////////
 
-    io.Fonts->AddFontDefault();
+    ImFontConfig baseFontConfig;
+    ImFontConfig iconFontConfig;
 
-    ImFontConfig config;
-    config.RasterizerDensity = 2.0f;
-    // config.OversampleH = 4;
-    // config.OversampleV = 4;
-    config.MergeMode = true;
-    float baseFontSize = 13.0f;                      // 13.0f is the size of the default font. Change to the font size you use.
+    if (ddpi >= 150)
+    {
+        iconFontConfig.RasterizerDensity = 2.0f;
+        baseFontConfig.RasterizerDensity = 2.0f;
+    }
+
+    ImFont *font = io.Fonts->AddFontFromFileTTF("data/JetBrainsMono-Regular.ttf", 17.0f, &baseFontConfig);
+
+    iconFontConfig.MergeMode = true;
+    float baseFontSize = 16.0f;
     float iconFontSize = baseFontSize * 2.0f / 3.0f; // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
 
-    config.GlyphMinAdvanceX = 13.0f; // Use if you want to make the icon monospaced
+    iconFontConfig.GlyphMinAdvanceX = 16.0f; // Use if you want to make the icon monospaced
     static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
-    io.Fonts->AddFontFromFileTTF("data/fontawesome-webfont.ttf", iconFontSize, &config, icon_ranges);
+    io.Fonts->AddFontFromFileTTF("data/fontawesome-webfont.ttf", iconFontSize, &iconFontConfig, icon_ranges);
+
+    ImFont *boldFont = io.Fonts->AddFontFromFileTTF("data/JetBrainsMono-ExtraBold.ttf", 15.0f, &baseFontConfig);
+    if (ddpi < 150)
+    {
+        CustomFontEntry fonts[] = {
+            {.font = font, .path = "data/jetbrains.fnt", .imagePath = "data/jetbrains.png", .fixedYOffset = -2},
+            {.font = boldFont, .path = "data/jetbrainsbold.fnt", .imagePath = "data/jetbrainsbold.png", .fixedYOffset = -2},
+        };
+
+        CustomFont::load(fonts);
+    }
 
     ///////////////
 
@@ -214,51 +208,88 @@ int main(int argc, char *argv[])
     // Setup Dear ImGui style
     // ImGui::StyleColorsDark();
     ImGui::StyleColorsLight();
+    ImGuiStyle &style = ImGui::GetStyle();
+    style.Colors[ImGuiCol_MenuBarBg] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    style.Colors[ImGuiCol_WindowBg] = ImVec4(0.98f, 0.98f, 0.98f, 1.0f);
+    style.Colors[ImGuiCol_Separator] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
+    style.Colors[ImGuiCol_Text] = ImVec4(0.06f, 0.06f, 0.06f, 1.0f);
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer2_Init(renderer);
     ImGui::GetIO().KeyRepeatDelay = 0.06f;
     ImGui::GetIO().KeyRepeatRate = 0.02f;
 
-    SDL_Rect rectangle;
-    rectangle.x = (WINDOW_WIDTH - 100) / 2;
-    rectangle.y = (WINDOW_HEIGHT - 100) / 2;
-    rectangle.w = 100;
-    rectangle.h = 100;
+    uint64_t programStartNanos = monotonicTimeNanos();
 
     bool renderShapeMatching = false;
     SDL_Event event;
 
     char *path = SDL_GetPrefPath("tightloop", "softbodyphysics");
-
     Editor editor;
 
     Game game(path);
     game.init(editor.lastSceneName());
 
+    const char *lastSceneName = editor.lastSceneName();
+    char title[1024];
+    snprintf(title, 1024, "Soft body physics - %s", lastSceneName == nullptr ? "No scene" : lastSceneName);
+    SDL_SetWindowTitle(window, title);
     Console::log("Last scene: %s\n", editor.lastSceneName());
     uint64_t startNanos = monotonicTimeNanos();
     bool show_demo_window = false;
 
     // UnitTestUtil::runTests();
-    Console::log("Refresh rate: %dhz | Startup time: %.1lf ms\n", displayMode.refresh_rate, (monotonicTimeNanos() - programStartNanos) / 1000000.0);
-
-    SDL_RaiseWindow(window);
     ConsoleProfileInfo profileInfo = {};
 
     GameRenderer gameRenderer(renderer);
-
     startNanos = monotonicTimeNanos();
-    while (!game.shouldQuit())
+
+    bool pausedDueToFocus = false;
+
+    bool libraryReloaded = false;
+    while (!game.shouldQuit() && !libraryReloaded)
     {
         while (SDL_PollEvent(&event))
         {
             ImGui_ImplSDL2_ProcessEvent(&event);
 
+            switch (event.window.event)
+            {
+            case SDL_WINDOWEVENT_FOCUS_GAINED:
+                Console::log("Focus gained");
+                if (pausedDueToFocus)
+                {
+                    game.togglePaused();
+                    pausedDueToFocus = false;
+                }
+                break;
+            case SDL_WINDOWEVENT_FOCUS_LOST:
+                Console::log("Focus lost");
+                if (!game.paused())
+                {
+                    game.togglePaused();
+                    pausedDueToFocus = true;
+                }
+                break;
+            default:
+                break;
+            }
+
             switch (event.type)
             {
+            case SDL_WINDOWEVENT:
+                if (event.type == SDL_WINDOWEVENT && (event.window.event == SDL_WINDOWEVENT_MOVED || event.window.event == SDL_WINDOWEVENT_RESIZED))
+                {
+                    // Get window position and size
+                    int x, y, width, height;
+                    SDL_GetWindowPosition(window, &x, &y);
+                    SDL_GetWindowSize(window, &width, &height);
+                    dumpWindowGeometry(x, y, width, height);
+                }
+                break;
             case SDL_QUIT:
                 game.setShouldQuit();
                 break;
+
             case SDL_KEYDOWN:
             {
                 GameKeyCode keyCode = convertSdlKeycode((SDL_KeyCode)event.key.keysym.sym);
@@ -317,6 +348,14 @@ int main(int argc, char *argv[])
 
         startNanos = endNanos;
 
+        if (DynamicLibrary::hasLibraryChanged())
+        {
+            libraryReloaded = true;
+            Console::log("Library changed, reloading");
+        }
+
+        Console::checkLogFile();
+
         if (vsync)
         {
             // We are using vsync, if so, try to match the elapsed milliseconds to
@@ -352,7 +391,9 @@ int main(int argc, char *argv[])
         // Start the Dear ImGui frame
         ImGui_ImplSDLRenderer2_NewFrame();
         ImGui_ImplSDL2_NewFrame();
+
         ImGui::NewFrame();
+
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
@@ -367,7 +408,7 @@ int main(int argc, char *argv[])
         gameRenderer.renderGame(renderer, game, renderShapeMatching, profileInfo);
         // gameRenderer.renderText(renderer, "Press F5 to pause, F6 to save, F7 to load, F8 to step, F3 to rewind, F4 to forward", 10, 10);
         profileInfo.renderTimeMillis = renderTimer.elapsedMillis();
-        Console::draw(profileInfo, game.scale(), game.offset());
+        Console::draw(profileInfo, game.scale(), game.offset(), boldFont);
         editor.renderUI(game, profileInfo);
         // Rendering
 
@@ -379,15 +420,9 @@ int main(int argc, char *argv[])
     }
 
     editor.saveState();
-    // Cleanup
-    ImGui_ImplSDLRenderer2_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
-    ImGui::DestroyContext();
 
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_free(path);
-    SDL_Quit();
+    // Should do nicer cleanup
+    delete Scheduler::instance;
 
-    return 0;
+    return libraryReloaded ? 1 : 0;
 }

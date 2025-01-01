@@ -4,16 +4,268 @@
 #include "Game.h"
 #include "GameKeyCode.h"
 #include "../physics/PhysicsSpace.h"
+#include "../physics/PhysicsSpaceStorage.h"
 #include "../physics/CollisionSolver.h"
 #include "../containers/Array.h"
 #include "../utils/Console.h"
+#include "../utils/MinMax.h"
 #include <cstring>
 #include <math.h>
 #include "stdint.h"
 
+void findEntryEdgeClosestSegmentNew(PointMassesRange collisionShape,
+                                    const Vector2 &currentPoint,
+                                    const Vector2 &prevPoint,
+                                    const Vector2 &nextPoint,
+                                    int &entryEdgeIndex,
+                                    Vector2 &entryPoint,
+                                    float &entryTime)
+{
+    float minDistanceSquared = __FLT_MAX__;
+    int collisionShapeSize = collisionShape.pos.size;
+    for (int i = 0; i < collisionShapeSize; i++)
+    {
+        Vector2 segment0 = collisionShape.pos[i];
+        Vector2 segment1 = collisionShape.pos[(i + 1) % collisionShapeSize];
+
+        float distanceToVertex = (segment0 - currentPoint).length();
+
+        // Vector from A to B
+        Vector2 segment = segment1 - segment0;
+        // Vector from A to P
+        Vector2 segmentToPoint = currentPoint - segment0;
+        Vector2 segmentNormal = segment.normalVector().normalized();
+
+        Vector2 pointOutside = (segment0 + segment * 0.5f) - segmentNormal * 2.0f;
+
+        float t_point, t_edge;
+
+        if (lineSegmentIntersection(segment0, segment1, prevPoint, pointOutside, t_point, t_edge) || lineSegmentIntersection(segment0, segment1, pointOutside, nextPoint, t_point, t_edge))
+        {
+            continue;
+        }
+
+        Console::drawPoint(pointOutside, 0x00FF00);
+
+        // The projection of point P onto the line defined by segment AB is given by:
+        // v dot w / v dot v
+        // Compute projection t
+        float t = segmentToPoint.dot(segment) / segment.dot();
+        t = clamp(t, 0.0f, 1.0f);
+
+        Vector2 closestPoint = segment0 + segment * t;
+        Vector2 pointToClosestPoint = closestPoint - currentPoint;
+
+        float distanceToClosestPointSquared = (pointToClosestPoint).lengthSquared();
+
+        if (distanceToClosestPointSquared < minDistanceSquared)
+        {
+            minDistanceSquared = distanceToClosestPointSquared;
+            entryEdgeIndex = i;
+            entryPoint = closestPoint;
+            entryTime = t;
+        }
+    }
+}
+
 #define ARRAYSIZE(_ARR) ((int)(sizeof(_ARR) / sizeof(*(_ARR)))) // Size of a static C-style array. Don't use on pointers!
 
+PointMassesRange getPointMasses(Range<Vector2> pos, Range<float> mass, Range<Vector2> velocity)
+{
+    // Just assign pos to shapeoriginalpos/shapepos for now, not used in collision stuff
+    return {.pos = pos, .shapeOriginalPos = pos, .shapePos = pos, mass, velocity};
+}
+
 SceneDefinition scenes[] = {
+    {"New Unit Test 1", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_1.txt");
+         space.gravityEnabled = true;
+         game->setPaused();
+     }},
+
+    {"New Unit Test", [](Game *game)
+     {
+         ShapeEntry shape0 = {
+             .isStatic = false,
+             .points = PointMasses()
+                           .withPos({
+                               {150.000000f, 668.858093f},
+                               {180.000000f, 668.858093f},
+                               {180.000000f, 698.858154f},
+                               {150.000000f, 698.858154f},
+                           })
+                           .withVelocity({
+                               {-0.000001f, 0.877949f},
+                               {0.000001f, 0.877949f},
+                               {0.000001f, 0.877954f},
+                               {-0.000001f, 0.877954f},
+                           })
+                           .withMass({
+                               0.250000f,
+                               0.250000f,
+                               0.250000f,
+                               0.250000f,
+                           })
+                           .withShapeOriginalPos({
+                               {-15.000000f, -15.000000f},
+                               {15.000000f, -15.000000f},
+                               {15.000000f, 15.000000f},
+                               {-15.000000f, 15.000000f},
+                           })
+                           .withShapePos({
+                               {150.000000f, 667.980347f},
+                               {180.000000f, 667.980347f},
+                               {180.000000f, 697.980347f},
+                               {150.000000f, 697.980347f},
+                           }),
+             .springs = Array<Spring>({
+                 Spring(0, 1, 30.000000f, 5.000000f, 7.225000f, 0),
+                 Spring(1, 2, 30.000000f, 5.000000f, 7.225000f, 0),
+                 Spring(2, 3, 30.000000f, 5.000000f, 7.225000f, 0),
+                 Spring(3, 0, 30.000000f, 5.000000f, 7.225000f, 0),
+                 Spring(0, 2, 42.426407f, 5.000000f, 7.225000f, 0),
+                 Spring(1, 3, 42.426407f, 5.000000f, 7.225000f, 0),
+             })};
+         ShapeEntry shape1 = {
+             .isStatic = false,
+             .points = PointMasses()
+                           .withPos({
+                               {148.365570f, 699.373230f},
+                               {176.053162f, 700.380371f},
+                               {176.345566f, 736.231323f},
+                               {152.611252f, 727.010132f},
+                           })
+                           .withVelocity({
+                               {0.061911f, -0.113225f},
+                               {0.085712f, 0.114880f},
+                               {-0.168945f, -0.115960f},
+                               {-0.036014f, 0.112005f},
+                           })
+                           .withMass({
+                               0.250000f,
+                               0.250000f,
+                               0.250000f,
+                               0.250000f,
+                           })
+                           .withShapeOriginalPos({
+                               {-15.000000f, -15.000000f},
+                               {15.000000f, -15.000000f},
+                               {15.000000f, 15.000000f},
+                               {-15.000000f, 15.000000f},
+                           })
+                           .withShapePos({
+                               {148.868561f, 700.255920f},
+                               {178.851761f, 701.259766f},
+                               {177.847870f, 731.242981f},
+                               {147.864670f, 730.239136f},
+                           }),
+             .springs = Array<Spring>({
+                 Spring(4, 5, 30.000000f, 5.000000f, 7.225000f, 1),
+                 Spring(5, 6, 30.000000f, 5.000000f, 7.225000f, 1),
+                 Spring(6, 7, 30.000000f, 5.000000f, 7.225000f, 1),
+                 Spring(7, 4, 30.000000f, 5.000000f, 7.225000f, 1),
+                 Spring(4, 6, 42.426407f, 5.000000f, 7.225000f, 1),
+                 Spring(5, 7, 42.426407f, 5.000000f, 7.225000f, 1),
+             })};
+         Array<ShapeEntry> shapes = {
+             shape0,
+             shape1,
+         };
+         PhysicsSpace &space = game->physicsSpace();
+         space.initFromEntries(shapes);
+         space.gravityEnabled = false;
+         game->setPaused();
+         game->offset() = Vector2(-600.0f, -5310.0f);
+         game->scale() = 8.0f;
+     }},
+
+    {"New collision", [](Game *game)
+     {
+         game->scheduleFrameCallback(
+             [](Game *game, void *data)
+             {
+                 Vector2 point = Vector2(246.0f, 180.0f);
+                 Vector2 prevPoint = Vector2(120.0f, 120.0f);
+                 Vector2 nextPoint = Vector2(250.0f, 60.0f);
+                 float pointMass = 2.0f;
+
+                 Vector2 pointVelocity = Vector2(0.0f, 0.1f);
+
+                 Vector2 shape[] = {
+                     //  ,
+                     //
+                     //  ,
+                     Vector2(120.0f, 130.0f),
+                     Vector2(250.0f, 150.0f),
+                     Vector2(250.0f, 250.0f),
+                     Vector2(100.0f, 250.0f),
+                 };
+
+                 Vector2 velocity[] = {
+                     Vector2(0.0f, 0.1f),
+                     Vector2(0.0f, 0.1f),
+                     Vector2(0.0f, 0.1f),
+                     Vector2(0.0f, 0.1f),
+                 };
+                 float mass[] = {
+                     1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+
+                 PointMassesRange shapeRange = getPointMasses(shape, mass, velocity);
+
+                 int numPoints = ARRAYSIZE(shape);
+
+                 for (int i = 0; i < numPoints; i++)
+                 {
+                     Console::drawSegment(shape[i], shape[(i + 1) % numPoints], 0x000000);
+                 }
+
+                 for (int i = 0; i < numPoints; i++)
+                 {
+                     Console::drawPoint(shape[i], 0xFF0000);
+                 }
+
+                 int minIndex = -1;
+                 Vector2 minPoint = Vector2(0.0f, 0.0f);
+                 float minT = 0.0f;
+
+                 findEntryEdgeClosestSegmentNew(shapeRange, point, prevPoint, nextPoint, minIndex, minPoint, minT);
+
+                 //  Console::drawPoint(minPoint, 0x0000FF);
+
+                 //  Vector2 offset = point - minPoint;
+                 //  float totalMass = mass[minIndex] + mass[(minIndex + 1) % numPoints] + pointMass;
+
+                 //  float weightSeg1 = ((totalMass - mass[minIndex]) / totalMass) * (1.0f - minT);
+                 //  float weightSeg2 = ((totalMass - mass[(minIndex + 1) % numPoints]) / totalMass) * minT;
+
+                 //  Vector2 newSeg1 = shape[minIndex] + offset * weightSeg1;
+                 //  Vector2 newSeg2 = shape[(minIndex + 1) % numPoints] + offset * weightSeg2;
+                 //  Vector2 newMinPoint = newSeg1 + (newSeg2 - newSeg1) * minT;
+
+                 //  Console::logFrame(300, 300, "Min index: %d %.2f", minIndex, minT);
+                 //  Console::logFrame(300, 320, "Total mass: %.2f", totalMass);
+                 //  Console::logFrame(300, 340, "Masses: %.2f %.2f", mass[minIndex], mass[(minIndex + 1) % numPoints]);
+                 //  Console::logFrame(300, 360, "Weights: %.2f %.2f", weightSeg1, weightSeg2);
+                 //  Console::drawSegment(point, minPoint, 0x00FF00);
+
+                 Console::drawSegment(prevPoint, point, 0x0000FF);
+                 Console::drawSegment(point, nextPoint, 0x0000FF);
+
+                 Console::drawPoint(point, 0x00FF00);
+                 Console::drawPoint(prevPoint, 0xAAFF00);
+                 Console::drawPoint(nextPoint, 0xAAFF00);
+
+                 Console::drawPoint(minPoint, 0x0000FF);
+                 //  Console::drawSegment(newSeg1, newSeg2, 0x00FF00);
+                 //  Console::drawPoint(newSeg1, 0x00FF00);
+                 //  Console::drawPoint(newSeg2, 0x00FF00);
+                 //  Console::drawPoint(newMinPoint, 0xFF0000);
+                 //  Console::log("Frame callback 22");
+             },
+             nullptr);
+     }},
     {"Colliding boxes", [](Game *game)
      {
          float size = 100.0f;
@@ -27,7 +279,7 @@ SceneDefinition scenes[] = {
          PointMassesRange firstBoxPoints = space.points.range(firstBox);
          for (Vector2 &velocity : firstBoxPoints.velocity)
          {
-             velocity.x = 0.1f;
+             velocity.x = 0.3f;
          }
 
          game->physicsSpace().gravityEnabled = false;
@@ -43,10 +295,10 @@ SceneDefinition scenes[] = {
          Shape &secondBox = space.shapes[1];
 
          PointMassesRange firstBoxPoints = space.points.range(firstBox);
-          for (Vector2 &velocity : firstBoxPoints.velocity)
-          {
-              velocity.y = 1.0f;
-          }
+         for (Vector2 &velocity : firstBoxPoints.velocity)
+         {
+             velocity.y = 1.0f;
+         }
 
          for (Vector2 &pos : firstBoxPoints.pos)
          {
@@ -111,11 +363,11 @@ SceneDefinition scenes[] = {
          float size = 30.0f;
          float spacing = (size + 1.0f) * 3.0f;
          PhysicsSpace &space = game->physicsSpace();
-         for (int y = 0; y < 5; y++)
+         for (int y = 0; y < 20; y++)
          {
              float x = 15;
 
-             Shapes::createQuad(space, 150.0f + y * 2.0f, 100.0f + y * spacing, size, size, 0.25f);
+             Shapes::createQuad(space, 150.0f + y * 2.0f, -1900.0f + y * spacing, size, size, 0.25f);
 
              //  if (y < 4)
              //  {
@@ -128,6 +380,10 @@ SceneDefinition scenes[] = {
          Shapes::createStaticQuad(space, -36.0f, 0.0f, 40.0f, 755.0f, 1.0f);
          Shapes::createStaticQuad(space, 1214.0f, 0.0f, 40.0f, 755.0f, 1.0f);
          Shapes::createStaticQuad(space, 1.0f, 755.0f, 1217.0f, 80.0f, 1.0f);
+
+         //  game->scale() = 4.14f;
+         game->offset() = Vector2(400.0f, -400.0f);
+         //  game->runFor(2430, true);
      }},
 
     {"Inside shape", [](Game *game)
@@ -284,20 +540,20 @@ SceneDefinition scenes[] = {
          }
 
          static PointMasses copy;
-         static EdgeStrategy strategy = EdgeStrategy::ClosestSegment;
+         //  static EdgeStrategy strategy = EdgeStrategy::ClosestSegment;
 
          game->scheduleFrameCallback(
              [](Game *game, void *data)
              {
                  PhysicsSpace &space = game->physicsSpace();
 
-                 if (game->keyWasPressed(GameKeyCode::I))
-                 {
-                     strategy = static_cast<EdgeStrategy>(
-                         (static_cast<int>(strategy) + 1) % static_cast<int>(EdgeStrategy::NumStrategies));
-                 }
+                 //  if (game->keyWasPressed(GameKeyCode::I))
+                 //  {
+                 //      strategy = static_cast<EdgeStrategy>(
+                 //          (static_cast<int>(strategy) + 1) % static_cast<int>(EdgeStrategy::NumStrategies));
+                 //  }
 
-                 Console::logFrame(46, 30, "Strategy: %s", edgeStrategyToString(strategy));
+                 //  Console::logFrame(46, 30, "Strategy: %s", edgeStrategyToString(strategy));
 
                  for (int i = 0; i < ARRAYSIZE(boxes); i++)
                  {
@@ -316,21 +572,18 @@ SceneDefinition scenes[] = {
                      PointMassesRange originalBoxRange = space.points.range(boxShape);
                      PointMassesRange boxRange = copy.range(boxShape);
                      PointMassesRange pointRange = points.range(i, i + 1);
-                     int vertexHitIndex = -1;
-                     int edgeHitIndex = -1;
-                     Vector2 hitPoint;
-                     float t = 0.0f;
+
                      Vector2 offsetPoint = box.point + box.pos;
-                     CollisionSolver::findEntryEdge(strategy, boxRange, boxRange, offsetPoint, offsetPoint, box.velocity, vertexHitIndex, edgeHitIndex, hitPoint, t);
+                     ClosestSegmentResult result = CollisionSolver::findEntryEdgeClosestSegment(boxRange, offsetPoint);
 
                      ShapeBoundingBox bbox = CollisionSolver::calculateShapeBoundingBox(0, boxRange);
-                     int numCollisions = CollisionSolver::calculateCollisions(copy.range(game->physicsSpace().shapes[i]), pointRange, copy.range(game->physicsSpace().shapes[i]), pointRange, bbox, bbox, false, false, strategy);
+                     int numCollisions = CollisionSolver::calculateCollisions(copy.range(game->physicsSpace().shapes[i]), pointRange, copy.range(game->physicsSpace().shapes[i]), pointRange, bbox, bbox, false, false, 0);
 
-                     Console::addDebugVelocityVector(box.point + box.pos, box.velocity, 0xFF00FF);
-                     Console::addDebugPoint(box.point + box.pos, 0xFF0000);
-                     Console::addDebugPoint(hitPoint, 0x00FF00);
-                     Console::addDebugPoint(pointRange.pos[0], 0x0000FF);
-                     Console::addDebugVelocityVector(pointRange.pos[0], pointRange.velocity[0], 0xFF00FF);
+                     Console::drawVelocityVector(box.point + box.pos, box.velocity, 0xFF00FF);
+                     Console::drawPoint(box.point + box.pos, 0xFF0000);
+                     Console::drawPoint(result.closestPoint0, 0x00FF00);
+                     Console::drawPoint(pointRange.pos[0], 0x0000FF);
+                     Console::drawVelocityVector(pointRange.pos[0], pointRange.velocity[0], 0xFF00FF);
 
                      for (int i = 0; i < boxRange.size(); i++)
                      {
@@ -338,8 +591,8 @@ SceneDefinition scenes[] = {
                          Vector2 boxVel = boxRange.velocity[i];
                          Vector2 boxOriginalPos = originalBoxRange.pos[i];
 
-                         Console::addDebugVelocityVector(boxPos, boxVel, 0xFF00FF);
-                         Console::addDebugVelocityVector(boxOriginalPos, box.boxVelocity, 0xFF0099);
+                         Console::drawVelocityVector(boxPos, boxVel, 0xFF00FF);
+                         Console::drawVelocityVector(boxOriginalPos, box.boxVelocity, 0xFF0099);
                      }
 
                      //  if (numCollisions > 0)
@@ -447,7 +700,7 @@ SceneDefinition scenes[] = {
          game->runFor(2490, true);
 
          game->scale() = 8.10f;
-         game->offset() = Vector2(0, -5500);
+         game->offset() = Vector2(250, -5500);
          //  game->offset() = Vector2(-2092.0f, -12084.00f);
      }},
     {"Rounded rect grid", [](Game *game)
@@ -481,15 +734,7 @@ SceneDefinition scenes[] = {
          {
              for (int x = 0; x < 30; x++)
              {
-                 Shapes::createQuad(space, spacing + x * spacing + y * 2.0f, spacing + y * spacing + x * 0.01f - 900.0f, size, size, 5.5f, 10.0f);
-
-                 //  if (x < 10)
-                 //  {
-                 //      for (int i = 0; i < 4; i++)
-                 //      {
-                 //          space.points.velocity[space.points.size() - 1 - i].x = 0.15f;
-                 //      }
-                 //  }
+                 Shapes::createQuad(space, spacing + x * spacing + y * 2.0f, spacing + y * spacing + x * 0.01f - 900.0f, size, size, 5.5f, 30.0f);
              }
          }
 
@@ -498,7 +743,8 @@ SceneDefinition scenes[] = {
 
          space.gravityEnabled = true;
 
-         game->offset() = Vector2(0, -300);
+         //  game->offset() = Vector2(-200, -200);
+         game->offset() = Vector2(400, 0);
      }},
     {"Circle grid", [](Game *game)
      {
@@ -509,6 +755,7 @@ SceneDefinition scenes[] = {
          {
              for (int x = 0; x < 35; x++)
              {
+
                  Shapes::createCircle(space, spacing + x * spacing, spacing * 2 + y * spacing, size, 0.25f);
              }
          }

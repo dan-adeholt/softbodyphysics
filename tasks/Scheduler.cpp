@@ -153,6 +153,7 @@ struct Scheduler::Impl
     Atomic<bool> threadStop;
     Array<Task> tasks;
     Array<Thread *> threads;
+    bool initialized = false;
 };
 
 Scheduler::Scheduler()
@@ -162,6 +163,8 @@ Scheduler::Scheduler()
 
 void Scheduler::start()
 {
+    m->threadStop.store(false);
+
     for (int i = 0; i < Scheduler::numThreads; i++)
     {
         Thread *t = new Thread(&Scheduler::workerThread, i, this);
@@ -170,11 +173,38 @@ void Scheduler::start()
         m->tasks.push(Task());
     }
 
-    m->threadStop.store(false);
+    m->initialized = true;
+}
+
+void Scheduler::stop()
+{
+    m->threadStop.store(true);
+
+    for (int i = 0; i < m->threads.size(); i++)
+    {
+        m->threadReady[i].store(false);
+        delete m->threads[i];
+    }
+
+    m->threadReady.clear();
+    m->tasks.clear();
+    m->threads.clear();
+    m->initialized = false;
 }
 
 void Scheduler::schedule(Task *tasks, int numTasks)
 {
+    // If not initialized, i.e paused, run tasks on main thread
+    if (!m->initialized)
+    {
+        for (int i = 0; i < numTasks; i++)
+        {
+            tasks[i].function(tasks[i].data);
+        }
+
+        return;
+    }
+
     assert(numTasks <= Scheduler::numTasks);
 
     for (int i = 1; i < numTasks; i++)
@@ -194,11 +224,7 @@ void Scheduler::schedule(Task *tasks, int numTasks)
 
 Scheduler::~Scheduler()
 {
-    for (int i = 0; i < m->threads.size(); i++)
-    {
-        delete m->threads[i];
-    }
-
+    stop();
     delete m;
 }
 

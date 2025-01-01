@@ -2,12 +2,15 @@
 #define __RANGE_H
 
 #include "Span.h"
+#include <stddef.h>
 
 template <typename T>
 struct Range
 {
     Range() : data(nullptr), size(0) {}
     Range(T *data, int size) : data(data), size(size) {}
+    template <size_t N>
+    Range(T (&array)[N]) : data(array), size(static_cast<int>(N)) {}
 
     T *data;
     int size;

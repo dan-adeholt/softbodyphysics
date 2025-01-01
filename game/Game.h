@@ -58,7 +58,7 @@ public:
     void setShouldQuit();
     bool shouldQuit();
 
-    void updateBoundingBoxes();
+    void updateBoundingBoxes(bool clear = false);
 
     void setPaused();
     void togglePaused();
@@ -79,6 +79,7 @@ public:
 
     GameRenderSettings renderSettings();
     void setRenderSettings(const GameRenderSettings &settings);
+
 private:
     void updateAfterRewindOrForward();
 
