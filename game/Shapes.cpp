@@ -20,11 +20,11 @@ int wrapIndex(int index, int size)
 
 namespace Shapes
 {
-    Shape createCircle(PhysicsSpace &space, float x, float y, float radius, float mass)
+    Shape createLooseCircle(PhysicsSpace &space, float x, float y, float radius, float mass, float stiffnessFactor)
     {
         int shapeIndex = space.nextShapeIndex();
-        float stiffness = 2.5f;
-        float damping = 1080.9f;
+        float stiffness = mass * stiffnessFactor;
+        float damping = 28.9f * mass;
         int numSegments = 16;
         float segmentAngle = 2 * PI_F / numSegments;
         int startIndex = space.points.size();
@@ -43,9 +43,66 @@ namespace Shapes
         Vector2 p0 = space.points.pos[startIndex];
         Vector2 p1 = space.points.pos[startIndex + 3];
         Vector2 p2 = space.points.pos[startIndex + 5];
+        Vector2 pNext = space.points.pos[startIndex + 1];
 
         float lengthSpring1 = Vector2::vec2distance(p0.x, p0.y, p1.x, p1.y);
         float lengthSpring2 = Vector2::vec2distance(p0.x, p0.y, p2.x, p2.y);
+        float lengthSpringNext = Vector2::vec2distance(p0.x, p0.y, pNext.x, pNext.y);
+
+        for (int i = 0; i < numSegments; i++)
+        {
+            int n0 = startIndex + i;
+
+            int nNext = startIndex + wrapIndex(i + 1, numSegments);
+
+            space.springs.push(Spring(n0, nNext, lengthSpringNext, stiffness, damping, shapeIndex));
+        }
+
+        Shape circle = Shape(startIndex, curIndex, 300.0f);
+        space.shapes.push(circle);
+        ShapeMatching::shapeMatchAlignInit(space.points.range(), circle, space.partialShapes.range());
+        return circle;
+    }
+
+    void resetShape(PhysicsSpace &space, int shapeIndex)
+    {
+        Shape &shape = space.shapes[shapeIndex];
+
+        for (int i = shape.start; i < shape.end; i++)
+        {
+            space.points.pos[i] = space.points.shapePos[i];
+            space.points.velocity[i] = Vector2();
+        }
+    }
+
+    Shape createCircle(PhysicsSpace &space, float x, float y, float radius, float mass, float stiffnessFactor)
+    {
+        int shapeIndex = space.nextShapeIndex();
+        float stiffness = mass * stiffnessFactor;
+        float damping = 28.9f * mass;
+        int numSegments = 16;
+        float segmentAngle = 2 * PI_F / numSegments;
+        int startIndex = space.points.size();
+        int curIndex = startIndex;
+        float curAngle = 0.0f;
+
+        for (int i = 0; i < numSegments; i++)
+        {
+            space.points.push(
+                x + cos(curAngle) * radius, y + sin(curAngle) * radius, mass);
+
+            curAngle += segmentAngle;
+            curIndex++;
+        }
+
+        Vector2 p0 = space.points.pos[startIndex];
+        Vector2 p1 = space.points.pos[startIndex + 3];
+        Vector2 p2 = space.points.pos[startIndex + 5];
+        Vector2 pNext = space.points.pos[startIndex + 1];
+
+        float lengthSpring1 = Vector2::vec2distance(p0.x, p0.y, p1.x, p1.y);
+        float lengthSpring2 = Vector2::vec2distance(p0.x, p0.y, p2.x, p2.y);
+        float lengthSpringNext = Vector2::vec2distance(p0.x, p0.y, pNext.x, pNext.y);
 
         for (int i = 0; i < numSegments; i++)
         {
@@ -53,8 +110,12 @@ namespace Shapes
             int n1 = startIndex + wrapIndex(i + 3, numSegments);
             int n2 = startIndex + wrapIndex(i + 5, numSegments);
 
+            int nNext = startIndex + wrapIndex(i + 1, numSegments);
+
             space.springs.push(Spring(n0, n1, lengthSpring1, stiffness, damping, shapeIndex));
             space.springs.push(Spring(n2, n0, lengthSpring2, stiffness, damping, shapeIndex));
+
+            // space.springs.push(Spring(n0, nNext, lengthSpringNext, stiffness, damping, shapeIndex));
         }
 
         Shape circle = Shape(startIndex, curIndex, 300.0f);

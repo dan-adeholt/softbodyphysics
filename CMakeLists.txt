@@ -9,6 +9,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 # Set the compiler flags for the debug build type
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Og -g -fno-omit-frame-pointer -finline-functions")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -UNDEBUG")
+set(CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE}   -UNDEBUG")
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(
@@ -129,6 +131,7 @@ SET(SOURCE_FILES timer.cpp
     game/Editor.h
     tasks/Scheduler.h
     stb_image/stb_image.cpp
+    stb_sprintf/stb_sprintf.cpp
     utils/DynamicLibrary.cpp
     utils/Console.h
     utils/UnitTestUtil.h

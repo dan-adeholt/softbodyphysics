@@ -167,10 +167,14 @@ void Scheduler::start()
 
     for (int i = 0; i < Scheduler::numThreads; i++)
     {
-        Thread *t = new Thread(&Scheduler::workerThread, i, this);
-        m->threads.push(t);
         m->threadReady.push(false);
         m->tasks.push(Task());
+    }
+    
+    for (int i = 0; i < Scheduler::numThreads; i++)
+    {
+        Thread *t = new Thread(&Scheduler::workerThread, i, this);
+        m->threads.push(t);
     }
 
     m->initialized = true;
@@ -222,6 +226,11 @@ void Scheduler::schedule(Task *tasks, int numTasks)
     }
 }
 
+bool Scheduler::active() const
+{
+    return m->initialized;
+}
+
 Scheduler::~Scheduler()
 {
     stop();
@@ -253,7 +262,9 @@ void Scheduler::runWorkerThreadIteration(int index)
         }
 
         Task task = m->tasks[index];
+        assert(task.function != nullptr);
         task.function(task.data);
+
         m->threadReady[index].store(false);
     }
 }

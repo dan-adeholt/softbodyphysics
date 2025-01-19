@@ -14,7 +14,7 @@ void parseIniFile(FILE *file, T *instance, void (T::*handleVarFunc)(const char *
     bool nameBufActive = true;
     bool sectionBufActive = false;
     sectionBuf[0] = '\0';
-    char buffer[1024];
+    char buffer[2048];
     size_t bytesRead;
 
     while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0)

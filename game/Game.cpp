@@ -8,6 +8,7 @@
 #include "../physics/PhysicsSpaceStorage.h"
 #include "../physics/Integrator.h"
 #include "../physics/CollisionSolver.h"
+#include "../containers/StringBuffer.h"
 #include <stdio.h>
 #include "Shapes.h"
 #include "Scenes.h"
@@ -16,7 +17,6 @@
 #include "Game.h"
 #include "../utils/Console.h"
 #include "../timer.h"
-#include "../tasks/Scheduler.h"
 #include "GameKeyCode.h"
 
 #define NUM_HISTORICAL_STATES 1000
@@ -36,16 +36,10 @@ struct FrameCallback
 
 struct Game::Impl
 {
-    Impl(const char *path)
+    Impl(const char *appPathArg, const char *filePathArg)
     {
-        if (path)
-        {
-            strncpy(this->path, path, sizeof(this->path) - 1);
-        }
-        else
-        {
-            this->path[0] = '\0';
-        }
+        appPath.append(appPathArg);
+        filePath.append(filePathArg);
     }
 
     void clear()
@@ -78,15 +72,20 @@ struct Game::Impl
 
     bool stopPointWhenDragging = true;
     bool quit = false;
-    char path[512] = {};
+    StringBuffer<512> appPath;
+    StringBuffer<512> filePath;
+
     bool keyState[(size_t)GameKeyCode::NUM_KEY_CODES] = {};
     bool keyPressedState[(size_t)GameKeyCode::NUM_KEY_CODES] = {};
     int modKeyState = 0;
     GameRenderSettings renderSettings;
+    StringBuffer<512> title;
 };
 
-Game::Game(const char *path) : m(new Game::Impl(path))
+Game::Game(const char *appPath, const char *filePath) : m(new Game::Impl(appPath, filePath))
 {
+    Console::log("Appending file path: %s", filePath);
+    m->title.append(filePath);
 }
 
 float maxLength = -10000.0f;
@@ -108,19 +107,18 @@ void Game::init(const SceneDefinition &scene)
     scene.initFunc(this);
     m->currentSceneName = scene.name;
     m->timeBucket = 0.0;
+    m->title.clear();
+    m->title.append(scene.name);
     maxLength = -100000.0f;
 }
 
 void Game::init(const char *sceneType)
 {
-    for (int i = 0; i < SceneDefinition::numScenes; i++)
+    const SceneDefinition *def = SceneDefinition::getDefinitionFromName(sceneType);
+    if (def != nullptr)
     {
-        const SceneDefinition &def = SceneDefinition::allScenes[i];
-        if (strcmp(def.name, sceneType) == 0)
-        {
-            init(def);
-            return;
-        }
+        init(*def);
+        return;
     }
 }
 
@@ -130,6 +128,11 @@ Game::~Game()
 }
 
 float terminalVelocity = 1000.0f;
+
+const char *Game::title() const
+{
+    return m->title.data;
+}
 
 void Game::updateAfterRewindOrForward()
 {
@@ -290,11 +293,8 @@ void Game::mouseButtonDown(int button, int x, int y, bool shiftDown)
     for (int i = 0; i < m->physicsSpace.points.size(); i++)
     {
         Vector2 pos = m->physicsSpace.points.pos[i];
-        if (Vector2::vec2distance(translatedPos.x, translatedPos.y, pos.x, pos.y) < (20.0f / m->scale))
+        if (Vector2::vec2distance(translatedPos.x, translatedPos.y, pos.x, pos.y) < (4.0f * m->scale))
         {
-            m->physicsSpace.mouseJoint.pointIndex = i;
-            m->physicsSpace.mouseJoint.position = translatedPos;
-
             if (shiftDown)
             {
                 for (int j = 0; j < m->physicsSpace.shapes.size(); j++)
@@ -307,6 +307,12 @@ void Game::mouseButtonDown(int button, int x, int y, bool shiftDown)
                         break;
                     }
                 }
+            }
+            else
+            {
+
+                m->physicsSpace.mouseJoint.pointIndex = i;
+                m->physicsSpace.mouseJoint.position = translatedPos;
             }
             return;
         }
@@ -331,11 +337,7 @@ void Game::mouseButtonDown(int button, int x, int y, bool shiftDown)
                     ShapeQuad &quad = subshape[j];
                     if (quad.isPointInQuad(translatedPos))
                     {
-                        if (shiftDown)
-                        {
-                            m->selectedShapeIndex = box.shapeIndex;
-                        }
-
+                        m->selectedShapeIndex = box.shapeIndex;
                         m->physicsSpace.draggingShapeIndex = box.shapeIndex;
                         m->physicsSpace.draggingSubShapeIndex = j;
                         break;
@@ -344,11 +346,7 @@ void Game::mouseButtonDown(int button, int x, int y, bool shiftDown)
             }
             else
             {
-                if (shiftDown)
-                {
-                    m->selectedShapeIndex = box.shapeIndex;
-                }
-
+                m->selectedShapeIndex = box.shapeIndex;
                 m->physicsSpace.draggingShapeIndex = box.shapeIndex;
                 break;
             }
@@ -404,21 +402,35 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
     case GameKeyCode::F7:
     case GameKeyCode::F6:
     {
-        char buf[500];
-        snprintf(buf, sizeof(buf), "%s%s", m->path, "dump.txt");
+        StringBuffer<512> savePath;
+        savePath.append("%s/%s", m->appPath.data, "dump.txt");
 
         if (keyCode == GameKeyCode::F6)
         {
-            PhysicsSpaceStorage::dumpToFile(physicsSpace(), buf);
-            printf("Wrote to %s\n", buf);
+            PhysicsSpaceStorage::dumpToFile(physicsSpace(), savePath.data);
+            printf("Wrote to %s\n", savePath.data);
         }
         else
         {
-            printf("Attempting read from %s\n", buf);
-            PhysicsSpaceStorage::loadFromFile(physicsSpace(), buf);
-            printf("Read from %s\n", buf);
+            printf("Attempting read from %s\n", savePath.data);
+            PhysicsSpaceStorage::loadFromFile(physicsSpace(), savePath.data);
+            printf("Read from %s\n", savePath.data);
         }
     }
+    break;
+    case GameKeyCode::S:
+    {
+        if (modState & (int)GameModkey::Ctrl || modState & (int)GameModkey::Meta)
+        {
+            saveToFile();
+        }
+        else if (m->selectedShapeIndex != -1)
+        {
+            Shape &shape = m->physicsSpace.shapes[m->selectedShapeIndex];
+            shape.isStatic = !shape.isStatic;
+        }
+    }
+
     break;
     case GameKeyCode::R:
         maxLength = -10000.0f;
@@ -502,6 +514,10 @@ void Game::mouseMove(int x, int y, int relativeX, int relativeY)
                 ShapeQuad &quad = subshape[m->physicsSpace.draggingSubShapeIndex];
                 for (int i = 0; i < quad.size; i++)
                 {
+                    if (shape.isStatic)
+                    {
+                        quad.shapePos[i] += delta;
+                    }
                     quad.shapePos[i] += delta;
                 }
             }
@@ -510,6 +526,12 @@ void Game::mouseMove(int x, int y, int relativeX, int relativeY)
         {
             for (int i = shape.start; i < shape.end; i++)
             {
+
+                if (shape.isStatic)
+                {
+                    m->physicsSpace.points.pos[i] += delta;
+                }
+
                 m->physicsSpace.points.shapePos[i] += delta;
             }
         }
@@ -528,7 +550,7 @@ PhysicsSpace &Game::lastCollisionSpace()
 
 const char *Game::currentSceneName()
 {
-    return m->currentSceneName;
+    return m->currentSceneName == nullptr ? m->filePath.data : m->currentSceneName;
 }
 
 int &Game::simulationSpeed()
@@ -536,26 +558,22 @@ int &Game::simulationSpeed()
     return m->simulationSpeed;
 }
 
-void Game::setPaused()
+void Game::saveToFile()
 {
-    m->paused = true;
+    StringBuffer<512> savePath;
+    savePath.append("%s/%s", m->appPath.data, m->filePath.data);
+    PhysicsSpaceStorage::dumpToFile(physicsSpace(), savePath.data);
+}
+
+void Game::setPaused(bool paused)
+{
+    m->paused = paused;
     updateBoundingBoxes();
 }
 
 void Game::togglePaused()
 {
-    m->paused = !m->paused;
-
-    if (m->paused)
-    {
-        Scheduler::instance->stop();
-    }
-    else
-    {
-        Scheduler::instance->start();
-    }
-
-    updateBoundingBoxes();
+    setPaused(!m->paused);
 }
 
 bool Game::paused()

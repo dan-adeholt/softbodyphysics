@@ -25,7 +25,8 @@ struct GameRenderSettings
 class Game
 {
 public:
-    Game(const char *path);
+    Game(const char *appPath, const char *filePath);
+    Game(const Game &other) = delete;
     ~Game();
 
     void clear();
@@ -60,7 +61,8 @@ public:
 
     void updateBoundingBoxes(bool clear = false);
 
-    void setPaused();
+    void saveToFile();
+    void setPaused(bool paused = true);
     void togglePaused();
 
     const char *currentSceneName();
@@ -79,6 +81,8 @@ public:
 
     GameRenderSettings renderSettings();
     void setRenderSettings(const GameRenderSettings &settings);
+
+    const char *title() const;
 
 private:
     void updateAfterRewindOrForward();

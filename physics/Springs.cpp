@@ -25,6 +25,7 @@ void applySpringDerivatives(Range<Shape> &shapes, PointMassesRange &points, Rang
 
         Vector2 p0(points.pos[spring.pointA]);
         Vector2 p1(points.pos[spring.pointB]);
+
         Vector2 direction(p1 - p0);
         float offsetLength = direction.length();
 

@@ -46,6 +46,7 @@ public:
     void stop();
     void schedule(Task *tasks, int numTasks);
 
+    bool active() const;
     static constexpr int maxNumThreads = 64;
     static int numTasks;
 

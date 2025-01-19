@@ -1,6 +1,7 @@
 #include <SDL.h>
 #include <stdio.h>
 #include "containers/Array.h"
+#include "containers/StringBuffer.h"
 #include "timer.h"
 #include "game/Game.h"
 #include "game/Editor.h"
@@ -20,6 +21,7 @@
 #include "game/GameKeyCode.h"
 #include "utils/DynamicLibrary.h"
 #include "utils/CustomFont.h"
+#include <unistd.h>
 
 void dumpWindowGeometry(int windowPosX, int windowPosY, int windowWidth, int windowHeight)
 {
@@ -38,6 +40,11 @@ int getSdlModState()
     if (SDL_GetModState() & KMOD_ALT)
     {
         modState |= (int)GameModkey::Alt;
+    }
+
+    if (SDL_GetModState() & KMOD_GUI)
+    {
+        modState |= (int)GameModkey::Meta;
     }
 
     if (SDL_GetModState() & KMOD_SHIFT)
@@ -183,7 +190,7 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
     iconFontConfig.MergeMode = true;
     float baseFontSize = 16.0f;
-    float iconFontSize = baseFontSize * 2.0f / 3.0f; // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
+    float iconFontSize = baseFontSize;
 
     iconFontConfig.GlyphMinAdvanceX = 16.0f; // Use if you want to make the icon monospaced
     static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
@@ -204,7 +211,6 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
-
     // Setup Dear ImGui style
     // ImGui::StyleColorsDark();
     ImGui::StyleColorsLight();
@@ -223,31 +229,48 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
     bool renderShapeMatching = false;
     SDL_Event event;
 
-    char *path = SDL_GetPrefPath("tightloop", "softbodyphysics");
-    Editor editor;
-
-    Game game(path);
-    game.init(editor.lastSceneName());
+    char cwd[512];
+    bool cwdResult = getcwd(cwd, sizeof(cwd));
+    assert(cwdResult);
+    StringBuffer<512> levelsPath;
+    levelsPath.append("%s/levels", cwd);
+    Editor editor(levelsPath.data);
 
     const char *lastSceneName = editor.lastSceneName();
-    char title[1024];
-    snprintf(title, 1024, "Soft body physics - %s", lastSceneName == nullptr ? "No scene" : lastSceneName);
-    SDL_SetWindowTitle(window, title);
+    StringBuffer<1024> title;
+    title.append("Soft body physics - %s", lastSceneName == nullptr ? "No scene" : lastSceneName);
+    SDL_SetWindowTitle(window, title.data);
     Console::log("Last scene: %s\n", editor.lastSceneName());
     uint64_t startNanos = monotonicTimeNanos();
-    bool show_demo_window = false;
+    bool show_demo_window = true;
 
     // UnitTestUtil::runTests();
     ConsoleProfileInfo profileInfo = {};
 
     GameRenderer gameRenderer(renderer);
     startNanos = monotonicTimeNanos();
-
     bool pausedDueToFocus = false;
 
     bool libraryReloaded = false;
-    while (!game.shouldQuit() && !libraryReloaded)
+
+    while (!libraryReloaded)
     {
+        Game *game = editor.getCurrentGame();
+
+        if (game->shouldQuit())
+        {
+            break;
+        }
+
+        if (game->paused() && Scheduler::instance->active())
+        {
+            Scheduler::instance->stop();
+        }
+        else if (!game->paused() && !Scheduler::instance->active())
+        {
+            Scheduler::instance->start();
+        }
+
         while (SDL_PollEvent(&event))
         {
             ImGui_ImplSDL2_ProcessEvent(&event);
@@ -258,15 +281,15 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
                 Console::log("Focus gained");
                 if (pausedDueToFocus)
                 {
-                    game.togglePaused();
+                    game->togglePaused();
                     pausedDueToFocus = false;
                 }
                 break;
             case SDL_WINDOWEVENT_FOCUS_LOST:
                 Console::log("Focus lost");
-                if (!game.paused())
+                if (!game->paused())
                 {
-                    game.togglePaused();
+                    game->togglePaused();
                     pausedDueToFocus = true;
                 }
                 break;
@@ -287,7 +310,7 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
                 }
                 break;
             case SDL_QUIT:
-                game.setShouldQuit();
+                game->setShouldQuit();
                 break;
 
             case SDL_KEYDOWN:
@@ -301,7 +324,7 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
                 if (keyCode != GameKeyCode::NUM_KEY_CODES)
                 {
-                    game.keyDown(keyCode, getSdlModState(), profileInfo);
+                    game->keyDown(keyCode, getSdlModState(), profileInfo);
                 }
 
                 break;
@@ -317,7 +340,7 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
                 if (keyCode != GameKeyCode::NUM_KEY_CODES)
                 {
-                    game.keyUp(keyCode, getSdlModState(), profileInfo);
+                    game->keyUp(keyCode, getSdlModState(), profileInfo);
                 }
 
                 break;
@@ -325,18 +348,18 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
             case SDL_MOUSEWHEEL:
                 if (SDL_GetModState() & KMOD_ALT)
                 {
-                    game.mouseWheel(event.wheel.x, event.wheel.y);
+                    game->mouseWheel(event.wheel.x, event.wheel.y);
                 }
 
                 break;
             case SDL_MOUSEBUTTONDOWN:
-                game.mouseButtonDown(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
+                game->mouseButtonDown(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
                 break;
             case SDL_MOUSEBUTTONUP:
-                game.mouseButtonUp(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
+                game->mouseButtonUp(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
                 break;
             case SDL_MOUSEMOTION:
-                game.mouseMove(event.motion.x, event.motion.y, event.motion.xrel, event.motion.yrel);
+                game->mouseMove(event.motion.x, event.motion.y, event.motion.xrel, event.motion.yrel);
                 break;
             }
         }
@@ -374,16 +397,16 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
         // printf("Elapsed milliseconds: %f\n", elapsedMilliseconds);
 
-        if (!game.paused())
+        if (!game->paused())
         {
             if (editor.executingTest())
             {
-                editor.stepTest(&game, elapsedMilliseconds, profileInfo);
+                editor.stepTest(game, elapsedMilliseconds, profileInfo);
             }
             else
             {
                 Timer totalPhysicsTimer;
-                game.update(elapsedMilliseconds, false, profileInfo);
+                game->update(elapsedMilliseconds, false, profileInfo);
                 profileInfo.totalPhysicsTimeMillis = totalPhysicsTimer.elapsedMillis();
             }
         }
@@ -405,12 +428,11 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer);
 
-        gameRenderer.renderGame(renderer, game, renderShapeMatching, profileInfo);
-        // gameRenderer.renderText(renderer, "Press F5 to pause, F6 to save, F7 to load, F8 to step, F3 to rewind, F4 to forward", 10, 10);
+        gameRenderer.renderGame(renderer, *game, renderShapeMatching, profileInfo);
         profileInfo.renderTimeMillis = renderTimer.elapsedMillis();
-        Console::draw(profileInfo, game.scale(), game.offset(), boldFont);
-        editor.renderUI(game, profileInfo);
-        // Rendering
+        Console::draw(profileInfo, game->scale(), game->offset(), boldFont);
+        editor.renderUI(*game, profileInfo);
+        game = editor.getCurrentGame(); // Editor might have changed the game
 
         ImGui::Render();
         Timer extraDrawTimer;
@@ -423,6 +445,10 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
     // Should do nicer cleanup
     delete Scheduler::instance;
+
+    ImGui_ImplSDLRenderer2_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
 
     return libraryReloaded ? 1 : 0;
 }

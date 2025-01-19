@@ -43,7 +43,8 @@ int main(int argc, char *argv[])
                                           windowPosX,
                                           windowPosY,
                                           windowWidth, windowHeight,
-                                          SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+                                          SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE |
+                                              SDL_WINDOW_ALLOW_HIGHDPI);
 
     if (window == nullptr)
     {
@@ -131,9 +132,6 @@ int main(int argc, char *argv[])
     // mainFunc(renderer, vsync, frameTime);
 
     // Cleanup
-    ImGui_ImplSDLRenderer2_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
-    ImGui::DestroyContext();
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);

@@ -175,7 +175,7 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, bool renderSha
 
     if (renderSettings.renderShapeLines)
     {
-        renderShapes(renderer, physicsSpace.shapes.range(), points, physicsSpace, renderShapeMatching, scaleForGeometry);
+        renderShapes(renderer, game.selectedShapeIndex(), physicsSpace.shapes.range(), points, physicsSpace, renderShapeMatching, scaleForGeometry);
     }
 
     if (renderSettings.renderSprings)
@@ -185,17 +185,30 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, bool renderSha
 
     if (renderSettings.renderPoints)
     {
+        int selectedShapeIndex = game.selectedShapeIndex();
+
+        int selectedShapeStart = -1;
+        int selectedShapeEnd = -1;
+
+        if (selectedShapeIndex != -1)
+        {
+            Shape &selectedShape = physicsSpace.shapes[selectedShapeIndex];
+            selectedShapeStart = selectedShape.start;
+            selectedShapeEnd = selectedShape.end;
+        }
 
         for (int i = 0; i < points.size(); i++)
         {
             Vector2 pos = points.pos[i];
-            addCircle(m->vertices, pos.x, pos.y, scale, {255, 255, 255, 255});
 
-            // Vector2 velocity = points.velocity[i];
-
-            // Vector2 target = pos + velocity * 200.0f;
-            // addLine(m->vertices, pos.x, pos.y, target.x, target.y, scale, {255, 0, 255, 255});
-            // addCircle(m->vertices, target.x, target.y, scale, {255, 255, 255, 255});
+            if (i >= selectedShapeStart && i < selectedShapeEnd)
+            {
+                addCircle(m->vertices, pos.x, pos.y, scale, {0, 255, 0, 255});
+            }
+            else
+            {
+                addCircle(m->vertices, pos.x, pos.y, scale, {255, 255, 255, 255});
+            }
         }
     }
 
@@ -221,7 +234,7 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, bool renderSha
                           m->vertices.size(), nullptr, 0, 0);
 }
 
-void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, PointMassesRange &pointMasses, PhysicsSpace &space, bool renderShapeMatching, float scale)
+void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, Range<Shape> shapes, PointMassesRange &pointMasses, PhysicsSpace &space, bool renderShapeMatching, float scale)
 {
     for (int i = 0; i < shapes.size; i++)
     {
@@ -229,6 +242,13 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, Poi
 
         Vector2 startPos = pointMasses.pos[shape.start];
         Vector2 pos = startPos;
+
+        SDL_Color color = {0, 0, 0, 255};
+
+        if (i == selectedShapeIndex)
+        {
+            color = {0, 255, 0, 255};
+        }
 
         for (int pointIndex = shape.start + 1; pointIndex < shape.end; pointIndex++)
         {
@@ -239,11 +259,11 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, Poi
                 continue;
             }
 
-            addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, {0, 0, 0, 255});
+            addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, color);
             pos = nextPos;
         }
 
-        addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, {0, 0, 0, 255});
+        addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, color);
 
         if (!renderShapeMatching)
         {
@@ -269,11 +289,11 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, Range<Shape> shapes, Poi
                         continue;
                     }
 
-                    addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, {0, 255, 0, 255});
+                    addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, color);
                     pos = nextPos;
                 }
 
-                addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, {0, 255, 0, 255});
+                addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, color);
             }
         }
         else

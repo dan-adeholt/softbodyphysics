@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include "../utils/Console.h"
+#include "../containers/StringBuffer.h"
 #include <SDL.h>
 #include <dirent.h>
 
@@ -86,7 +87,9 @@ void readShapeArray(FILE *file, Array<Shape> &array)
     for (int i = 0; i < size; ++i)
     {
         Shape shape;
-        fscanf(file, "start=%d end=%d substart=%d subend=%d volume=%f\n", &shape.start, &shape.end, &shape.subShapeSpan.start, &shape.subShapeSpan.end, &shape.volume);
+        int isStatic = 0;
+        fscanf(file, "start=%d end=%d substart=%d subend=%d volume=%f isStatic=%d\n", &shape.start, &shape.end, &shape.subShapeSpan.start, &shape.subShapeSpan.end, &shape.volume, &isStatic);
+        shape.isStatic = isStatic != 0;
         array.push(shape);
     }
 }
@@ -147,7 +150,7 @@ void dumpShapeArray(FILE *file, Shape *array, int size)
     for (int i = 0; i < size; ++i)
     {
         const Shape &shape = array[i];
-        fprintf(file, "start=%d end=%d substart=%d subend=%d volume=%f\n", shape.start, shape.end, shape.subShapeSpan.start, shape.subShapeSpan.end, shape.volume);
+        fprintf(file, "start=%d end=%d substart=%d subend=%d volume=%f isStatic=%d\n", shape.start, shape.end, shape.subShapeSpan.start, shape.subShapeSpan.end, shape.volume, shape.isStatic ? 1 : 0);
     }
 }
 
@@ -224,6 +227,31 @@ void readStaticJoints(FILE *file, Array<StaticJoint> &joints)
     }
 }
 
+void readShapeSpringDiffs(FILE *file, Array<float> &diffs)
+{
+    int size = 0;
+    fscanf(file, "%d\n", &size);
+    diffs.reserve(size);
+    diffs.clear();
+
+    for (int i = 0; i < size; ++i)
+    {
+        float diff;
+        fscanf(file, "%f\n", &diff);
+        diffs.push(diff);
+    }
+}
+
+void dumpShapeSpringDiffs(FILE *file, Array<float> &springDiffs)
+{
+    fprintf(file, "%d\n", springDiffs.size());
+
+    for (int i = 0; i < springDiffs.size(); ++i)
+    {
+        fprintf(file, "%f\n", springDiffs[i]);
+    }
+}
+
 void dumpStaticJoints(FILE *file, Array<StaticJoint> &joints)
 {
     fprintf(file, "%d\n", joints.size());
@@ -247,6 +275,7 @@ void PhysicsSpaceStorage::loadFromFile(PhysicsSpace &space, const char *filename
     readShapeArray(file, space.shapes);
     readSprings(file, space.springs);
     readStaticJoints(file, space.staticJoints);
+    readShapeSpringDiffs(file, space.shapeSpringDiffs);
 
     fclose(file);
 }
@@ -264,6 +293,7 @@ void PhysicsSpaceStorage::dumpToFile(PhysicsSpace &space, const char *filename)
     dumpShapeArray(file, &space.shapes[0], space.shapes.size());
     dumpSprings(file, space.springs);
     dumpStaticJoints(file, space.staticJoints);
+    dumpShapeSpringDiffs(file, space.shapeSpringDiffs);
 
     fflush(file);
     fclose(file);
@@ -302,9 +332,9 @@ int getHighestFileNumber(const char *directory, const char *format)
 void PhysicsSpaceStorage::dumpToUnitTest(PhysicsSpace &space)
 {
     int saveNumber = getHighestFileNumber("scenedefs", "unit_%d.txt") + 1;
-    char filename[256];
-    snprintf(filename, sizeof(filename), "scenedefs/unit_%d.txt", saveNumber);
-    dumpToFile(space, filename);
+    StringBuffer<256> filename;
+    filename.append("scenedefs/unit_%d.txt", saveNumber);
+    dumpToFile(space, filename.data);
 
     const char *tempFileName = "/tmp/physics_space_copy.txt";
 
@@ -313,7 +343,7 @@ void PhysicsSpaceStorage::dumpToUnitTest(PhysicsSpace &space)
     fprintf(f, "    {\"New Unit Test %d\", [](Game *game)\n", saveNumber);
     fprintf(f, "      {\n");
     fprintf(f, "         PhysicsSpace &space = game->physicsSpace();\n");
-    fprintf(f, "         PhysicsSpaceStorage::loadFromFile(space, \"%s\");\n", filename);
+    fprintf(f, "         PhysicsSpaceStorage::loadFromFile(space, \"%s\");\n", filename.data);
     fprintf(f, "         game->setPaused();\n");
     fprintf(f, "    }},\n");
     fclose(f);

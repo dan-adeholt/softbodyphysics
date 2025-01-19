@@ -7,6 +7,7 @@ enum class GameModkey : int
     Shift = 1,
     Ctrl = 1 << 1,
     Alt = 1 << 2,
+    Meta = 1 << 3,
     NUM_MODKEYS
 };
 

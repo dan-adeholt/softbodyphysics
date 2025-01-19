@@ -28,6 +28,7 @@ struct PhysicsSpace
 
     Array<Shape> shapes;
     Array<ShapeQuad> partialShapes;
+    Array<float> shapeSpringDiffs;
     PointMasses points;
     Array<Spring> springs;
     Array<StaticJoint> staticJoints;

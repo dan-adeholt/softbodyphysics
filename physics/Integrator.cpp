@@ -69,12 +69,42 @@ void RK4Integrator::updateRK4Springs(PhysicsSpace &space, Array<PointDerivative>
     }
 }
 
-float maxDistFromCenter = 14.0f;
+float maxDistFromCenter = 180.0f;
 
 void Integrator::performIntegration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo)
 {
     ShapeMatching::shapeMatchAlign(space.points.range(), space.shapes, space.partialShapes.range(), space.draggingShapeIndex);
     rk4Integrator.performRK4Integration(space, profileInfo);
+
+    if (space.shapeSpringDiffs.size() != space.shapes.size())
+    {
+        space.shapeSpringDiffs.fill(0.0f, space.shapes.size());
+    }
+
+    for (int i = 0; i < space.springs.size(); i++)
+    {
+        Spring &spring = space.springs[i];
+        if (spring.shapeIndex == -1)
+        {
+            continue;
+        }
+
+        const Vector2 pointA = space.points.pos[spring.pointA];
+        const Vector2 pointB = space.points.pos[spring.pointB];
+        Vector2 origPointA = space.points.shapePos[spring.pointA];
+        Vector2 origPointB = space.points.shapePos[spring.pointB];
+
+        float dot = (pointB - pointA).dot(origPointB - origPointA);
+
+        if (dot < 0)
+        {
+            space.points.pos[spring.pointB] = pointA;
+            space.points.pos[spring.pointA] = pointB;
+            Vector2 velocityA = space.points.velocity[spring.pointA];
+            space.points.velocity[spring.pointA] = space.points.velocity[spring.pointB] * 0.5f;
+            space.points.velocity[spring.pointB] = velocityA * 0.5f;
+        }
+    }
 
     for (int i = 0; i < space.staticJoints.size(); i++)
     {
@@ -89,67 +119,51 @@ void Integrator::performIntegration(PhysicsSpace &space, ConsoleProfileInfo &pro
         space.points.velocity[space.mouseJoint.pointIndex] = Vector2();
     }
 
-    // for (int i = 0; i < space.shapes.size(); i++)
-    // {
-    //     Shape &shape = space.shapes[i];
-    //     if (i == space.draggingShapeIndex)
-    //     {
-    //         continue;
-    //     }
+    for (int i = 0; i < space.shapes.size(); i++)
+    {
+        Shape &shape = space.shapes[i];
 
-    //     if (shape.subShapeSpan.isValid())
-    //     {
-    //         Range<ShapeQuad> subShapes = space.partialShapes.range().slice(shape.subShapeSpan);
-    //         for (int j = 0; j < subShapes.size; j++)
-    //         {
-    //             ShapeQuad &subShape = subShapes[j];
-    //             Vector2 center;
+        if (shape.subShapeSpan.isValid())
+        {
+            Range<ShapeQuad> subShapes = space.partialShapes.range().slice(shape.subShapeSpan);
+            for (int j = 0; j < subShapes.size; j++)
+            {
+                ShapeQuad &subShape = subShapes[j];
+                Vector2 center;
 
-    //             for (int k = 0; k < subShape.size; k++)
-    //             {
-    //                 center += space.points.pos[subShape.indices[k]];
-    //             }
+                for (int k = 0; k < subShape.size; k++)
+                {
+                    center += space.points.pos[subShape.indices[k]];
+                }
 
-    //             center /= subShape.size;
+                for (int k = 0; k < subShape.size; k++)
+                {
+                    int index = subShape.indices[k];
+                    Vector2 delta = space.points.pos[index] - space.points.shapePos[index];
 
-    //             for (int k = 0; k < subShape.size; k++)
-    //             {
-    //                 Vector2 delta = center - space.points.pos[subShape.indices[k]];
-    //                 if (delta.length() > maxDistFromCenter)
-    //                 {
-    //                     delta = delta.normalized() * maxDistFromCenter;
-    //                     space.points.pos[subShape.indices[k]] = center - delta;
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     else
-    //     {
-    //         Vector2 center;
+                    if (delta.length() > maxDistFromCenter)
+                    {
+                        space.points.pos[index] = space.points.shapePos[index] + delta.normalized() * maxDistFromCenter;
+                    }
+                }
+            }
+        }
+        else
+        {
+            for (int j = shape.start; j < shape.end; j++)
+            {
+                Vector2 delta = space.points.pos[j] - space.points.shapePos[j];
 
-    //         for (int j = shape.start; j < shape.end; j++)
-    //         {
-    //             center += space.points.pos[j];
-    //         }
-
-    //         int numPoints = shape.end - shape.start;
-
-    //         center /= numPoints;
-
-    //         for (int j = shape.start; j < shape.end; j++)
-    //         {
-    //             Vector2 delta = center - space.points.pos[j];
-    //             if (delta.length() > maxDistFromCenter)
-    //             {
-    //                 delta = delta.normalized() * maxDistFromCenter;
-    //                 space.points.pos[j] = center - delta;
-    //             }
-    //         }
-    //     }
-    // }
+                if (delta.length() > maxDistFromCenter)
+                {
+                    space.points.pos[j] = space.points.shapePos[j] + delta.normalized() * maxDistFromCenter;
+                }
+            }
+        }
+    }
 }
 
-float maxVelocity = 1.0f;
+float maxVelocity = 5.0f;
 float maxVelocitySquared = maxVelocity * maxVelocity;
 
 void RK4Integrator::performRK4Integration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo)

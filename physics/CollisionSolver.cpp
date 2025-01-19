@@ -918,7 +918,6 @@ void CollisionSolver::updateBoundingBoxes(PhysicsSpace &space, ConsoleProfileInf
     {
         Timer boundingBoxTimer;
         calculateBoundingBoxes(m->boundingBoxes, space.shapes, space.points);
-
         if (m->sortedBoundingBoxes.size() == 0)
         {
             for (int i = 0; i < m->boundingBoxes.size(); i++)
@@ -928,6 +927,11 @@ void CollisionSolver::updateBoundingBoxes(PhysicsSpace &space, ConsoleProfileInf
         }
         else
         {
+            for (int i = m->sortedBoundingBoxes.size(); i < m->boundingBoxes.size(); i++)
+            {
+                m->sortedBoundingBoxes.push(m->boundingBoxes[i]);
+            }
+
             updateSortedBoundingBoxes(m->sortedBoundingBoxes, m->boundingBoxes);
         }
 
@@ -1000,14 +1004,46 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSp
 
                             for (int i = 0; i < range1.size(); i++)
                             {
-                                range1.pos[i].x = clamp(range1.pos[i].x, movingBoxContracted.x1, movingBoxContracted.x2);
-                                range1.pos[i].y = clamp(range1.pos[i].y, movingBoxContracted.y1, movingBoxContracted.y2);
+                                float newX = clamp(range1.pos[i].x, movingBoxContracted.x1, movingBoxContracted.x2);
+                                float newY = clamp(range1.pos[i].y, movingBoxContracted.y1, movingBoxContracted.y2);
+
+                                float deltaX = fabs(range1.pos[i].x - newX);
+                                float deltaY = fabs(range1.pos[i].y - newY);
+
+                                if (deltaX > 0.0f)
+                                {
+                                    range1.velocity[i].x *= 0.5f;
+                                }
+
+                                if (deltaY > 0.0f)
+                                {
+                                    range1.velocity[i].y *= 0.5f;
+                                }
+
+                                range1.pos[i].x = newX;
+                                range1.pos[i].y = newY;
                             }
 
                             for (int i = 0; i < range2.size(); i++)
                             {
-                                range2.pos[i].x = clamp(range2.pos[i].x, collisionBoxContracted.x1, collisionBoxContracted.x2);
-                                range2.pos[i].y = clamp(range2.pos[i].y, collisionBoxContracted.y1, collisionBoxContracted.y2);
+                                float newX = clamp(range2.pos[i].x, collisionBoxContracted.x1, collisionBoxContracted.x2);
+                                float newY = clamp(range2.pos[i].y, collisionBoxContracted.y1, collisionBoxContracted.y2);
+
+                                float deltaX = fabs(range2.pos[i].x - newX);
+                                float deltaY = fabs(range2.pos[i].y - newY);
+
+                                if (deltaX > 0.0f)
+                                {
+                                    range2.velocity[i].x *= 0.5f;
+                                }
+
+                                if (deltaY > 0.0f)
+                                {
+                                    range2.velocity[i].y *= 0.5f;
+                                }
+
+                                range2.pos[i].x = newX;
+                                range2.pos[i].y = newY;
                             }
                         }
                         else if ((shape1.isStatic && !shape2.isStatic) || (shape2.isStatic && !shape1.isStatic))

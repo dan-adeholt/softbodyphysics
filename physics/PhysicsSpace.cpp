@@ -58,7 +58,6 @@ void PhysicsSpace::clear()
     staticJoints.clear();
     mouseJoint.pointIndex = -1;
     gravityEnabled = true;
-    shapeMatchingEnabled = false;
 }
 
 void PhysicsSpace::removeShape(int shapeIndex)
