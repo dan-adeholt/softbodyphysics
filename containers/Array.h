@@ -204,6 +204,44 @@ public:
         }
     }
 
+    template <typename Predicate>
+    void filter(Predicate predicate)
+    {
+        int numRemoved = 0;
+        for (int i = 0; i < m_size; i++)
+        {
+            if (predicate(m_data[i]))
+            {
+                remove(i);
+                i--;
+                numRemoved++;
+            }
+        }
+
+        m_size -= numRemoved;
+    }
+
+    void insert(int index, const T &element)
+    {
+        if (index < 0 || index > m_size)
+        {
+            return;
+        }
+
+        if (m_size == m_capacity)
+        {
+            reserve(m_capacity * 2);
+        }
+
+        for (int i = m_size; i > index; i--)
+        {
+            m_data[i] = m_data[i - 1];
+        }
+
+        new (&m_data[index]) T(element);
+        m_size++;
+    }
+
     void remove(int index)
     {
         m_data[index].~T();

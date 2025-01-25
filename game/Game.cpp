@@ -293,7 +293,7 @@ void Game::mouseButtonDown(int button, int x, int y, bool shiftDown)
     for (int i = 0; i < m->physicsSpace.points.size(); i++)
     {
         Vector2 pos = m->physicsSpace.points.pos[i];
-        if (Vector2::vec2distance(translatedPos.x, translatedPos.y, pos.x, pos.y) < (4.0f * m->scale))
+        if (Vector2::vec2distance(translatedPos.x, translatedPos.y, pos.x, pos.y) < (4.0f / m->scale))
         {
             if (shiftDown)
             {
@@ -314,6 +314,7 @@ void Game::mouseButtonDown(int button, int x, int y, bool shiftDown)
                 m->physicsSpace.mouseJoint.pointIndex = i;
                 m->physicsSpace.mouseJoint.position = translatedPos;
             }
+
             return;
         }
     }
@@ -335,8 +336,11 @@ void Game::mouseButtonDown(int button, int x, int y, bool shiftDown)
                 for (int j = 0; j < subshape.size; j++)
                 {
                     ShapeQuad &quad = subshape[j];
+                    Console::log("Looking at quad %d => %.2f %.2f", j, quad.shapePos[0].x, quad.shapePos[0].y);
+
                     if (quad.isPointInQuad(translatedPos))
                     {
+                        Console::log("Selected subshape %d", j);
                         m->selectedShapeIndex = box.shapeIndex;
                         m->physicsSpace.draggingShapeIndex = box.shapeIndex;
                         m->physicsSpace.draggingSubShapeIndex = j;
@@ -354,6 +358,8 @@ void Game::mouseButtonDown(int button, int x, int y, bool shiftDown)
 
         testedBoxes++;
     }
+
+    Console::log("Tested boxes: %d", testedBoxes);
 }
 
 void Game::mouseWheel(int x, int y)

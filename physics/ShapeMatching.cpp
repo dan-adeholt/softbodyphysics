@@ -1,4 +1,5 @@
 #include "ShapeMatching.h"
+#include "../utils/Console.h"
 
 void ShapeMatching::shapeMatchAlignInit(PointMassesRange points, Shape &shape, Range<ShapeQuad> partialShapes)
 {
@@ -47,7 +48,7 @@ void ShapeMatching::shapeMatchAlign(PointMassesRange points, Array<Shape> &shape
     for (int i = 0; i < shapes.size(); i++)
     {
         Shape &shape = shapes[i];
-        if (i == draggingShapeIndex)
+        if (i == draggingShapeIndex || shape.disableShapeMatching)
         {
             continue;
         }
@@ -67,7 +68,6 @@ void ShapeMatching::shapeMatchAlign(PointMassesRange points, Array<Shape> &shape
 
                 center /= subShape.size;
                 float avgDiffAngle = 0.0f;
-
                 for (int k = 0; k < subShape.size; k++)
                 {
                     Vector2 translatedPos = points.pos[subShape.indices[k]] - center;

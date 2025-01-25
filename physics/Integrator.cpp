@@ -76,15 +76,17 @@ void Integrator::performIntegration(PhysicsSpace &space, ConsoleProfileInfo &pro
     ShapeMatching::shapeMatchAlign(space.points.range(), space.shapes, space.partialShapes.range(), space.draggingShapeIndex);
     rk4Integrator.performRK4Integration(space, profileInfo);
 
-    if (space.shapeSpringDiffs.size() != space.shapes.size())
-    {
-        space.shapeSpringDiffs.fill(0.0f, space.shapes.size());
-    }
-
     for (int i = 0; i < space.springs.size(); i++)
     {
         Spring &spring = space.springs[i];
-        if (spring.shapeIndex == -1)
+        const Shape &shapeA = space.shapes[spring.shapeIndex];
+
+        if (shapeA.isStatic)
+        {
+            continue;
+        }
+
+        if (spring.shapeIndex == -1 || shapeA.subShapeSpan.isValid())
         {
             continue;
         }
@@ -123,42 +125,47 @@ void Integrator::performIntegration(PhysicsSpace &space, ConsoleProfileInfo &pro
     {
         Shape &shape = space.shapes[i];
 
+        if (shape.isStatic)
+        {
+            continue;
+        }
+
         if (shape.subShapeSpan.isValid())
         {
             Range<ShapeQuad> subShapes = space.partialShapes.range().slice(shape.subShapeSpan);
-            for (int j = 0; j < subShapes.size; j++)
-            {
-                ShapeQuad &subShape = subShapes[j];
-                Vector2 center;
+            // for (int j = 0; j < subShapes.size; j++)
+            // {
+            //     ShapeQuad &subShape = subShapes[j];
+            //     Vector2 center;
 
-                for (int k = 0; k < subShape.size; k++)
-                {
-                    center += space.points.pos[subShape.indices[k]];
-                }
+            //     for (int k = 0; k < subShape.size; k++)
+            //     {
+            //         center += space.points.pos[subShape.indices[k]];
+            //     }
 
-                for (int k = 0; k < subShape.size; k++)
-                {
-                    int index = subShape.indices[k];
-                    Vector2 delta = space.points.pos[index] - space.points.shapePos[index];
+            //     for (int k = 0; k < subShape.size; k++)
+            //     {
+            //         int index = subShape.indices[k];
+            //         Vector2 delta = space.points.pos[index] - space.points.shapePos[index];
 
-                    if (delta.length() > maxDistFromCenter)
-                    {
-                        space.points.pos[index] = space.points.shapePos[index] + delta.normalized() * maxDistFromCenter;
-                    }
-                }
-            }
+            //         if (delta.length() > maxDistFromCenter)
+            //         {
+            //             space.points.pos[index] = space.points.shapePos[index] + delta.normalized() * maxDistFromCenter;
+            //         }
+            //     }
+            // }
         }
         else
         {
-            for (int j = shape.start; j < shape.end; j++)
-            {
-                Vector2 delta = space.points.pos[j] - space.points.shapePos[j];
+            // for (int j = shape.start; j < shape.end; j++)
+            // {
+            //     Vector2 delta = space.points.pos[j] - space.points.shapePos[j];
 
-                if (delta.length() > maxDistFromCenter)
-                {
-                    space.points.pos[j] = space.points.shapePos[j] + delta.normalized() * maxDistFromCenter;
-                }
-            }
+            //     if (delta.length() > maxDistFromCenter)
+            //     {
+            //         space.points.pos[j] = space.points.shapePos[j] + delta.normalized() * maxDistFromCenter;
+            //     }
+            // }
         }
     }
 }

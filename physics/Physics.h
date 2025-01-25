@@ -132,6 +132,15 @@ struct PointMasses
         shapeOriginalPos.replace(other.shapeOriginalPos);
     }
 
+    void insert(int index, float x, float y, float mass)
+    {
+        pos.insert(index, {x, y});
+        shapePos.insert(index, {x, y});
+        shapeOriginalPos.insert(index, {x, y});
+        this->mass.insert(index, mass);
+        velocity.insert(index, {0.0f, 0.0f});
+    }
+
     void push(float x, float y, float mass = 1.0f, float velocityX = 0.0f, float velocityY = 0.0f)
     {
         this->pos.push({x, y});
@@ -219,13 +228,14 @@ struct Spring
 
 struct Shape
 {
-    Shape() : start(0), end(0), volume(0.0f), isStatic(false), subShapeSpan() {}
-    Shape(int start, int end, float volume = 0.0f) : start(start), end(end), volume(volume), isStatic(false), subShapeSpan() {}
+    Shape() : start(0), end(0), volume(0.0f), isStatic(false), disableShapeMatching(false), subShapeSpan() {}
+    Shape(int start, int end, float volume = 0.0f) : start(start), end(end), volume(volume), isStatic(false), disableShapeMatching(false), subShapeSpan() {}
 
     int start;
     int end;
     float volume;
     bool isStatic;
+    bool disableShapeMatching;
 
     operator Span() const
     {

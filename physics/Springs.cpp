@@ -109,8 +109,8 @@ void applySpringDerivatives(Range<Shape> &shapes, PointMassesRange &points, Rang
                     Vector2 directionNormalized = direction.normalized();
 
                     Vector2 velocityAlongSpringAxis = directionNormalized * (points.velocity[j] - avgVelocity).dot(directionNormalized);
-                    Vector2 force = (p0 - p1) * 0.00005f;
-                    Vector2 acceleration = force / points.mass[j];
+                    Vector2 force = (p0 - p1) * 0.00015f;
+                    Vector2 acceleration = force;
                     // Console::log("Accel %f %f", acceleration.x, acceleration.y);
 
                     derivative.acceleration += acceleration;

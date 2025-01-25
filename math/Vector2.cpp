@@ -57,3 +57,21 @@ Vector2 intersectLineSegmentPoint(const Vector2 &p0, const Vector2 &p1, Vector2 
     t = clamp(t, 0.0f, 1.0f);
     return p0 + segment * t;
 }
+
+Vector2 closestPointToLineSegment(const Vector2 &p0, const Vector2 &p1, const Vector2 &point)
+{
+    // Vector from A to B
+    Vector2 segment = p1 - p0;
+    // Vector from A to P
+    Vector2 segmentToPoint = point - p0;
+    Vector2 segmentNormal = segment.normalVector().normalized();
+    Vector2 pointOutside = (p0 + segment * 0.5f) - segmentNormal * 2.0f;
+
+    // The projection of point P onto the line defined by segment AB is given by:
+    // v dot w / v dot v
+    // Compute projection t
+    float t = segmentToPoint.dot(segment) / segment.dot();
+    t = clamp(t, 0.0f, 1.0f);
+
+    return p0 + segment * t;
+}

@@ -78,6 +78,20 @@ void PhysicsSpace::removeShape(int shapeIndex)
     int shapeSize = shape.end - shape.start;
     shapes.remove(shapeIndex);
 
+    for (int i = 0; i < staticJoints.size(); i++)
+    {
+        StaticJoint &joint = staticJoints[i];
+        if (joint.pointIndex >= shape.start && joint.pointIndex < shape.end)
+        {
+            staticJoints.remove(i);
+            i--;
+        }
+        else if (joint.pointIndex >= shape.end)
+        {
+            joint.pointIndex -= shapeSize;
+        }
+    }
+
     for (int i = 0; i < shapes.size(); i++)
     {
         Shape &s = shapes[i];

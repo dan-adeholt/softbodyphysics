@@ -18,6 +18,7 @@
 #include "../utils/MinMax.h"
 
 const char *contextMenu = "Context menu";
+const char *bridgePopup = "Bridge";
 
 #ifdef __APPLE__
 #include <dirent.h>
@@ -36,6 +37,54 @@ PhysicsTestDefinition *curTestCase = nullptr;
 struct FileEntry
 {
     StringBuffer<MAX_FILENAME_LENGTH> name;
+};
+
+struct BridgePopup
+{
+    void show()
+    {
+        shouldTriggerShow = true;
+    }
+
+    void render(Game &game)
+    {
+        if (shouldTriggerShow)
+        {
+            ImVec2 pos = ImGui::GetMousePos();
+            addPos = (Vector2(pos.x, pos.y) - game.offset()) / game.scale();
+            ImGui::OpenPopup(bridgePopup);
+            shouldTriggerShow = false;
+        }
+
+        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+        if (ImGui::BeginPopupModal(bridgePopup, nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::PushItemWidth(170);
+            ImGui::InputInt("#Segments", &numBridgeSegments);
+            ImGui::PopItemWidth();
+            if (ImGui::Button("Add", ImVec2(120, 0)))
+            {
+                Console::drawPoint(addPos, 0xFF0000);
+                Shapes::createBridge(game.physicsSpace(), addPos.x, addPos.y, 1.0f, numBridgeSegments);
+
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(120, 0)))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::EndPopup();
+        }
+    }
+
+    bool shouldTriggerShow = false;
+    int numBridgeSegments = 10;
+    Vector2 addPos;
 };
 
 struct Editor::Impl
@@ -65,6 +114,7 @@ struct Editor::Impl
     char newFileName[MAX_FILENAME_LENGTH] = {};
     Array<FileEntry> openedBuffers;
     int gameTabIndex = -1;
+    BridgePopup bridgePopup;
 };
 
 Editor::Editor(const char *appPath)
@@ -181,6 +231,7 @@ bool ImGuiBeginTallerMenu(const char *menuName)
 
 void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 {
+    bool triggerBridgePopup = false;
     bool triggerOpenPopup = false;
     int deleteGameIndex = -1;
     ImGuiIO &io = ImGui::GetIO();
@@ -327,7 +378,7 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
         }
         m->closeTabStates.fill(true, m->games.size());
 
-        if (ImGui::BeginTabBar("Scenes", ImGuiTabBarFlags_FittingPolicyResizeDown | ImGuiTabBarFlags_Reorderable))
+        if (ImGui::BeginTabBar("Scenes", ImGuiTabBarFlags_FittingPolicyResizeDown))
         {
             bool setSelectedTabState = m->currentGameIndex != m->gameTabIndex;
 
@@ -492,6 +543,14 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
                 int selectedShapeIndex = game.selectedShapeIndex();
                 PhysicsSpace &space = game.physicsSpace();
 
+                if (space.mouseJoint.pointIndex != -1)
+                {
+                    ImGui::Text("Mouse joint: %d", space.mouseJoint.pointIndex);
+                    ImGui::Text("Position: %.2f, %.2f", space.points.pos[space.mouseJoint.pointIndex].x, space.points.pos[space.mouseJoint.pointIndex].y);
+                    ImGui::Text("Velocity: %.2f, %.2f", space.points.velocity[space.mouseJoint.pointIndex].x, space.points.velocity[space.mouseJoint.pointIndex].y);
+                    ImGui::Text("Mass: %.2f", space.points.mass[space.mouseJoint.pointIndex]);
+                }
+
                 if (selectedShapeIndex != -1)
                 {
                     ImGui::Text("Selected shape: %d", selectedShapeIndex);
@@ -525,12 +584,46 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 
     if (ImGui::BeginPopup(contextMenu))
     {
-        if (ImGui::BeginMenu("Shapes"))
+        if (ImGui::BeginMenu("Static shapes"))
         {
             ImVec2 pos = ImGui::GetMousePos();
             PhysicsSpace &space = game.physicsSpace();
             Vector2 addPos = (Vector2(pos.x, pos.y) - game.offset()) / game.scale();
             float defaultMass = 4.0f;
+            float size = 50.0f;
+
+            if (ImGui::MenuItem("Quad"))
+            {
+                Shapes::createStaticQuad(space, addPos.x, addPos.y, size, size, defaultMass);
+            }
+
+            if (ImGui::MenuItem("Circle"))
+            {
+                Shapes::createCircle(space, addPos.x, addPos.y, size, defaultMass);
+                int shapeIndex = space.shapes.size() - 1;
+                Shape &circle = space.shapes[shapeIndex];
+                circle.isStatic = true;
+
+                space.springs.filter([shapeIndex](const Spring &spring)
+                                     { return spring.shapeIndex == shapeIndex; });
+            }
+
+            if (ImGui::MenuItem("Triangle"))
+            {
+                Shapes::createTriangle(space, true, addPos.x, addPos.y, addPos.x + size, addPos.y, addPos.x + size, addPos.y + size, defaultMass);
+            }
+
+            ImGui::EndMenu();
+        }
+
+        ImVec2 pos = ImGui::GetMousePos();
+        PhysicsSpace &space = game.physicsSpace();
+        Vector2 addPos = (Vector2(pos.x, pos.y) - game.offset()) / game.scale();
+
+        if (ImGui::BeginMenu("Shapes"))
+        {
+
+            float defaultMass = 20.0f;
             float size = 50.0f;
 
             if (ImGui::MenuItem("Quad"))
@@ -550,17 +643,32 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 
             if (ImGui::MenuItem("Triangle"))
             {
-                Shapes::createTriangle(space, true, addPos.x, addPos.y, addPos.x + size, addPos.y, addPos.x + size, addPos.y + size, defaultMass);
+                Shapes::createTriangle(space, false, addPos.x, addPos.y, addPos.x + size, addPos.y, addPos.x + size, addPos.y + size, defaultMass);
+            }
+
+            if (ImGui::MenuItem("Bridge"))
+            {
+                m->bridgePopup.show();
             }
 
             ImGui::EndMenu();
         }
 
         ImGui::Separator();
-        ImGui::Text("Tooltip here");
-        ImGui::SetItemTooltip("I am a tooltip over a popup");
+
+        int selectedShapeIndex = game.selectedShapeIndex();
+        if (ImGui::MenuItem("Add point") && selectedShapeIndex != -1)
+        {
+            ImVec2 popupPos = ImGui::GetWindowPos();
+            Vector2 newPos = (Vector2(popupPos.x, popupPos.y) - game.offset()) / game.scale();
+
+            Shapes::addPointToShape(space, selectedShapeIndex, newPos.x, newPos.y);
+        }
+
         ImGui::EndPopup();
     }
+
+    m->bridgePopup.render(game);
 
     if (deleteGameIndex != -1)
     {

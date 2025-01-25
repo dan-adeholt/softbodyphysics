@@ -242,7 +242,7 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
     SDL_SetWindowTitle(window, title.data);
     Console::log("Last scene: %s\n", editor.lastSceneName());
     uint64_t startNanos = monotonicTimeNanos();
-    bool show_demo_window = true;
+    bool show_demo_window = false;
 
     // UnitTestUtil::runTests();
     ConsoleProfileInfo profileInfo = {};
@@ -270,6 +270,14 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
         {
             Scheduler::instance->start();
         }
+
+        // Start the Dear ImGui frame
+        ImGui_ImplSDLRenderer2_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+
+        ImGui::NewFrame();
+
+        bool processInput = !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
 
         while (SDL_PollEvent(&event))
         {
@@ -315,6 +323,11 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
             case SDL_KEYDOWN:
             {
+                if (!processInput)
+                {
+                    break;
+                }
+
                 GameKeyCode keyCode = convertSdlKeycode((SDL_KeyCode)event.key.keysym.sym);
 
                 if (keyCode == GameKeyCode::F1)
@@ -331,6 +344,11 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
             }
             case SDL_KEYUP:
             {
+                if (!processInput)
+                {
+                    break;
+                }
+
                 GameKeyCode keyCode = convertSdlKeycode((SDL_KeyCode)event.key.keysym.sym);
 
                 if (keyCode == GameKeyCode::F1)
@@ -346,6 +364,11 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
                 break;
             }
             case SDL_MOUSEWHEEL:
+                if (!processInput)
+                {
+                    break;
+                }
+
                 if (SDL_GetModState() & KMOD_ALT)
                 {
                     game->mouseWheel(event.wheel.x, event.wheel.y);
@@ -353,13 +376,22 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
                 break;
             case SDL_MOUSEBUTTONDOWN:
-                game->mouseButtonDown(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
+                if (processInput)
+                {
+                    game->mouseButtonDown(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
+                }
                 break;
             case SDL_MOUSEBUTTONUP:
-                game->mouseButtonUp(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
+                if (processInput)
+                {
+                    game->mouseButtonUp(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
+                }
                 break;
             case SDL_MOUSEMOTION:
-                game->mouseMove(event.motion.x, event.motion.y, event.motion.xrel, event.motion.yrel);
+                if (processInput)
+                {
+                    game->mouseMove(event.motion.x, event.motion.y, event.motion.xrel, event.motion.yrel);
+                }
                 break;
             }
         }
@@ -410,12 +442,6 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
                 profileInfo.totalPhysicsTimeMillis = totalPhysicsTimer.elapsedMillis();
             }
         }
-
-        // Start the Dear ImGui frame
-        ImGui_ImplSDLRenderer2_NewFrame();
-        ImGui_ImplSDL2_NewFrame();
-
-        ImGui::NewFrame();
 
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)

@@ -8,9 +8,11 @@ namespace Shapes
 {
     Shape createLooseCircle(PhysicsSpace &space, float x, float y, float radius, float mass, float stiffnessFactor = 20.0f);
 
+    void addPointToShape(PhysicsSpace &space, int shapeIndex, float x, float y);
+
     void resetShape(PhysicsSpace &space, int shapeIndex);
 
-    Shape createCircle(PhysicsSpace &space, float x, float y, float radius, float mass, float stiffnessFactor = 20.0f);
+    Shape createCircle(PhysicsSpace &space, float x, float y, float radius, float mass, float stiffnessFactor = 0.5f);
     Shape createBridge(PhysicsSpace &space, float x, float y, float mass, int numSegments);
     Shape createLine(PhysicsSpace &space, float x0, float y0, float x1, float y1, float mass);
     Shape createQuad(PhysicsSpace &space, float x, float y, float width, float height, float mass, float stiffnessFactor = 20.0f);

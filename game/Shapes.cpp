@@ -2,6 +2,7 @@
 #include "../containers/Array.h"
 #include "../physics/PhysicsSpace.h"
 #include "../physics/ShapeMatching.h"
+#include "../utils/Console.h"
 #include <math.h>
 
 int wrapIndex(int index, int size)
@@ -64,6 +65,85 @@ namespace Shapes
         return circle;
     }
 
+    void addPointToShape(PhysicsSpace &space, int shapeIndex, float x, float y)
+    {
+        Shape &shape = space.shapes[shapeIndex];
+
+        float mass = space.points.mass[shape.start];
+
+        float minDistance = __FLT_MAX__;
+        int closestIndex = -1;
+        Vector2 minClosestPoint;
+        for (int i = shape.start; i < shape.end; i++)
+        {
+            int iNext = i + 1;
+
+            if (iNext == shape.end)
+            {
+                iNext = 0;
+            }
+
+            Vector2 p0 = space.points.pos[i];
+            Vector2 p1 = space.points.pos[iNext];
+            Vector2 closestPoint = closestPointToLineSegment(p0, p1, Vector2(x, y));
+            float distance = Vector2::vec2distance(x, y, closestPoint.x, closestPoint.y);
+
+            Console::drawPoint(Vector2(x, y), 0xffff0000);
+
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                closestIndex = i + 1;
+                minClosestPoint = closestPoint;
+            }
+        }
+
+        Console::drawPoint(minClosestPoint, 0xffff00ff);
+        Console::log("Closest index: %d", closestIndex);
+        Console::log("Shape start: %d", shape.start);
+
+        int newPointIndex = closestIndex;
+
+        space.points.insert(newPointIndex, x, y, mass);
+        shape.end++;
+
+        for (int i = 0; i < space.shapes.size(); i++)
+        {
+            Shape &otherShape(space.shapes[i]);
+
+            if (otherShape.start > shape.start)
+            {
+                otherShape.start++;
+                otherShape.end++;
+            }
+        }
+
+        for (int i = 0; i < space.springs.size(); i++)
+        {
+            Spring &spring = space.springs[i];
+
+            if (spring.pointA >= newPointIndex)
+            {
+                spring.pointA++;
+            }
+
+            if (spring.pointB >= newPointIndex)
+            {
+                spring.pointB++;
+            }
+        }
+
+        for (int i = 0; i < space.staticJoints.size(); i++)
+        {
+            StaticJoint &joint = space.staticJoints[i];
+
+            if (joint.pointIndex >= newPointIndex)
+            {
+                joint.pointIndex++;
+            }
+        }
+    }
+
     void resetShape(PhysicsSpace &space, int shapeIndex)
     {
         Shape &shape = space.shapes[shapeIndex];
@@ -80,6 +160,9 @@ namespace Shapes
         int shapeIndex = space.nextShapeIndex();
         float stiffness = mass * stiffnessFactor;
         float damping = 28.9f * mass;
+
+        stiffness = 2.5f;
+        damping = 1090.0f;
         int numSegments = 16;
         float segmentAngle = 2 * PI_F / numSegments;
         int startIndex = space.points.size();
@@ -133,8 +216,8 @@ namespace Shapes
         float width = 70.0f;
         float height = 70.0f;
         float diagonal = sqrt(width * width + height * height);
-        float stiffness = 6.5f;
-        float damping = 280.9f;
+        float stiffness = 4.5f;
+        float damping = 180.9f;
 
         for (int i = 0; i < numSegments; i++)
         {
@@ -190,6 +273,7 @@ namespace Shapes
         bridge.subShapeSpan = {partialShapesStart, space.partialShapes.size()};
         ShapeMatching::shapeMatchAlignInit(space.points.range(), bridge, space.partialShapes.range());
         space.shapes.push(bridge);
+        bridge.disableShapeMatching = true;
         return bridge;
     }
 

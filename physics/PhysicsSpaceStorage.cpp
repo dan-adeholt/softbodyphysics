@@ -9,7 +9,7 @@
 
 void readVector2QuadArray(FILE *file, Vector2 *array)
 {
-    int size;
+    int size = 0;
     fscanf(file, "%d\n", &size);
     assert(size == 4);
 
@@ -22,7 +22,7 @@ void readVector2QuadArray(FILE *file, Vector2 *array)
 
 void readIntQuadArray(FILE *file, int *array)
 {
-    int size;
+    int size = 0;
     fscanf(file, "%d\n", &size);
     assert(size == 4);
 
@@ -34,7 +34,7 @@ void readIntQuadArray(FILE *file, int *array)
 
 void readIntArray(FILE *file, Array<int> &array)
 {
-    int size;
+    int size = 0;
     fscanf(file, "%d\n", &size);
     array.reserve(size);
     array.clear();
@@ -49,7 +49,7 @@ void readIntArray(FILE *file, Array<int> &array)
 
 void readVector2Array(FILE *file, Array<Vector2> &array)
 {
-    int size;
+    int size = 0;
     fscanf(file, "%d\n", &size);
     array.reserve(size);
     array.clear();
@@ -64,7 +64,7 @@ void readVector2Array(FILE *file, Array<Vector2> &array)
 
 void readFloatArray(FILE *file, Array<float> &array)
 {
-    int size;
+    int size = 0;
     fscanf(file, "%d\n", &size);
     array.reserve(size);
     array.clear();
@@ -79,8 +79,8 @@ void readFloatArray(FILE *file, Array<float> &array)
 
 void readShapeArray(FILE *file, Array<Shape> &array)
 {
-    int size;
-    fscanf(file, "size=%d\n", &size);
+    int size = 0;
+    fscanf(file, "shapes=%d\n", &size);
     array.reserve(size);
     array.clear();
 
@@ -88,16 +88,18 @@ void readShapeArray(FILE *file, Array<Shape> &array)
     {
         Shape shape;
         int isStatic = 0;
-        fscanf(file, "start=%d end=%d substart=%d subend=%d volume=%f isStatic=%d\n", &shape.start, &shape.end, &shape.subShapeSpan.start, &shape.subShapeSpan.end, &shape.volume, &isStatic);
+        int disableShapeMatching = 0;
+        fscanf(file, "start=%d end=%d substart=%d subend=%d volume=%f isStatic=%d disableShapeMatching=%d\n", &shape.start, &shape.end, &shape.subShapeSpan.start, &shape.subShapeSpan.end, &shape.volume, &isStatic, &disableShapeMatching);
         shape.isStatic = isStatic != 0;
+        shape.disableShapeMatching = disableShapeMatching != 0;
         array.push(shape);
     }
 }
 
 void readPartialShapes(FILE *file, Array<ShapeQuad> &partialShapes)
 {
-    int size;
-    fscanf(file, "%d\n", &size);
+    int size = 0;
+    fscanf(file, "partialshapes=%d\n", &size);
     partialShapes.reserve(size);
     partialShapes.clear();
 
@@ -145,19 +147,19 @@ void dumpVector2Array(FILE *file, Vector2 *array, int size)
 
 void dumpShapeArray(FILE *file, Shape *array, int size)
 {
-    fprintf(file, "size=%d\n", size);
+    fprintf(file, "shapes=%d\n", size);
 
     for (int i = 0; i < size; ++i)
     {
         const Shape &shape = array[i];
-        fprintf(file, "start=%d end=%d substart=%d subend=%d volume=%f isStatic=%d\n", shape.start, shape.end, shape.subShapeSpan.start, shape.subShapeSpan.end, shape.volume, shape.isStatic ? 1 : 0);
+        fprintf(file, "start=%d end=%d substart=%d subend=%d volume=%f isStatic=%d disableShapeMatching=%d\n", shape.start, shape.end, shape.subShapeSpan.start, shape.subShapeSpan.end, shape.volume, shape.isStatic ? 1 : 0, shape.disableShapeMatching ? 1 : 0);
     }
 }
 
 void dumpPartialShapes(FILE *file, Array<ShapeQuad> &partialShapes)
 {
 
-    fprintf(file, "%d\n", partialShapes.size());
+    fprintf(file, "partialshapes=%d\n", partialShapes.size());
     for (int j = 0; j < partialShapes.size(); ++j)
     {
         ShapeQuad quad = partialShapes[j];
@@ -189,8 +191,8 @@ void dumpPointMasses(FILE *file, PointMasses &points)
 
 void readSprings(FILE *file, Array<Spring> &springs)
 {
-    int size;
-    fscanf(file, "%d\n", &size);
+    int size = 0;
+    fscanf(file, "springs=%d\n", &size);
     springs.reserve(size);
     springs.clear();
 
@@ -204,7 +206,7 @@ void readSprings(FILE *file, Array<Spring> &springs)
 
 void dumpSprings(FILE *file, Array<Spring> &springs)
 {
-    fprintf(file, "%d\n", springs.size());
+    fprintf(file, "springs=%d\n", springs.size());
 
     for (int i = 0; i < springs.size(); ++i)
     {
@@ -214,8 +216,8 @@ void dumpSprings(FILE *file, Array<Spring> &springs)
 
 void readStaticJoints(FILE *file, Array<StaticJoint> &joints)
 {
-    int size;
-    fscanf(file, "%d\n", &size);
+    int size = 0;
+    fscanf(file, "staticjoints=%d\n", &size);
     joints.reserve(size);
     joints.clear();
 
@@ -227,34 +229,9 @@ void readStaticJoints(FILE *file, Array<StaticJoint> &joints)
     }
 }
 
-void readShapeSpringDiffs(FILE *file, Array<float> &diffs)
-{
-    int size = 0;
-    fscanf(file, "%d\n", &size);
-    diffs.reserve(size);
-    diffs.clear();
-
-    for (int i = 0; i < size; ++i)
-    {
-        float diff;
-        fscanf(file, "%f\n", &diff);
-        diffs.push(diff);
-    }
-}
-
-void dumpShapeSpringDiffs(FILE *file, Array<float> &springDiffs)
-{
-    fprintf(file, "%d\n", springDiffs.size());
-
-    for (int i = 0; i < springDiffs.size(); ++i)
-    {
-        fprintf(file, "%f\n", springDiffs[i]);
-    }
-}
-
 void dumpStaticJoints(FILE *file, Array<StaticJoint> &joints)
 {
-    fprintf(file, "%d\n", joints.size());
+    fprintf(file, "staticjoints=%d\n", joints.size());
 
     for (int i = 0; i < joints.size(); ++i)
     {
@@ -271,11 +248,13 @@ void PhysicsSpaceStorage::loadFromFile(PhysicsSpace &space, const char *filename
         perror("Failed to open file for reading");
         return;
     }
+    printf("Loading physics space from file %s\n", filename);
+
     readPointMasses(file, space.points);
     readShapeArray(file, space.shapes);
     readSprings(file, space.springs);
     readStaticJoints(file, space.staticJoints);
-    readShapeSpringDiffs(file, space.shapeSpringDiffs);
+    readPartialShapes(file, space.partialShapes);
 
     fclose(file);
 }
@@ -293,7 +272,7 @@ void PhysicsSpaceStorage::dumpToFile(PhysicsSpace &space, const char *filename)
     dumpShapeArray(file, &space.shapes[0], space.shapes.size());
     dumpSprings(file, space.springs);
     dumpStaticJoints(file, space.staticJoints);
-    dumpShapeSpringDiffs(file, space.shapeSpringDiffs);
+    dumpPartialShapes(file, space.partialShapes);
 
     fflush(file);
     fclose(file);

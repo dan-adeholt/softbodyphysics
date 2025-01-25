@@ -212,6 +212,8 @@ public:
     }
 };
 
+Vector2 closestPointToLineSegment(const Vector2 &p0, const Vector2 &p1, const Vector2 &point);
+
 Vector2 intersectLineSegmentPoint(const Vector2 &p0, const Vector2 &p1, Vector2 d);
 
 #endif

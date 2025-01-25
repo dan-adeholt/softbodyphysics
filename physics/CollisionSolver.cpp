@@ -944,6 +944,73 @@ void CollisionSolver::updateBoundingBoxes(PhysicsSpace &space, ConsoleProfileInf
     profileInfo.numBboxOverlaps = 0;
     profileInfo.numCollisions = 0;
 }
+void CollisionSolver::boxSeparateDynamicShapes(const ShapeBoundingBox &box,
+                                               const ShapeBoundingBox &otherBox,
+                                               PointMassesRange &range1,
+                                               PointMassesRange &range2,
+                                               PhysicsSpace &space)
+{
+    ShapeBoundingBox movingBoxContracted = calculateShapeBoundingBox(1, range1);
+    ShapeBoundingBox collisionBoxContracted = calculateShapeBoundingBox(1, range2);
+    reduceOverlap(collisionBoxContracted, movingBoxContracted);
+
+    for (int i = 0; i < range1.size(); i++)
+    {
+        float newX = clamp(range1.pos[i].x, movingBoxContracted.x1, movingBoxContracted.x2);
+        float newY = clamp(range1.pos[i].y, movingBoxContracted.y1, movingBoxContracted.y2);
+
+        float deltaX = fabs(range1.pos[i].x - newX);
+        float deltaY = fabs(range1.pos[i].y - newY);
+
+        if (deltaX > 0.0f)
+        {
+            range1.velocity[i].x *= 0.5f;
+        }
+
+        if (deltaY > 0.0f)
+        {
+            range1.velocity[i].y *= 0.5f;
+        }
+
+        range1.pos[i].x = newX;
+        range1.pos[i].y = newY;
+    }
+
+    for (int i = 0; i < range2.size(); i++)
+    {
+        float newX = clamp(range2.pos[i].x, collisionBoxContracted.x1, collisionBoxContracted.x2);
+        float newY = clamp(range2.pos[i].y, collisionBoxContracted.y1, collisionBoxContracted.y2);
+
+        float deltaX = fabs(range2.pos[i].x - newX);
+        float deltaY = fabs(range2.pos[i].y - newY);
+
+        if (deltaX > 0.0f)
+        {
+            range2.velocity[i].x *= 0.5f;
+        }
+
+        if (deltaY > 0.0f)
+        {
+            range2.velocity[i].y *= 0.5f;
+        }
+
+        range2.pos[i].x = newX;
+        range2.pos[i].y = newY;
+    }
+}
+
+void CollisionSolver::boxSeparateDynamicAndStaticShapes(PointMassesRange &movingRange, PointMassesRange &staticRange, PhysicsSpace &space)
+{
+    ShapeBoundingBox movingBoxContracted = calculateShapeBoundingBox(1, movingRange);
+    ShapeBoundingBox staticBoxContracted = calculateShapeBoundingBox(1, staticRange);
+    reduceOverlapStatic(movingBoxContracted, staticBoxContracted);
+
+    for (int i = 0; i < movingRange.size(); i++)
+    {
+        movingRange.pos[i].x = clamp(movingRange.pos[i].x, movingBoxContracted.x1, movingBoxContracted.x2);
+        movingRange.pos[i].y = clamp(movingRange.pos[i].y, movingBoxContracted.y1, movingBoxContracted.y2);
+    }
+}
 
 void CollisionSolver::handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSpace, ConsoleProfileInfo &profileInfo)
 {
@@ -962,115 +1029,57 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSp
             const ShapeBoundingBox &otherBox = m->sortedBoundingBoxes[j];
             profileInfo.numBbboxChecks++;
 
-            if (otherBox.x1 <= box.x2)
+            if (otherBox.x1 > box.x2)
             {
-                // Due to the sorted nature of the bounding boxes, we already know that
-                // otherBox.x1 >= box.x1, so we only need to check the other axis
+                break;
+            }
+            // Due to the sorted nature of the bounding boxes, we already know that
+            // otherBox.x1 >= box.x1, so we only need to check the other axis
+            else if (otherBox.y1 > box.y2 || otherBox.y2 < box.y1)
+            {
+                continue;
+            }
 
-                if (otherBox.y1 <= box.y2 && otherBox.y2 >= box.y1)
+            // Check for collision
+            int numCollisions = m->collisionMap.getCollisionCount(box.shapeIndex, otherBox.shapeIndex);
+
+            const Shape &shape2 = space.shapes[otherBox.shapeIndex];
+
+            if (numCollisions < 8)
+            {
+                calculateCollisions(
+                    space.points.range(shape1), space.points.range(shape2),
+                    prevSpace.points.range(shape1), prevSpace.points.range(shape2),
+                    box, otherBox, shape1.isStatic, shape2.isStatic, numCollisions);
+                calculateCollisions(space.points.range(shape2), space.points.range(shape1),
+                                    prevSpace.points.range(shape2), prevSpace.points.range(shape1),
+                                    otherBox, box, shape2.isStatic, shape1.isStatic, numCollisions);
+
+                if (shapesOverlap(space.points.range(shape1), space.points.range(shape2)))
                 {
+                    m->collisionMap.incrementCollision(box.shapeIndex, otherBox.shapeIndex);
+                }
+            }
+            else if (shapesOverlap(space.points.range(shape1), space.points.range(shape2)))
+            {
+                m->resolvedCollisionPairs.push({box.shapeIndex, otherBox.shapeIndex});
+                PointMassesRange range1 = space.points.range(shape1);
+                PointMassesRange range2 = space.points.range(shape2);
 
-                    // Check for collision
-                    int numCollisions = m->collisionMap.getCollisionCount(box.shapeIndex, otherBox.shapeIndex);
-
-                    const Shape &shape2 = space.shapes[otherBox.shapeIndex];
-
-                    if (numCollisions < 8)
-                    {
-                        calculateCollisions(
-                            space.points.range(shape1), space.points.range(shape2),
-                            prevSpace.points.range(shape1), prevSpace.points.range(shape2),
-                            box, otherBox, shape1.isStatic, shape2.isStatic, numCollisions);
-                        calculateCollisions(space.points.range(shape2), space.points.range(shape1),
-                                            prevSpace.points.range(shape2), prevSpace.points.range(shape1),
-                                            otherBox, box, shape2.isStatic, shape1.isStatic, numCollisions);
-
-                        if (shapesOverlap(space.points.range(shape1), space.points.range(shape2)))
-                        {
-                            m->collisionMap.incrementCollision(box.shapeIndex, otherBox.shapeIndex);
-                        }
-                    }
-                    else if (shapesOverlap(space.points.range(shape1), space.points.range(shape2)))
-                    {
-                        m->resolvedCollisionPairs.push({box.shapeIndex, otherBox.shapeIndex});
-                        PointMassesRange range1 = space.points.range(shape1);
-                        PointMassesRange range2 = space.points.range(shape2);
-
-                        if (!shape1.isStatic && !shape2.isStatic)
-                        {
-                            ShapeBoundingBox movingBoxContracted = calculateShapeBoundingBox(1, range1);
-                            ShapeBoundingBox collisionBoxContracted = calculateShapeBoundingBox(1, range2);
-                            reduceOverlap(collisionBoxContracted, movingBoxContracted);
-
-                            for (int i = 0; i < range1.size(); i++)
-                            {
-                                float newX = clamp(range1.pos[i].x, movingBoxContracted.x1, movingBoxContracted.x2);
-                                float newY = clamp(range1.pos[i].y, movingBoxContracted.y1, movingBoxContracted.y2);
-
-                                float deltaX = fabs(range1.pos[i].x - newX);
-                                float deltaY = fabs(range1.pos[i].y - newY);
-
-                                if (deltaX > 0.0f)
-                                {
-                                    range1.velocity[i].x *= 0.5f;
-                                }
-
-                                if (deltaY > 0.0f)
-                                {
-                                    range1.velocity[i].y *= 0.5f;
-                                }
-
-                                range1.pos[i].x = newX;
-                                range1.pos[i].y = newY;
-                            }
-
-                            for (int i = 0; i < range2.size(); i++)
-                            {
-                                float newX = clamp(range2.pos[i].x, collisionBoxContracted.x1, collisionBoxContracted.x2);
-                                float newY = clamp(range2.pos[i].y, collisionBoxContracted.y1, collisionBoxContracted.y2);
-
-                                float deltaX = fabs(range2.pos[i].x - newX);
-                                float deltaY = fabs(range2.pos[i].y - newY);
-
-                                if (deltaX > 0.0f)
-                                {
-                                    range2.velocity[i].x *= 0.5f;
-                                }
-
-                                if (deltaY > 0.0f)
-                                {
-                                    range2.velocity[i].y *= 0.5f;
-                                }
-
-                                range2.pos[i].x = newX;
-                                range2.pos[i].y = newY;
-                            }
-                        }
-                        else if ((shape1.isStatic && !shape2.isStatic) || (shape2.isStatic && !shape1.isStatic))
-                        {
-                            PointMassesRange staticRange = shape1.isStatic ? range1 : range2;
-                            PointMassesRange movingRange = shape1.isStatic ? range2 : range1;
-
-                            ShapeBoundingBox movingBoxContracted = calculateShapeBoundingBox(1, movingRange);
-                            ShapeBoundingBox staticBoxContracted = calculateShapeBoundingBox(1, staticRange);
-                            reduceOverlapStatic(movingBoxContracted, staticBoxContracted);
-
-                            for (int i = 0; i < movingRange.size(); i++)
-                            {
-                                movingRange.pos[i].x = clamp(movingRange.pos[i].x, movingBoxContracted.x1, movingBoxContracted.x2);
-                                movingRange.pos[i].y = clamp(movingRange.pos[i].y, movingBoxContracted.y1, movingBoxContracted.y2);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        m->collisionMap.resetCollision(box.shapeIndex, otherBox.shapeIndex);
-                    }
+                if (!shape1.isStatic && !shape2.isStatic)
+                {
+                    boxSeparateDynamicShapes(box, otherBox, range1, range2, space);
+                }
+                else if ((shape1.isStatic && !shape2.isStatic) || (shape2.isStatic && !shape1.isStatic))
+                {
+                    PointMassesRange staticRange = shape1.isStatic ? range1 : range2;
+                    PointMassesRange movingRange = shape1.isStatic ? range2 : range1;
+                    boxSeparateDynamicAndStaticShapes(movingRange, staticRange, space);
                 }
             }
             else
             {
-                break;
+                m->collisionMap.resetCollision(box.shapeIndex, otherBox.shapeIndex);
             }
         }
     }

@@ -96,40 +96,9 @@ struct CollisionSolver
 
     void assign(CollisionSolver &other);
 
-    // static void findEntryEdge(
-    //     EdgeStrategy strategy,
-    //     PointMassesRange collisionShape,
-    //     PointMassesRange prevShape,
-    //     const Vector2 &point,
-    //     const Vector2 &prevPoint,
-    //     const Vector2 &velocity,
-    //     int &minIndex,
-    //     Vector2 &minPoint,
-    //     float &minT);
-
     static ClosestSegmentResult findEntryEdgeClosestSegment(
         PointMassesRange collisionShape,
         const Vector2 &point, bool log = false);
-
-    // static void findEntryEdgeRelativeVelocitySegment(
-    //     PointMassesRange collisionShape,
-    //     PointMassesRange prevShape,
-    //     const Vector2 &point,
-    //     const Vector2 &prevPoint,
-    //     const Vector2 &velocity,
-    //     int &minIndex,
-    //     Vector2 &minPoint,
-    //     float &minT);
-
-    // static void findEntryEdgeIntersectionPrevAndCurrentSegment(
-    //     PointMassesRange collisionShape,
-    //     PointMassesRange prevShape,
-    //     const Vector2 &point,
-    //     const Vector2 &prevPoint,
-    //     const Vector2 &velocity,
-    //     int &minIndex,
-    //     Vector2 &minPoint,
-    //     float &minT);
 
     static ShapeBoundingBox calculateShapeBoundingBox(int shapeIndex, const PointMassesRange &range);
     static void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<Shape> &shapes, const PointMasses &points);
@@ -148,6 +117,18 @@ struct CollisionSolver
     Array<ShapeBoundingBox> &boundingBoxes();
 
 private:
+    void boxSeparateDynamicShapes(
+        const ShapeBoundingBox &box,
+        const ShapeBoundingBox &otherBox,
+        PointMassesRange &range1,
+        PointMassesRange &range2,
+        PhysicsSpace &space);
+
+    void boxSeparateDynamicAndStaticShapes(
+        PointMassesRange &movingRange,
+        PointMassesRange &staticRange,
+        PhysicsSpace &space);
+
     struct Impl;
     Impl *m;
 };
