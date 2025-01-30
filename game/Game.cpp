@@ -206,9 +206,8 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
 
         m->integrator.performIntegration(m->physicsSpace, profileInfo);
         m->iterationNumber++;
-        bool runCollisionSolver = m->physicsSpace.collisionsEnabled; // && m->iterationNumber % 8 == 0;
 
-        if (runCollisionSolver)
+        if (m->physicsSpace.collisionsEnabled)
         {
             // Console::clearCollisionFrame();
             if (m->hasLastCollisionSpace)
@@ -251,7 +250,7 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
         numIterations++;
 
         // Run until we've done a collision pass
-        if (runSingleStep && runCollisionSolver)
+        if (runSingleStep)
         {
             runSingleStep = false;
             break;
@@ -329,31 +328,10 @@ void Game::mouseButtonDown(int button, int x, int y, bool shiftDown)
         if (box.includes(translatedPos))
         {
             Shape &shape = m->physicsSpace.shapes[box.shapeIndex];
-            if (shape.subShapeSpan.isValid())
-            {
-                Range<ShapeQuad> subshape = m->physicsSpace.partialShapes.range(shape.subShapeSpan);
 
-                for (int j = 0; j < subshape.size; j++)
-                {
-                    ShapeQuad &quad = subshape[j];
-                    Console::log("Looking at quad %d => %.2f %.2f", j, quad.shapePos[0].x, quad.shapePos[0].y);
-
-                    if (quad.isPointInQuad(translatedPos))
-                    {
-                        Console::log("Selected subshape %d", j);
-                        m->selectedShapeIndex = box.shapeIndex;
-                        m->physicsSpace.draggingShapeIndex = box.shapeIndex;
-                        m->physicsSpace.draggingSubShapeIndex = j;
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                m->selectedShapeIndex = box.shapeIndex;
-                m->physicsSpace.draggingShapeIndex = box.shapeIndex;
-                break;
-            }
+            m->selectedShapeIndex = box.shapeIndex;
+            m->physicsSpace.draggingShapeIndex = box.shapeIndex;
+            break;
         }
 
         testedBoxes++;
@@ -379,9 +357,21 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
     m->keyState[(size_t)keyCode] = true;
     m->keyPressedState[(size_t)keyCode] = true;
     m->modKeyState = modState;
-
+    int nudge = modState & (int)GameModkey::Shift ? 10 : 1;
     switch (keyCode)
     {
+    case GameKeyCode::LEFT:
+        m->offset += Vector2(nudge, 0.0f);
+        break;
+    case GameKeyCode::RIGHT:
+        m->offset += Vector2(-nudge, 0.0f);
+        break;
+    case GameKeyCode::UP:
+        m->offset += Vector2(0.0f, nudge);
+        break;
+    case GameKeyCode::DOWN:
+        m->offset += Vector2(0.0f, -nudge);
+        break;
     case GameKeyCode::BACKSPACE:
         m->physicsSpace.removeShape(m->selectedShapeIndex);
         updateBoundingBoxes(true);
@@ -511,35 +501,15 @@ void Game::mouseMove(int x, int y, int relativeX, int relativeY)
         Shape &shape = m->physicsSpace.shapes[m->physicsSpace.draggingShapeIndex];
         Vector2 delta(translatedRelativeX, translatedRelativeY);
 
-        if (shape.subShapeSpan.isValid())
+        for (int i = shape.start; i < shape.end; i++)
         {
-            if (m->physicsSpace.draggingSubShapeIndex != -1)
+
+            if (shape.isStatic)
             {
-                Range<ShapeQuad> subshape = m->physicsSpace.partialShapes.range(shape.subShapeSpan);
-
-                ShapeQuad &quad = subshape[m->physicsSpace.draggingSubShapeIndex];
-                for (int i = 0; i < quad.size; i++)
-                {
-                    if (shape.isStatic)
-                    {
-                        quad.shapePos[i] += delta;
-                    }
-                    quad.shapePos[i] += delta;
-                }
+                m->physicsSpace.points.pos[i] += delta;
             }
-        }
-        else
-        {
-            for (int i = shape.start; i < shape.end; i++)
-            {
 
-                if (shape.isStatic)
-                {
-                    m->physicsSpace.points.pos[i] += delta;
-                }
-
-                m->physicsSpace.points.shapePos[i] += delta;
-            }
+            m->physicsSpace.points.shapePos[i] += delta;
         }
     }
 }

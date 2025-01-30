@@ -6,4 +6,3 @@
 shapes=0
 springs=0
 staticjoints=0
-partialshapes=0

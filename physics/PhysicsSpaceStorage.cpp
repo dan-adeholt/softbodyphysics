@@ -89,29 +89,10 @@ void readShapeArray(FILE *file, Array<Shape> &array)
         Shape shape;
         int isStatic = 0;
         int disableShapeMatching = 0;
-        fscanf(file, "start=%d end=%d substart=%d subend=%d volume=%f isStatic=%d disableShapeMatching=%d\n", &shape.start, &shape.end, &shape.subShapeSpan.start, &shape.subShapeSpan.end, &shape.volume, &isStatic, &disableShapeMatching);
+        fscanf(file, "start=%d end=%d volume=%f isStatic=%d parentIndex=%d disableShapeMatching=%d\n", &shape.start, &shape.end, &shape.volume, &isStatic, &shape.parentIndex, &disableShapeMatching);
         shape.isStatic = isStatic != 0;
         shape.disableShapeMatching = disableShapeMatching != 0;
         array.push(shape);
-    }
-}
-
-void readPartialShapes(FILE *file, Array<ShapeQuad> &partialShapes)
-{
-    int size = 0;
-    fscanf(file, "partialshapes=%d\n", &size);
-    partialShapes.reserve(size);
-    partialShapes.clear();
-
-    for (int j = 0; j < size; ++j)
-    {
-        ShapeQuad quad;
-        fscanf(file, "i0=%d i1=%d i2=%d i3=%d\n", &quad.indices[0], &quad.indices[1], &quad.indices[2], &quad.indices[3]);
-        readIntQuadArray(file, quad.indices);
-        readVector2QuadArray(file, quad.shapePos);
-        readVector2QuadArray(file, quad.originalPos);
-        fscanf(file, "%d\n", &quad.size);
-        partialShapes.push(quad);
     }
 }
 
@@ -152,22 +133,7 @@ void dumpShapeArray(FILE *file, Shape *array, int size)
     for (int i = 0; i < size; ++i)
     {
         const Shape &shape = array[i];
-        fprintf(file, "start=%d end=%d substart=%d subend=%d volume=%f isStatic=%d disableShapeMatching=%d\n", shape.start, shape.end, shape.subShapeSpan.start, shape.subShapeSpan.end, shape.volume, shape.isStatic ? 1 : 0, shape.disableShapeMatching ? 1 : 0);
-    }
-}
-
-void dumpPartialShapes(FILE *file, Array<ShapeQuad> &partialShapes)
-{
-
-    fprintf(file, "partialshapes=%d\n", partialShapes.size());
-    for (int j = 0; j < partialShapes.size(); ++j)
-    {
-        ShapeQuad quad = partialShapes[j];
-        fprintf(file, "i0=%d i1=%d i2=%d i3=%d\n", quad.indices[0], quad.indices[1], quad.indices[2], quad.indices[3]);
-        dumpIntArray(file, quad.indices, 4);
-        dumpVector2Array(file, quad.shapePos, 4);
-        dumpVector2Array(file, quad.originalPos, 4);
-        fprintf(file, "%d\n", quad.size);
+        fprintf(file, "start=%d end=%d volume=%f isStatic=%d parentIndex=%d disableShapeMatching=%d\n", shape.start, shape.end, shape.volume, shape.isStatic ? 1 : 0, shape.parentIndex, shape.disableShapeMatching ? 1 : 0);
     }
 }
 
@@ -254,7 +220,6 @@ void PhysicsSpaceStorage::loadFromFile(PhysicsSpace &space, const char *filename
     readShapeArray(file, space.shapes);
     readSprings(file, space.springs);
     readStaticJoints(file, space.staticJoints);
-    readPartialShapes(file, space.partialShapes);
 
     fclose(file);
 }
@@ -272,7 +237,6 @@ void PhysicsSpaceStorage::dumpToFile(PhysicsSpace &space, const char *filename)
     dumpShapeArray(file, &space.shapes[0], space.shapes.size());
     dumpSprings(file, space.springs);
     dumpStaticJoints(file, space.staticJoints);
-    dumpPartialShapes(file, space.partialShapes);
 
     fflush(file);
     fclose(file);

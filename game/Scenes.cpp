@@ -6,6 +6,7 @@
 #include "../physics/PhysicsSpace.h"
 #include "../physics/PhysicsSpaceStorage.h"
 #include "../physics/CollisionSolver.h"
+#include "../physics/ShapeAxisSeparator.h"
 #include "../containers/Array.h"
 #include "../utils/Console.h"
 #include "../utils/MinMax.h"
@@ -13,86 +14,7 @@
 #include <math.h>
 #include "stdint.h"
 
-float computeSignedArea(Vector2 A, Vector2 B, Vector2 C)
-{
-    return 0.5f * (A.x * (B.y - C.y) + B.x * (C.y - A.y) + C.x * (A.y - B.y));
-}
-
-float computeWindingOrder(const PointMassesRange &points)
-{
-    float sum = 0.0f;
-    int n = points.size();
-    for (int i = 0; i < n; i++)
-    {
-        int next = (i + 1) % n; // Wrap around to the first point
-        sum += points.pos[i].x * points.pos[next].y - points.pos[i].y * points.pos[next].x;
-    }
-
-    return sum; // Positive for counterclockwise, negative for clockwise
-}
-
-void findEntryEdgeClosestSegmentNew(PointMassesRange collisionShape,
-                                    const Vector2 &currentPoint,
-                                    const Vector2 &prevPoint,
-                                    const Vector2 &nextPoint,
-                                    int &entryEdgeIndex,
-                                    Vector2 &entryPoint,
-                                    float &entryTime)
-{
-    float minDistanceSquared = __FLT_MAX__;
-    int collisionShapeSize = collisionShape.pos.size;
-    for (int i = 0; i < collisionShapeSize; i++)
-    {
-        Vector2 segment0 = collisionShape.pos[i];
-        Vector2 segment1 = collisionShape.pos[(i + 1) % collisionShapeSize];
-
-        float distanceToVertex = (segment0 - currentPoint).length();
-
-        // Vector from A to B
-        Vector2 segment = segment1 - segment0;
-        // Vector from A to P
-        Vector2 segmentToPoint = currentPoint - segment0;
-        Vector2 segmentNormal = segment.normalVector().normalized();
-
-        Vector2 pointOutside = (segment0 + segment * 0.5f) - segmentNormal * 2.0f;
-
-        float t_point, t_edge;
-
-        if (lineSegmentIntersection(segment0, segment1, prevPoint, pointOutside, t_point, t_edge) || lineSegmentIntersection(segment0, segment1, pointOutside, nextPoint, t_point, t_edge))
-        {
-            continue;
-        }
-
-        Console::drawPoint(pointOutside, 0x00FF00);
-
-        // The projection of point P onto the line defined by segment AB is given by:
-        // v dot w / v dot v
-        // Compute projection t
-        float t = segmentToPoint.dot(segment) / segment.dot();
-        t = clamp(t, 0.0f, 1.0f);
-
-        Vector2 closestPoint = segment0 + segment * t;
-        Vector2 pointToClosestPoint = closestPoint - currentPoint;
-
-        float distanceToClosestPointSquared = (pointToClosestPoint).lengthSquared();
-
-        if (distanceToClosestPointSquared < minDistanceSquared)
-        {
-            minDistanceSquared = distanceToClosestPointSquared;
-            entryEdgeIndex = i;
-            entryPoint = closestPoint;
-            entryTime = t;
-        }
-    }
-}
-
 #define ARRAYSIZE(_ARR) ((int)(sizeof(_ARR) / sizeof(*(_ARR)))) // Size of a static C-style array. Don't use on pointers!
-
-PointMassesRange getPointMasses(Range<Vector2> pos, Range<float> mass, Range<Vector2> velocity)
-{
-    // Just assign pos to shapeoriginalpos/shapepos for now, not used in collision stuff
-    return {.pos = pos, .shapeOriginalPos = pos, .shapePos = pos, mass, velocity};
-}
 
 SceneDefinition deformedScenes[] = {
     {"Deformed circle 1", [](Game *game)
@@ -139,6 +61,79 @@ SceneDefinition deformedScenes[] = {
 };
 
 SceneDefinition collisionScenes[] = {
+    {"UNFIXED New Unit Test 8", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_8.txt");
+         game->setPaused();
+     }},
+    {"UNFIXED New Unit Test 7", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_7.txt");
+         game->offset() = Vector2(-580.0f, 304.0f);
+
+         game->runFor(57, true);
+     }},
+
+    {"New Unit Test 6", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_6.txt");
+         game->offset() = Vector2(-680.0f, -4704.0f);
+         game->scale() = 7.85f;
+         game->runFor(42, true);
+         game->setPaused();
+     }},
+
+    {"New Unit Test 5", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_5.txt");
+         game->offset() = Vector2(-680.0f, -4704.0f);
+         game->scale() = 7.85f;
+         game->runFor(33, true);
+     }},
+    {"Line split", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+
+         GameRenderSettings renderSettings;
+         renderSettings.renderSprings = false;
+         game->setRenderSettings(renderSettings);
+
+         Shapes::createQuad(space, 200.0f, 200.0f, 100.0f, 100.0f, 1.0f);
+         Shapes::createQuad(space, 210.0f, 180.0f, 80.0f, 70.0f, 1.0f);
+         int lastPoint = space.points.size() - 1;
+         space.points.pos[lastPoint].x -= 20.0f;
+         space.points.pos[lastPoint - 1].x += 20.0f;
+
+         space.gravityEnabled = false;
+         space.collisionsEnabled = false;
+         space.springsEnabled = false;
+
+         game->setPaused();
+         static bool separated = false;
+
+         game->scheduleFrameCallback(
+             [](Game *game, void *data)
+             {
+                 PhysicsSpace &space = game->physicsSpace();
+
+                 if (separated)
+                 {
+                     return;
+                 }
+                 separated = true;
+                 Shape &shape = space.shapes[0];
+                 Shape &otherShape = space.shapes[1];
+                 PointMassesRange range1 = space.points.range(shape);
+                 PointMassesRange range2 = space.points.range(otherShape);
+
+                 ShapeAxisSeparator::separateShapesFromIntersectionAxis(range1, range2);
+             },
+             nullptr);
+     }},
     {"Inside shape", [](Game *game)
      {
          float size = 7.0f;
@@ -342,7 +337,7 @@ SceneDefinition collisionScenes[] = {
 
          game->scale() = 15.70f;
          game->offset() = Vector2(-1514.89f, -10402.74f);
-         game->runFor(3540, true);
+         game->runFor(3640, true);
      }},
     {"Intersecting boxes #2", [](Game *game)
      {
@@ -435,6 +430,17 @@ SceneDefinition collisionScenes[] = {
      }}};
 
 SceneDefinition shapeScenes[] = {
+    {"Mesh", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         Shapes::createMesh(space, 600.0f, 350.0f, 10.0f, 100.0f, 100.0f, 10);
+
+         Shapes::createStaticQuad(space, 149.0f, 91.0f, 50.0f, 598.0f, 1.0f);
+         Shapes::createStaticQuad(space, 1099.0f, 91.0f, 50.0f, 598.0f, 1.0f);
+         Shapes::createStaticQuad(space, 149.0f, 690.0f, 1000.0f, 50.0f, 1.0f);
+         Shapes::createStaticQuad(space, 149.0f, 40.0f, 1000.0f, 50.0f, 1.0f);
+         space.gravityEnabled = false;
+     }},
     {"Circle", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();
@@ -598,7 +604,6 @@ SceneDefinition collectionScenes[] = {
 };
 
 SceneDefinition gameScenes[] = {
-
     {"Bridge", [](Game *game)
      {
          int numSegments = 13;
@@ -646,6 +651,34 @@ SceneDefinition gameScenes[] = {
 
          space.gravityEnabled = true;
 
+         Shapes::createStaticQuad(space, -36.0f, 0.0f, 40.0f, 755.0f, 30.0f);
+         Shapes::createStaticQuad(space, 1214.0f, 0.0f, 40.0f, 755.0f, 30.0f);
+         Shapes::createStaticQuad(space, 1.0f, 755.0f, 1217.0f, 80.0f, 30.0f);
+     }},
+
+    {"Joint bridge", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+
+         float size = 30.0f;
+         int shapeIndex = space.shapes.size();
+         for (int i = 0; i < 10; i++)
+         {
+             Shapes::createQuad(space, 400.0f + i * size, 40.0f, size, size, 1.0f);
+             Shape &shape = space.shapes[space.shapes.size() - 1];
+             shape.parentIndex = shapeIndex;
+
+             if (i > 0)
+             {
+                 int sideIndex1 = space.points.size() - 1;
+                 space.pointJoints.push({sideIndex1, sideIndex1 - 5});
+                 int sideIndex2 = space.points.size() - 4;
+                 space.pointJoints.push({sideIndex2, sideIndex2 - 3});
+                 Vector2 p1 = space.points.pos[sideIndex1];
+                 Vector2 p2 = space.points.pos[sideIndex1 - 4];
+                 Console::log("Should be same: %f %f", p1.x, p2.x);
+             }
+         }
          Shapes::createStaticQuad(space, -36.0f, 0.0f, 40.0f, 755.0f, 30.0f);
          Shapes::createStaticQuad(space, 1214.0f, 0.0f, 40.0f, 755.0f, 30.0f);
          Shapes::createStaticQuad(space, 1.0f, 755.0f, 1217.0f, 80.0f, 30.0f);

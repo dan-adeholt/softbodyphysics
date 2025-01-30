@@ -974,19 +974,19 @@
 983.749146 300.156494
 995.644348 310.260437
 shapes=13
-start=0 end=26 substart=0 subend=12 volume=0.000000 isStatic=0 disableShapeMatching=0
-start=26 end=30 substart=0 subend=0 volume=0.000000 isStatic=0 disableShapeMatching=0
-start=30 end=34 substart=0 subend=0 volume=0.000000 isStatic=0 disableShapeMatching=0
-start=34 end=50 substart=0 subend=0 volume=300.000000 isStatic=0 disableShapeMatching=0
-start=50 end=66 substart=0 subend=0 volume=300.000000 isStatic=0 disableShapeMatching=0
-start=66 end=82 substart=0 subend=0 volume=300.000000 isStatic=0 disableShapeMatching=0
-start=82 end=98 substart=0 subend=0 volume=300.000000 isStatic=0 disableShapeMatching=0
-start=98 end=114 substart=0 subend=0 volume=300.000000 isStatic=0 disableShapeMatching=0
-start=114 end=130 substart=0 subend=0 volume=300.000000 isStatic=0 disableShapeMatching=0
-start=130 end=146 substart=0 subend=0 volume=300.000000 isStatic=0 disableShapeMatching=0
-start=146 end=162 substart=0 subend=0 volume=300.000000 isStatic=0 disableShapeMatching=0
-start=162 end=178 substart=0 subend=0 volume=300.000000 isStatic=0 disableShapeMatching=0
-start=178 end=194 substart=0 subend=0 volume=300.000000 isStatic=0 disableShapeMatching=0
+start=0 end=26 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
+start=26 end=30 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
+start=30 end=34 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
+start=34 end=50 volume=300.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
+start=50 end=66 volume=300.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
+start=66 end=82 volume=300.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
+start=82 end=98 volume=300.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
+start=98 end=114 volume=300.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
+start=114 end=130 volume=300.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
+start=130 end=146 volume=300.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
+start=146 end=162 volume=300.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
+start=162 end=178 volume=300.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
+start=178 end=194 volume=300.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
 springs=381
 0 25 70.000000 6.500000 280.899994 0
 1 24 70.000000 6.500000 280.899994 0
@@ -1370,4 +1370,3 @@ springs=381
 193 180 44.445629 1.000000 7.225000 12
 182 193 66.517548 1.000000 7.225000 12
 staticjoints=0
-partialshapes=0

@@ -164,8 +164,8 @@
 459.338135 603.894897
 461.580994 609.300842
 shapes=2
-start=0 end=16 substart=0 subend=0 volume=300.000000 isStatic=0 disableShapeMatching=0
-start=16 end=32 substart=0 subend=0 volume=300.000000 isStatic=0 disableShapeMatching=0
+start=0 end=16 volume=300.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
+start=16 end=32 volume=300.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
 springs=64
 0 3 16.667126 2.500000 1080.900024 0
 5 0 24.944103 2.500000 1080.900024 0
@@ -232,4 +232,3 @@ springs=64
 31 18 16.667118 2.500000 1080.900024 1
 20 31 24.944113 2.500000 1080.900024 1
 diffs=0
-partialshapes=0

@@ -27,9 +27,9 @@ struct PhysicsSpace
     void removeShape(int shapeIndex);
 
     Array<Shape> shapes;
-    Array<ShapeQuad> partialShapes;
     PointMasses points;
     Array<Spring> springs;
+    Array<PointJoint> pointJoints;
     Array<StaticJoint> staticJoints;
 
     StaticJoint mouseJoint;

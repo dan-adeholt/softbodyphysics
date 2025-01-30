@@ -5,9 +5,9 @@
 
 struct ShapeMatching
 {
-    static void shapeMatchAlignInit(PointMassesRange points, Shape &shape, Range<ShapeQuad> partialShapes);
+    static void shapeMatchAlignInit(PointMassesRange points, Shape &shape);
 
-    static void shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes, Range<ShapeQuad> partialShapes, int draggingShapeIndex);
+    static void shapeMatchAlign(PointMassesRange points, Array<Shape> &shapes, int draggingShapeIndex);
 };
 
 #endif // __GAME_PHYSICS_SHAPE_MATCHING_H__

@@ -64,6 +64,14 @@ GameKeyCode convertSdlKeycode(SDL_KeyCode code)
 {
     switch (code)
     {
+    case SDLK_LEFT:
+        return GameKeyCode::LEFT;
+    case SDLK_RIGHT:
+        return GameKeyCode::RIGHT;
+    case SDLK_UP:
+        return GameKeyCode::UP;
+    case SDLK_DOWN:
+        return GameKeyCode::DOWN;
     case SDLK_BACKSPACE:
         return GameKeyCode::BACKSPACE;
     case SDLK_F1:
@@ -226,7 +234,7 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
     uint64_t programStartNanos = monotonicTimeNanos();
 
-    bool renderShapeMatching = false;
+    bool renderShapeMatching = true;
     SDL_Event event;
 
     char cwd[512];

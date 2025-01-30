@@ -12,11 +12,10 @@ struct SpringJobData
     Range<Spring> springs;
     PointMassesRange points;
     Range<PointDerivative> derivatives;
-    Range<ShapeQuad> partialShapes;
     bool enableShapeMatching;
 };
 
-void applySpringDerivatives(Range<Shape> &shapes, PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, Range<ShapeQuad> partialShapes, bool enableShapeMatching)
+void applySpringDerivatives(Range<Shape> &shapes, PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, bool enableShapeMatching)
 {
 
     for (int i = 0; i < springs.size; i++)
@@ -65,58 +64,45 @@ void applySpringDerivatives(Range<Shape> &shapes, PointMassesRange &points, Rang
     {
         const Shape &shape = shapes[i];
 
-        if (shape.subShapeSpan.isValid())
+        if (shape.disableShapeMatching || shape.isStatic)
         {
-            Range<ShapeQuad> subShapes = partialShapes.slice(shape.subShapeSpan);
-            for (int j = 0; j < subShapes.size; j++)
-            {
-                const ShapeQuad &subShape = subShapes[j];
-                for (int k = 0; k < subShape.size; k++)
-                {
-                    int index = subShape.indices[k];
-                    PointDerivative &derivative = derivatives[index];
-                    Vector2 force = (subShape.shapePos[k] - points.pos[index]) * 0.00004f;
-                    derivative.acceleration += force / points.mass[index];
-                }
-            }
+            continue;
         }
-        else
+
+        Vector2 avgVelocity;
+
+        for (int j = shape.start; j < shape.end; j++)
         {
-            Vector2 avgVelocity;
+            avgVelocity += points.velocity[j];
+        }
 
-            for (int j = shape.start; j < shape.end; j++)
+        avgVelocity /= (shape.end - shape.start);
+
+        for (int j = shape.start; j < shape.end; j++)
+        {
+            PointDerivative &derivative = derivatives[j];
+            float springStiffness = 0.1250f;
+            float springDamping = 800.9f;
+
+            Vector2 p0(points.shapePos[j]);
+            Vector2 p1(points.pos[j]);
+            Vector2 direction = p0 - p1;
+            float offsetLength = direction.length();
+
+            if (offsetLength > 0.001f)
             {
-                avgVelocity += points.velocity[j];
-            }
 
-            avgVelocity /= (shape.end - shape.start);
+                // Console::log("Shape: %d %d", shape.start, shape.end);
+                Vector2 directionNormalized = direction.normalized();
 
-            for (int j = shape.start; j < shape.end; j++)
-            {
-                PointDerivative &derivative = derivatives[j];
-                float springStiffness = 0.1250f;
-                float springDamping = 800.9f;
+                Vector2 velocityAlongSpringAxis = directionNormalized * (points.velocity[j] - avgVelocity).dot(directionNormalized);
+                Vector2 force = (p0 - p1) * 0.00015f;
+                Vector2 acceleration = force;
+                // Console::log("Accel %f %f", acceleration.x, acceleration.y);
 
-                Vector2 p0(points.shapePos[j]);
-                Vector2 p1(points.pos[j]);
-                Vector2 direction = p0 - p1;
-                float offsetLength = direction.length();
-
-                if (offsetLength > 0.001f)
-                {
-
-                    // Console::log("Shape: %d %d", shape.start, shape.end);
-                    Vector2 directionNormalized = direction.normalized();
-
-                    Vector2 velocityAlongSpringAxis = directionNormalized * (points.velocity[j] - avgVelocity).dot(directionNormalized);
-                    Vector2 force = (p0 - p1) * 0.00015f;
-                    Vector2 acceleration = force;
-                    // Console::log("Accel %f %f", acceleration.x, acceleration.y);
-
-                    derivative.acceleration += acceleration;
-                    derivative.acceleration += (velocityAlongSpringAxis * -0.0025f) / points.mass[j];
-                    // derivative.acceleration -= (points.velocity[j] - avgVelocity) * 0.000025f;
-                }
+                derivative.acceleration += acceleration;
+                derivative.acceleration += (velocityAlongSpringAxis * -0.0025f) / points.mass[j];
+                // derivative.acceleration -= (points.velocity[j] - avgVelocity) * 0.000025f;
             }
         }
     }
@@ -125,10 +111,10 @@ void applySpringDerivatives(Range<Shape> &shapes, PointMassesRange &points, Rang
 void springJob(void *data)
 {
     SpringJobData *jobData = (SpringJobData *)data;
-    applySpringDerivatives(jobData->shapes, jobData->points, jobData->springs, jobData->derivatives, jobData->partialShapes, jobData->enableShapeMatching);
+    applySpringDerivatives(jobData->shapes, jobData->points, jobData->springs, jobData->derivatives, jobData->enableShapeMatching);
 }
 
-void Springs::performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange points, Range<Spring> springs, Range<PointDerivative> derivatives, Range<ShapeQuad> partialShapes, bool enableShapeMatching, ConsoleProfileInfo &profileInfo)
+void Springs::performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMassesRange points, Range<Spring> springs, Range<PointDerivative> derivatives, bool enableShapeMatching, ConsoleProfileInfo &profileInfo)
 {
     Timer springsTimer;
     SpringJobData springRanges[Scheduler::maxNumThreads];
@@ -151,9 +137,10 @@ void Springs::performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMas
     {
         int curEnd = min(curStart + batchSize, springs.size);
         int startShapeIndex = springs[curStart].shapeIndex;
+        int curShapeParentIndex = springs[curEnd - 1].parentShapeIndex;
         int curShapeIndex = springs[curEnd - 1].shapeIndex;
 
-        while (curEnd < springs.size && springs[curEnd].shapeIndex == curShapeIndex)
+        while (curEnd < springs.size && (springs[curEnd].shapeIndex == curShapeIndex || (springs[curEnd].parentShapeIndex != -1 && springs[curEnd].parentShapeIndex == curShapeParentIndex)))
         {
             curEnd++;
         }
@@ -165,7 +152,6 @@ void Springs::performThreadedSpringDerivatives(Range<Shape> shapeRange, PointMas
             springs.slice(curStart, curEnd),
             points,
             derivatives,
-            partialShapes,
             enableShapeMatching};
 
         tasks[i].function = springJob;

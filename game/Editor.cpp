@@ -558,6 +558,10 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
                     {
                         Shape &shape = space.shapes[selectedShapeIndex];
                         ImGui::Checkbox("Static", &shape.isStatic);
+                        ImGui::Checkbox("Disable shape matching", &shape.disableShapeMatching);
+
+                        Console::log("Shape is static: %d", shape.isStatic);
+                        Console::log("Shape disable shape matching: %d", shape.disableShapeMatching);
 
                         if (ImGui::Button("Reset to original"))
                         {

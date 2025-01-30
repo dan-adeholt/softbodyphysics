@@ -55,7 +55,7 @@ void RK4Integrator::updateRK4Springs(PhysicsSpace &space, Array<PointDerivative>
         return;
     }
 
-    Springs::performThreadedSpringDerivatives(space.shapes.range(), pointsRange, space.springs.range(), derivativeRange, space.partialShapes.range(), space.shapeMatchingEnabled, profileInfo);
+    Springs::performThreadedSpringDerivatives(space.shapes.range(), pointsRange, space.springs.range(), derivativeRange, space.shapeMatchingEnabled, profileInfo);
 
     if (space.draggingShapeIndex != -1)
     {
@@ -73,7 +73,7 @@ float maxDistFromCenter = 180.0f;
 
 void Integrator::performIntegration(PhysicsSpace &space, ConsoleProfileInfo &profileInfo)
 {
-    ShapeMatching::shapeMatchAlign(space.points.range(), space.shapes, space.partialShapes.range(), space.draggingShapeIndex);
+    ShapeMatching::shapeMatchAlign(space.points.range(), space.shapes, space.draggingShapeIndex);
     rk4Integrator.performRK4Integration(space, profileInfo);
 
     for (int i = 0; i < space.springs.size(); i++)
@@ -81,12 +81,12 @@ void Integrator::performIntegration(PhysicsSpace &space, ConsoleProfileInfo &pro
         Spring &spring = space.springs[i];
         const Shape &shapeA = space.shapes[spring.shapeIndex];
 
-        if (shapeA.isStatic)
+        if (shapeA.isStatic || shapeA.disableShapeMatching)
         {
             continue;
         }
 
-        if (spring.shapeIndex == -1 || shapeA.subShapeSpan.isValid())
+        if (spring.shapeIndex == -1)
         {
             continue;
         }
@@ -115,6 +115,17 @@ void Integrator::performIntegration(PhysicsSpace &space, ConsoleProfileInfo &pro
         space.points.velocity[joint.pointIndex] = Vector2();
     }
 
+    for (int i = 0; i < space.pointJoints.size(); i++)
+    {
+        PointJoint &joint = space.pointJoints[i];
+        Vector2 midPoint = (space.points.pos[joint.pointIndex] + space.points.pos[joint.otherPointIndex]) / 2.0f;
+        space.points.pos[joint.pointIndex] = midPoint;
+        space.points.pos[joint.otherPointIndex] = midPoint;
+        Vector2 midVelocity = (space.points.velocity[joint.pointIndex] + space.points.velocity[joint.otherPointIndex]) / 2.0f;
+        space.points.velocity[joint.pointIndex] = midVelocity;
+        space.points.velocity[joint.otherPointIndex] = midVelocity;
+    }
+
     if (space.mouseJoint.pointIndex != -1)
     {
         space.points.pos[space.mouseJoint.pointIndex] = space.mouseJoint.position;
@@ -125,47 +136,19 @@ void Integrator::performIntegration(PhysicsSpace &space, ConsoleProfileInfo &pro
     {
         Shape &shape = space.shapes[i];
 
-        if (shape.isStatic)
+        if (shape.isStatic || shape.disableShapeMatching)
         {
             continue;
         }
 
-        if (shape.subShapeSpan.isValid())
+        for (int j = shape.start; j < shape.end; j++)
         {
-            Range<ShapeQuad> subShapes = space.partialShapes.range().slice(shape.subShapeSpan);
-            // for (int j = 0; j < subShapes.size; j++)
-            // {
-            //     ShapeQuad &subShape = subShapes[j];
-            //     Vector2 center;
+            Vector2 delta = space.points.pos[j] - space.points.shapePos[j];
 
-            //     for (int k = 0; k < subShape.size; k++)
-            //     {
-            //         center += space.points.pos[subShape.indices[k]];
-            //     }
-
-            //     for (int k = 0; k < subShape.size; k++)
-            //     {
-            //         int index = subShape.indices[k];
-            //         Vector2 delta = space.points.pos[index] - space.points.shapePos[index];
-
-            //         if (delta.length() > maxDistFromCenter)
-            //         {
-            //             space.points.pos[index] = space.points.shapePos[index] + delta.normalized() * maxDistFromCenter;
-            //         }
-            //     }
-            // }
-        }
-        else
-        {
-            // for (int j = shape.start; j < shape.end; j++)
-            // {
-            //     Vector2 delta = space.points.pos[j] - space.points.shapePos[j];
-
-            //     if (delta.length() > maxDistFromCenter)
-            //     {
-            //         space.points.pos[j] = space.points.shapePos[j] + delta.normalized() * maxDistFromCenter;
-            //     }
-            // }
+            if (delta.length() > maxDistFromCenter)
+            {
+                space.points.pos[j] = space.points.shapePos[j] + delta.normalized() * maxDistFromCenter;
+            }
         }
     }
 }
@@ -265,6 +248,6 @@ void RK4Integrator::testSpringPerformance(int iterations, PhysicsSpace &space)
     auto derivativeRange = rk1.range();
     for (int i = 0; i < iterations; i++)
     {
-        Springs::performThreadedSpringDerivatives(space.shapes.range(), space.points.range(), space.springs.range(), derivativeRange, space.partialShapes.range(), space.shapeMatchingEnabled, profileInfo);
+        Springs::performThreadedSpringDerivatives(space.shapes.range(), space.points.range(), space.springs.range(), derivativeRange, space.shapeMatchingEnabled, profileInfo);
     }
 }

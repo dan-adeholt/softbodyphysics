@@ -7,7 +7,6 @@
 PhysicsSpace::PhysicsSpace() : gravityEnabled(true), collisionsEnabled(true), shapeMatchingEnabled(true), springsEnabled(true), draggingShapeIndex(-1), draggingSubShapeIndex(-1)
 {
     shapes.reserve(NUM_SHAPES);
-    partialShapes.reserve(NUM_SHAPES);
     points.reserve(NUM_POINTS);
     staticJoints.reserve(NUM_POINTS / 2);
     springs.reserve(NUM_POINTS / 2);
@@ -18,10 +17,10 @@ PhysicsSpace::PhysicsSpace() : gravityEnabled(true), collisionsEnabled(true), sh
 void PhysicsSpace::assign(PhysicsSpace &other)
 {
     shapes.replace(other.shapes);
-    partialShapes.replace(other.partialShapes);
     points.replace(other.points);
     springs.replace(other.springs);
     staticJoints.replace(other.staticJoints);
+    pointJoints.replace(other.pointJoints);
 }
 
 void PhysicsSpace::initFromEntries(const Array<ShapeEntry> &entries)
@@ -52,9 +51,9 @@ int PhysicsSpace::nextShapeIndex() const
 void PhysicsSpace::clear()
 {
     shapes.clear();
-    partialShapes.clear();
     points.clear();
     springs.clear();
+    pointJoints.clear();
     staticJoints.clear();
     mouseJoint.pointIndex = -1;
     gravityEnabled = true;
@@ -89,6 +88,24 @@ void PhysicsSpace::removeShape(int shapeIndex)
         else if (joint.pointIndex >= shape.end)
         {
             joint.pointIndex -= shapeSize;
+        }
+    }
+    for (int i = 0; i < pointJoints.size(); i++)
+    {
+        PointJoint &joint = pointJoints[i];
+        if ((joint.pointIndex >= shape.start && joint.pointIndex < shape.end) ||
+            (joint.otherPointIndex >= shape.start && joint.otherPointIndex < shape.end))
+        {
+            staticJoints.remove(i);
+            i--;
+        }
+        else if (joint.pointIndex >= shape.end)
+        {
+            joint.pointIndex -= shapeSize;
+        }
+        else if (joint.otherPointIndex >= shape.end)
+        {
+            joint.otherPointIndex -= shapeSize;
         }
     }
 

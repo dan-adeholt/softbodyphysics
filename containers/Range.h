@@ -40,4 +40,24 @@ struct Range
     }
 };
 
+template <typename T>
+struct IndexedRange
+{
+    IndexedRange() : data(nullptr), indices(nullptr), size(0) {}
+    IndexedRange(T *data, int *indices, int size, int dataSize) : data(data), indices(indices), size(size), dataSize(dataSize) {}
+
+    T &operator[](int index) { return data[indices[index]]; }
+    inline const T &operator[](int index) const { return data[indices[index]]; }
+
+    bool isValid() const
+    {
+        return data != nullptr && indices != nullptr && size > 0;
+    }
+
+    T *data;
+    int *indices;
+    int size;
+    int dataSize;
+};
+
 #endif

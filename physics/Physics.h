@@ -21,40 +21,6 @@ struct PointMassesRange
     Range<Vector2> velocity;
 };
 
-struct ShapeQuad
-{
-    int indices[4];
-    Vector2 originalPos[4];
-    Vector2 shapePos[4];
-    int size;
-
-    bool isPointInQuad(const Vector2 &point) const
-    {
-        int windingNumber = 0;
-        for (int i = 0; i < size; i++)
-        {
-            Vector2 current = shapePos[i];
-            Vector2 next = shapePos[(i + 1) % size];
-            if (current.y <= point.y)
-            {
-                if (next.y > point.y && (next - current).cross(point - current) > 0)
-                {
-                    windingNumber++;
-                }
-            }
-            else
-            {
-                if (next.y <= point.y && (next - current).cross(point - current) < 0)
-                {
-                    windingNumber--;
-                }
-            }
-        }
-
-        return windingNumber != 0;
-    }
-};
-
 struct PointMasses
 {
     PointMasses()
@@ -203,6 +169,12 @@ struct PointDerivative
     Vector2 acceleration;
 };
 
+struct PointJoint
+{
+    int pointIndex;
+    int otherPointIndex;
+};
+
 struct StaticJoint
 {
     int pointIndex;
@@ -216,7 +188,7 @@ struct Spring
     {
     }
     Spring(int pointA, int pointB, float length, float stiffness, float damping, int shapeIndex)
-        : pointA(pointA), pointB(pointB), length(length), stiffness(stiffness), damping(damping), shapeIndex(shapeIndex) {}
+        : pointA(pointA), pointB(pointB), length(length), stiffness(stiffness), damping(damping), shapeIndex(shapeIndex), parentShapeIndex(-1) {}
 
     int pointA;
     int pointB;
@@ -224,25 +196,25 @@ struct Spring
     float stiffness;
     float damping;
     int shapeIndex;
+    int parentShapeIndex;
 };
 
 struct Shape
 {
-    Shape() : start(0), end(0), volume(0.0f), isStatic(false), disableShapeMatching(false), subShapeSpan() {}
-    Shape(int start, int end, float volume = 0.0f) : start(start), end(end), volume(volume), isStatic(false), disableShapeMatching(false), subShapeSpan() {}
+    Shape() : start(0), end(0), volume(0.0f), isStatic(false), disableShapeMatching(false), parentIndex(-1) {}
+    Shape(int start, int end, float volume = 0.0f) : start(start), end(end), volume(volume), isStatic(false), disableShapeMatching(false), parentIndex(-1) {}
 
     int start;
     int end;
     float volume;
     bool isStatic;
     bool disableShapeMatching;
+    int parentIndex;
 
     operator Span() const
     {
         return Span(start, end);
     }
-
-    Span subShapeSpan;
 };
 
 template <typename T>
@@ -250,6 +222,6 @@ class Array;
 template <typename T>
 struct Range;
 
-void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, Range<ShapeQuad> partialShapes, bool enableShapeMatching);
+void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, bool enableShapeMatching);
 
 #endif

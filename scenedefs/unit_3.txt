@@ -44,7 +44,7 @@
 368.281219 416.326660
 374.099365 397.772034
 shapes=1
-start=0 end=8 substart=0 subend=0 volume=0.000000 isStatic=0 disableShapeMatching=0
+start=0 end=8 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
 springs=28
 0 1 19.445436 4.000000 5.780000 0
 1 2 82.500000 4.000000 5.780000 0
@@ -75,5 +75,3 @@ springs=28
 2 7 136.118057 4.000000 5.780000 0
 3 6 136.118057 4.000000 5.780000 0
 diffs=0
-partialshapes=0
-

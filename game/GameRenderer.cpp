@@ -270,52 +270,23 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, 
             continue;
         }
 
-        if (shape.subShapeSpan.isValid())
+        startPos = pointMasses.shapePos[shape.start];
+        pos = startPos;
+
+        for (int pointIndex = shape.start + 1; pointIndex < shape.end; pointIndex++)
         {
-            Range<ShapeQuad> subshape = space.partialShapes.range(shape.subShapeSpan);
+            Vector2 nextPos = pointMasses.shapePos[pointIndex];
 
-            for (int j = 0; j < subshape.size; j++)
+            if (isnan(pos.x) || isnan(pos.y) || isnan(nextPos.x) || isnan(nextPos.y))
             {
-                const ShapeQuad &subShape = subshape.data[j];
-                Vector2 startPos = subShape.shapePos[0];
-                Vector2 pos = startPos;
-
-                for (int pointIndex = 1; pointIndex < subShape.size; pointIndex++)
-                {
-                    Vector2 nextPos = subShape.shapePos[pointIndex];
-
-                    if (isnan(pos.x) || isnan(pos.y) || isnan(nextPos.x) || isnan(nextPos.y))
-                    {
-                        continue;
-                    }
-
-                    addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, color);
-                    pos = nextPos;
-                }
-
-                addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, color);
-            }
-        }
-        else
-        {
-            startPos = pointMasses.shapePos[shape.start];
-            pos = startPos;
-
-            for (int pointIndex = shape.start + 1; pointIndex < shape.end; pointIndex++)
-            {
-                Vector2 nextPos = pointMasses.shapePos[pointIndex];
-
-                if (isnan(pos.x) || isnan(pos.y) || isnan(nextPos.x) || isnan(nextPos.y))
-                {
-                    continue;
-                }
-
-                addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, {0, 255, 0, 255});
-                pos = nextPos;
+                continue;
             }
 
-            addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, {0, 255, 0, 255});
+            addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, {0, 255, 0, 255});
+            pos = nextPos;
         }
+
+        addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, {0, 255, 0, 255});
     }
 }
 

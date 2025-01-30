@@ -12,6 +12,7 @@ namespace Shapes
 
     void resetShape(PhysicsSpace &space, int shapeIndex);
 
+    Shape createMesh(PhysicsSpace &space, float x, float y, float width, float height, int numSegments, float mass, float stiffnessFactor = 0.5f);
     Shape createCircle(PhysicsSpace &space, float x, float y, float radius, float mass, float stiffnessFactor = 0.5f);
     Shape createBridge(PhysicsSpace &space, float x, float y, float mass, int numSegments);
     Shape createLine(PhysicsSpace &space, float x0, float y0, float x1, float y1, float mass);

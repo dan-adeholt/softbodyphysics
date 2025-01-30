@@ -212,7 +212,14 @@ public:
     }
 };
 
+bool lineSegmentIntersection(
+    const Vector2 &p1, const Vector2 &p2,
+    const Vector2 &q1, const Vector2 &q2,
+    float &t_p, float &t_q);
+
 Vector2 closestPointToLineSegment(const Vector2 &p0, const Vector2 &p1, const Vector2 &point);
+
+Vector2 closestPointToAxis(const Vector2 &p0, const Vector2 &p1, const Vector2 &point);
 
 Vector2 intersectLineSegmentPoint(const Vector2 &p0, const Vector2 &p1, Vector2 d);
 

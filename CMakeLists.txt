@@ -117,6 +117,8 @@ SET(SOURCE_FILES timer.cpp
     physics/Springs.cpp
     physics/CollisionSolver.h
     physics/CollisionSolver.cpp
+    physics/ShapeAxisSeparator.h
+    physics/ShapeAxisSeparator.cpp
     physics/Integrator.h
     physics/Integrator.cpp
     physics/PhysicsSpaceStorage.h

@@ -23,7 +23,7 @@ void testCase(Shape &shape1, Shape &shape2, PointMasses &points, int expectedCol
     PointMassesRange shape1Points = points.range(shape1);
     PointMassesRange shape2Points = points.range(shape2);
 
-    testExpectInt(CollisionSolver::calculateCollisions(shape1Points, shape2Points, shape1Points, shape2Points, boundingBoxes[0], boundingBoxes[1], 0, 1, 0), expectedCollisions);
+    testExpectInt(CollisionSolver::calculateCollisions(shape1Points, shape2Points, shape1Points, shape2Points, boundingBoxes[0], boundingBoxes[1], 0, 1), expectedCollisions);
 }
 
 UNIT_TEST(PhysicsTestfindEntryEdge)
@@ -59,7 +59,7 @@ UNIT_TEST(PhysicsTestShapeMatching)
 
     printf("Rotated by: %f\n", -PI / 2.0f);
 
-    ShapeMatching::shapeMatchAlign(space.points.range(), space.shapes, space.partialShapes.range(), space.draggingShapeIndex);
+    ShapeMatching::shapeMatchAlign(space.points.range(), space.shapes, space.draggingShapeIndex);
 
     for (int i = 0; i < range.size(); i++)
     {

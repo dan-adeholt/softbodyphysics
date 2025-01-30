@@ -14,11 +14,6 @@ struct IntersectionResult
     bool found;
 };
 
-bool lineSegmentIntersection(
-    const Vector2 &p1, const Vector2 &p2,
-    const Vector2 &q1, const Vector2 &q2,
-    float &t_p, float &t_q);
-
 struct ShapeBoundingBox
 {
     int shapeIndex;
@@ -74,11 +69,6 @@ struct ClosestSegmentResult
     Vector2 closestPoint0;
     Vector2 pointOutside0;
     float entryTime0;
-
-    int entryEdgeIndex1;
-    Vector2 closestPoint1;
-    Vector2 pointOutside1;
-    float entryTime1;
 };
 
 struct CollisionSolver
@@ -111,19 +101,21 @@ struct CollisionSolver
         const ShapeBoundingBox &collisionBox,
         const ShapeBoundingBox &box2,
         bool isStatiCollisionShape,
-        bool isStaticMovingShape,
-        int numIterationsTouching);
+        bool isStaticMovingShape);
+
+    static int calculateCollisionsMidPoint(
+        PointMassesRange collisionShape,
+        PointMassesRange movingShape,
+        PointMassesRange prevCollisionShape,
+        PointMassesRange prevMovingShape,
+        const ShapeBoundingBox &collisionBox,
+        const ShapeBoundingBox &box2,
+        bool isStatiCollisionShape,
+        bool isStaticMovingShape);
 
     Array<ShapeBoundingBox> &boundingBoxes();
 
 private:
-    void boxSeparateDynamicShapes(
-        const ShapeBoundingBox &box,
-        const ShapeBoundingBox &otherBox,
-        PointMassesRange &range1,
-        PointMassesRange &range2,
-        PhysicsSpace &space);
-
     void boxSeparateDynamicAndStaticShapes(
         PointMassesRange &movingRange,
         PointMassesRange &staticRange,

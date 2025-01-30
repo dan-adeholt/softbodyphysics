@@ -1,6 +1,7 @@
 #include "./Vector2.h"
 #include <math.h>
 #include "../utils/MinMax.h"
+#include "Vector2.h"
 
 Vector2 Vector2::zero()
 {
@@ -64,8 +65,6 @@ Vector2 closestPointToLineSegment(const Vector2 &p0, const Vector2 &p1, const Ve
     Vector2 segment = p1 - p0;
     // Vector from A to P
     Vector2 segmentToPoint = point - p0;
-    Vector2 segmentNormal = segment.normalVector().normalized();
-    Vector2 pointOutside = (p0 + segment * 0.5f) - segmentNormal * 2.0f;
 
     // The projection of point P onto the line defined by segment AB is given by:
     // v dot w / v dot v
@@ -74,4 +73,41 @@ Vector2 closestPointToLineSegment(const Vector2 &p0, const Vector2 &p1, const Ve
     t = clamp(t, 0.0f, 1.0f);
 
     return p0 + segment * t;
+}
+
+Vector2 closestPointToAxis(const Vector2 &p0, const Vector2 &p1, const Vector2 &point)
+{
+    // Vector from A to B
+    Vector2 segment = p1 - p0;
+    // Vector from A to P
+    Vector2 segmentToPoint = point - p0;
+
+    // The projection of point P onto the line defined by segment AB is given by:
+    // v dot w / v dot v
+    // Compute projection t
+    float t = segmentToPoint.dot(segment) / segment.dot();
+
+    return p0 + segment * t;
+}
+
+bool lineSegmentIntersection(
+    const Vector2 &p1, const Vector2 &p2,
+    const Vector2 &q1, const Vector2 &q2,
+    float &t_p, float &t_q)
+{
+    Vector2 r = p2 - p1;
+    Vector2 s = q2 - q1;
+    float denominator = r.cross(s);
+
+    if (fabs(denominator) < 0.001f)
+    {
+        // Lines are parallel
+        return false;
+    }
+
+    Vector2 qp = q1 - p1;
+    t_p = qp.cross(s) / denominator;
+    t_q = qp.cross(r) / denominator;
+
+    return (t_p >= 0.0f && t_p <= 1.0f) && (t_q >= 0.0f && t_q <= 1.0f);
 }
