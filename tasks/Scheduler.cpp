@@ -170,7 +170,7 @@ void Scheduler::start()
         m->threadReady.push(false);
         m->tasks.push(Task());
     }
-    
+
     for (int i = 0; i < Scheduler::numThreads; i++)
     {
         Thread *t = new Thread(&Scheduler::workerThread, i, this);

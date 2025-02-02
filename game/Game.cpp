@@ -12,8 +12,8 @@
 #include <stdio.h>
 #include "Shapes.h"
 #include "Scenes.h"
-#include <cassert>
-#include <cstring>
+#include <assert.h>
+#include <string.h>
 #include "Game.h"
 #include "../utils/Console.h"
 #include "../timer.h"
@@ -80,6 +80,7 @@ struct Game::Impl
     int modKeyState = 0;
     GameRenderSettings renderSettings;
     StringBuffer<512> title;
+    ShapeMatchDragData shapeMatchDragData;
 };
 
 Game::Game(const char *appPath, const char *filePath) : m(new Game::Impl(appPath, filePath))
@@ -97,6 +98,7 @@ void Game::init(const SceneDefinition &scene)
     space.collisionsEnabled = true;
     space.gravityEnabled = true;
     space.springsEnabled = true;
+    m->shapeMatchDragData = ShapeMatchDragData();
     m->hasLastCollisionSpace = false;
     m->renderSettings = GameRenderSettings();
     m->stopPointWhenDragging = true;
@@ -204,7 +206,7 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
 
         Timer stepTimer;
 
-        m->integrator.performIntegration(m->physicsSpace, profileInfo);
+        m->integrator.performIntegration(m->physicsSpace, m->shapeMatchDragData, profileInfo);
         m->iterationNumber++;
 
         if (m->physicsSpace.collisionsEnabled)
@@ -329,15 +331,18 @@ void Game::mouseButtonDown(int button, int x, int y, bool shiftDown)
         {
             Shape &shape = m->physicsSpace.shapes[box.shapeIndex];
 
-            m->selectedShapeIndex = box.shapeIndex;
-            m->physicsSpace.draggingShapeIndex = box.shapeIndex;
-            break;
+            // Don't take subshapes as the drag item, they are small portions of large object
+            if (shape.parentIndex == -1 && !CollisionSolver::isPointOutsideShape(translatedPos.x, translatedPos.y, box, m->physicsSpace.points.range(shape)))
+            {
+                m->selectedShapeIndex = box.shapeIndex;
+                m->shapeMatchDragData.dragShapeIndex = box.shapeIndex;
+                m->shapeMatchDragData.center = translatedPos;
+                break;
+            }
         }
 
         testedBoxes++;
     }
-
-    Console::log("Tested boxes: %d", testedBoxes);
 }
 
 void Game::mouseWheel(int x, int y)
@@ -465,8 +470,7 @@ void Game::mouseButtonUp(int button, int x, int y, bool shiftDown)
     }
 
     m->physicsSpace.mouseJoint.pointIndex = -1;
-    m->physicsSpace.draggingShapeIndex = -1;
-    m->physicsSpace.draggingSubShapeIndex = -1;
+    m->shapeMatchDragData.dragShapeIndex = -1;
 }
 
 void Game::mouseMove(int x, int y, int relativeX, int relativeY)
@@ -496,20 +500,21 @@ void Game::mouseMove(int x, int y, int relativeX, int relativeY)
     float translatedRelativeX = (float)relativeX / m->scale;
     float translatedRelativeY = (float)relativeY / m->scale;
 
-    if (m->physicsSpace.draggingShapeIndex != -1)
+    if (m->shapeMatchDragData.dragShapeIndex != -1)
     {
-        Shape &shape = m->physicsSpace.shapes[m->physicsSpace.draggingShapeIndex];
+        Shape &shape = m->physicsSpace.shapes[m->shapeMatchDragData.dragShapeIndex];
         Vector2 delta(translatedRelativeX, translatedRelativeY);
 
-        for (int i = shape.start; i < shape.end; i++)
+        if (shape.isStatic)
         {
-
-            if (shape.isStatic)
+            for (int i = shape.start; i < shape.end; i++)
             {
                 m->physicsSpace.points.pos[i] += delta;
             }
-
-            m->physicsSpace.points.shapePos[i] += delta;
+        }
+        else
+        {
+            m->shapeMatchDragData.center += delta;
         }
     }
 }
@@ -522,6 +527,11 @@ PhysicsSpace &Game::physicsSpace()
 PhysicsSpace &Game::lastCollisionSpace()
 {
     return m->lastCollisionSpace;
+}
+
+const ShapeMatchDragData &Game::shapeMatchDragData()
+{
+    return m->shapeMatchDragData;
 }
 
 const char *Game::currentSceneName()

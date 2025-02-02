@@ -6,6 +6,7 @@ struct PhysicsSpace;
 struct ConsoleProfileInfo;
 struct ShapeBoundingBox;
 class Vector2;
+struct ShapeMatchDragData;
 
 enum class GameKeyCode : int;
 
@@ -52,7 +53,7 @@ public:
 
     PhysicsSpace &physicsSpace();
     PhysicsSpace &lastCollisionSpace();
-
+    const ShapeMatchDragData &shapeMatchDragData();
     int &simulationSpeed();
     bool paused();
 

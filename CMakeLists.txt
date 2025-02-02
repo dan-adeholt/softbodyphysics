@@ -121,10 +121,10 @@ SET(SOURCE_FILES timer.cpp
     physics/ShapeAxisSeparator.cpp
     physics/Integrator.h
     physics/Integrator.cpp
+    physics/ShapeUtils.h
+    physics/ShapeUtils.cpp
     physics/PhysicsSpaceStorage.h
     physics/PhysicsSpaceStorage.cpp
-    physics/ShapeMatching.h
-    physics/ShapeMatching.cpp
     utils/CustomFont.cpp
     physics/PhysicsTests.h
     math/Vector2.h

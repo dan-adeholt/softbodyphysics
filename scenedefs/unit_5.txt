@@ -82,33 +82,12 @@
 608.500000 -40.000000
 608.500000 40.000000
 -608.500000 40.000000
-20
-172.987411 626.893799
-202.936340 625.144104
-204.685989 655.093018
-174.737061 656.842712
-175.393280 651.370972
-205.383377 650.599976
-206.154388 680.590088
-176.164291 681.361084
--36.000000 0.000000
-4.000000 0.000000
-4.000000 755.000000
--36.000000 755.000000
-1214.000000 0.000000
-1254.000000 0.000000
-1254.000000 755.000000
-1214.000000 755.000000
-1.000000 755.000000
-1218.000000 755.000000
-1218.000000 835.000000
-1.000000 835.000000
 shapes=5
-start=0 end=4 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=4 end=8 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=8 end=12 volume=0.000000 isStatic=1 parentIndex=-1 disableShapeMatching=0
-start=12 end=16 volume=0.000000 isStatic=1 parentIndex=-1 disableShapeMatching=0
-start=16 end=20 volume=0.000000 isStatic=1 parentIndex=-1 disableShapeMatching=0
+start=0 end=4 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=4 end=8 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=8 end=12 volume=0.000000 isStatic=1 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=12 end=16 volume=0.000000 isStatic=1 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=16 end=20 volume=0.000000 isStatic=1 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
 springs=12
 0 1 30.000000 5.000000 7.225000 0
 1 2 30.000000 5.000000 7.225000 0

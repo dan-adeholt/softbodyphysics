@@ -370,123 +370,30 @@
 608.500000 -40.000000
 608.500000 40.000000
 -608.500000 40.000000
-92
-150.000000 -619.671631
-180.000000 -619.671631
-180.000000 -589.671631
-150.000000 -589.671631
-152.000000 -526.671936
-182.000000 -526.671936
-182.000000 -496.671936
-152.000000 -496.671936
-154.000000 -433.671295
-184.000000 -433.671295
-184.000000 -403.671295
-154.000000 -403.671295
-156.000000 -340.673248
-186.000000 -340.673248
-186.000000 -310.673248
-156.000000 -310.673248
-158.000000 -247.673676
-188.000000 -247.673676
-188.000000 -217.673676
-158.000000 -217.673676
-160.000000 -154.675110
-190.000000 -154.675110
-190.000000 -124.675110
-160.000000 -124.675110
-162.000000 -61.672508
-192.000000 -61.672508
-192.000000 -31.672508
-162.000000 -31.672508
-164.000000 31.326557
-194.000000 31.326557
-194.000000 61.326557
-164.000000 61.326557
-166.000000 124.327057
-196.000000 124.327057
-196.000000 154.327057
-166.000000 154.327057
-168.000000 217.326813
-198.000000 217.326813
-198.000000 247.326813
-168.000000 247.326813
-170.000000 310.326996
-200.000000 310.326996
-200.000000 340.326996
-170.000000 340.326996
-172.000000 403.326996
-202.000000 403.326996
-202.000000 433.326996
-172.000000 433.326996
-174.000000 496.326660
-204.000000 496.326660
-204.000000 526.326660
-174.000000 526.326660
-176.000000 589.327148
-206.000000 589.327148
-206.000000 619.327148
-176.000000 619.327148
-175.857285 627.363831
-205.752884 624.863159
-208.253555 654.758728
-178.357956 657.259399
-163.374252 663.483948
-192.642960 656.900391
-199.226517 686.169128
-169.957809 692.752686
-177.332733 694.406738
-205.728119 684.726807
-215.408112 713.122192
-187.012726 722.802124
-109.511658 699.648193
-138.360718 691.418274
-146.590637 720.267334
-117.741577 728.497253
-201.054321 718.419495
-228.579697 706.488281
-240.510895 734.013611
-212.985519 745.944824
-249.404404 716.761658
-278.587006 709.806458
-285.542236 738.989075
-256.359650 745.944275
--36.000000 0.000000
-4.000000 0.000000
-4.000000 755.000000
--36.000000 755.000000
-1214.000000 0.000000
-1254.000000 0.000000
-1254.000000 755.000000
-1214.000000 755.000000
-1.000000 755.000000
-1218.000000 755.000000
-1218.000000 835.000000
-1.000000 835.000000
 shapes=23
-start=0 end=4 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=4 end=8 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=8 end=12 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=12 end=16 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=16 end=20 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=20 end=24 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=24 end=28 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=28 end=32 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=32 end=36 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=36 end=40 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=40 end=44 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=44 end=48 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=48 end=52 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=52 end=56 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=56 end=60 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=60 end=64 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=64 end=68 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=68 end=72 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=72 end=76 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=76 end=80 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0
-start=80 end=84 volume=0.000000 isStatic=1 parentIndex=-1 disableShapeMatching=0
-start=84 end=88 volume=0.000000 isStatic=1 parentIndex=-1 disableShapeMatching=0
-start=88 end=92 volume=0.000000 isStatic=1 parentIndex=-1 disableShapeMatching=0
+start=0 end=4 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=4 end=8 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=8 end=12 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=12 end=16 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=16 end=20 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=20 end=24 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=24 end=28 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=28 end=32 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=32 end=36 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=36 end=40 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=40 end=44 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=44 end=48 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=48 end=52 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=52 end=56 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=56 end=60 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=60 end=64 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=64 end=68 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=68 end=72 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=72 end=76 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=76 end=80 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=80 end=84 volume=0.000000 isStatic=1 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=84 end=88 volume=0.000000 isStatic=1 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=88 end=92 volume=0.000000 isStatic=1 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
 springs=120
 0 1 30.000000 5.000000 7.225000 0
 1 2 30.000000 5.000000 7.225000 0

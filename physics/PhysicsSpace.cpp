@@ -4,7 +4,7 @@
 #define NUM_SHAPES 40
 #define NUM_POINTS 1024
 
-PhysicsSpace::PhysicsSpace() : gravityEnabled(true), collisionsEnabled(true), shapeMatchingEnabled(true), springsEnabled(true), draggingShapeIndex(-1), draggingSubShapeIndex(-1)
+PhysicsSpace::PhysicsSpace() : gravityEnabled(true), collisionsEnabled(true), shapeMatchingEnabled(true), springsEnabled(true)
 {
     shapes.reserve(NUM_SHAPES);
     points.reserve(NUM_POINTS);
@@ -48,6 +48,15 @@ int PhysicsSpace::nextShapeIndex() const
     return shapes.size();
 }
 
+void PhysicsSpace::updateIndices()
+{
+    for (int i = 0; i < shapes.size(); i++)
+    {
+        Shape &shape = shapes[i];
+        shape.index = i;
+    }
+}
+
 void PhysicsSpace::clear()
 {
     shapes.clear();
@@ -71,7 +80,6 @@ void PhysicsSpace::removeShape(int shapeIndex)
     points.mass.removeRange(shape);
     points.pos.removeRange(shape);
     points.velocity.removeRange(shape);
-    points.shapePos.removeRange(shape);
     points.shapeOriginalPos.removeRange(shape);
 
     int shapeSize = shape.end - shape.start;

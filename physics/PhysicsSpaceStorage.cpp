@@ -89,7 +89,7 @@ void readShapeArray(FILE *file, Array<Shape> &array)
         Shape shape;
         int isStatic = 0;
         int disableShapeMatching = 0;
-        fscanf(file, "start=%d end=%d volume=%f isStatic=%d parentIndex=%d disableShapeMatching=%d\n", &shape.start, &shape.end, &shape.volume, &isStatic, &shape.parentIndex, &disableShapeMatching);
+        fscanf(file, "start=%d end=%d volume=%f isStatic=%d parentIndex=%d disableShapeMatching=%d indices=%hu,%hu,%hu,%hu\n", &shape.start, &shape.end, &shape.volume, &isStatic, &shape.parentIndex, &disableShapeMatching, &shape.indices[0], &shape.indices[1], &shape.indices[2], &shape.indices[3]);
         shape.isStatic = isStatic != 0;
         shape.disableShapeMatching = disableShapeMatching != 0;
         array.push(shape);
@@ -133,7 +133,7 @@ void dumpShapeArray(FILE *file, Shape *array, int size)
     for (int i = 0; i < size; ++i)
     {
         const Shape &shape = array[i];
-        fprintf(file, "start=%d end=%d volume=%f isStatic=%d parentIndex=%d disableShapeMatching=%d\n", shape.start, shape.end, shape.volume, shape.isStatic ? 1 : 0, shape.parentIndex, shape.disableShapeMatching ? 1 : 0);
+        fprintf(file, "start=%d end=%d volume=%f isStatic=%d parentIndex=%d disableShapeMatching=%d indices=%hu,%hu,%hu,%hu\n", shape.start, shape.end, shape.volume, shape.isStatic ? 1 : 0, shape.parentIndex, shape.disableShapeMatching ? 1 : 0, shape.indices[0], shape.indices[1], shape.indices[2], shape.indices[3]);
     }
 }
 
@@ -143,7 +143,7 @@ void readPointMasses(FILE *file, PointMasses &points)
     readVector2Array(file, points.pos);
     readVector2Array(file, points.velocity);
     readVector2Array(file, points.shapeOriginalPos);
-    readVector2Array(file, points.shapePos);
+    printf("Array size after read: %d\n", points.shapeOriginalPos.size());
 }
 
 void dumpPointMasses(FILE *file, PointMasses &points)
@@ -152,7 +152,6 @@ void dumpPointMasses(FILE *file, PointMasses &points)
     dumpVector2Array(file, &points.pos[0], points.size());
     dumpVector2Array(file, &points.velocity[0], points.size());
     dumpVector2Array(file, &points.shapeOriginalPos[0], points.size());
-    dumpVector2Array(file, &points.shapePos[0], points.size());
 }
 
 void readSprings(FILE *file, Array<Spring> &springs)

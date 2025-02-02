@@ -1,5 +1,5 @@
 #include "Scenes.h"
-#include <cstdio>
+#include <stdio.h>
 #include "Shapes.h"
 #include "Game.h"
 #include "GameKeyCode.h"
@@ -10,7 +10,7 @@
 #include "../containers/Array.h"
 #include "../utils/Console.h"
 #include "../utils/MinMax.h"
-#include <cstring>
+#include <string.h>
 #include <math.h>
 #include "stdint.h"
 
@@ -183,12 +183,6 @@ SceneDefinition collisionScenes[] = {
                                {15.000000f, -15.000000f},
                                {15.000000f, 15.000000f},
                                {-15.000000f, 15.000000f},
-                           })
-                           .withShapePos({
-                               {150.000000f, 667.980347f},
-                               {180.000000f, 667.980347f},
-                               {180.000000f, 697.980347f},
-                               {150.000000f, 697.980347f},
                            }),
              .springs = Array<Spring>({
                  Spring(0, 1, 30.000000f, 5.000000f, 7.225000f, 0),
@@ -224,12 +218,6 @@ SceneDefinition collisionScenes[] = {
                                {15.000000f, -15.000000f},
                                {15.000000f, 15.000000f},
                                {-15.000000f, 15.000000f},
-                           })
-                           .withShapePos({
-                               {148.868561f, 700.255920f},
-                               {178.851761f, 701.259766f},
-                               {177.847870f, 731.242981f},
-                               {147.864670f, 730.239136f},
                            }),
              .springs = Array<Spring>({
                  Spring(4, 5, 30.000000f, 5.000000f, 7.225000f, 1),
@@ -617,7 +605,7 @@ SceneDefinition gameScenes[] = {
          space.staticJoints.push({numSegments * 2 - 1, Vector2(x, y + 70.0f)});
 
          Shapes::createStaticQuad(space, 149.0f, 90.0f, 50.0f, 600.0f, 1.0f);
-         Shapes::createStaticQuad(space, 1110.0f, 90.0f, 50.0f, 600.0f, 1.0f);
+         Shapes::createStaticQuad(space, 1111.0f, 90.0f, 50.0f, 600.0f, 1.0f);
 
          for (int i = 0; i < 10; i++)
          {

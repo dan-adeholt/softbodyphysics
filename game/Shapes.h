@@ -21,6 +21,7 @@ namespace Shapes
     Shape createStaticQuad(PhysicsSpace &space, float x, float y, float width, float height, float mass);
     Shape createParallelogram(PhysicsSpace &space, float x, float y, float width = 32.0f, float height = 32.0f, float sideOffset = 0.0f, float mass = 1.0f);
     Shape createTriangle(PhysicsSpace &space, bool isStatic, float x0, float y0, float x1, float y1, float x2, float y2, float mass = 1.0f);
+
 }
 
 #endif

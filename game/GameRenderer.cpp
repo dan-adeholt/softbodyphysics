@@ -12,6 +12,7 @@
 #include "stddef.h"
 #include "../physics/Physics.h"
 #include "../physics/PhysicsSpace.h"
+#include "../physics/ShapeUtils.h"
 #include "Game.h"
 
 float MIN_LINE_POS = -100000;
@@ -175,7 +176,7 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, bool renderSha
 
     if (renderSettings.renderShapeLines)
     {
-        renderShapes(renderer, game.selectedShapeIndex(), physicsSpace.shapes.range(), points, physicsSpace, renderShapeMatching, scaleForGeometry);
+        renderShapes(renderer, game.selectedShapeIndex(), physicsSpace.shapes.range(), points, physicsSpace, renderShapeMatching, scaleForGeometry, game.shapeMatchDragData());
     }
 
     if (renderSettings.renderSprings)
@@ -234,7 +235,7 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, bool renderSha
                           m->vertices.size(), nullptr, 0, 0);
 }
 
-void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, Range<Shape> shapes, PointMassesRange &pointMasses, PhysicsSpace &space, bool renderShapeMatching, float scale)
+void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, Range<Shape> shapes, PointMassesRange &pointMasses, PhysicsSpace &space, bool renderShapeMatching, float scale, const ShapeMatchDragData &dragData)
 {
     for (int i = 0; i < shapes.size; i++)
     {
@@ -265,17 +266,22 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, 
 
         addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, color);
 
-        if (!renderShapeMatching)
+        if (!renderShapeMatching || shape.disableShapeMatching)
         {
             continue;
         }
 
-        startPos = pointMasses.shapePos[shape.start];
-        pos = startPos;
+        ShapeProperties averages = ShapeUtils::getShapeProperties(pointMasses, shape);
+        ShapeIterator itr(shape);
 
-        for (int pointIndex = shape.start + 1; pointIndex < shape.end; pointIndex++)
+        // TODO: Add rendering of shape matching
+        startPos = ShapeUtils::getShapePos(pointMasses, shape, itr.index(), averages, dragData);
+        pos = startPos;
+        itr.next();
+
+        while (itr.isValid())
         {
-            Vector2 nextPos = pointMasses.shapePos[pointIndex];
+            Vector2 nextPos = ShapeUtils::getShapePos(pointMasses, shape, itr.index(), averages, dragData);
 
             if (isnan(pos.x) || isnan(pos.y) || isnan(nextPos.x) || isnan(nextPos.y))
             {
@@ -284,6 +290,7 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, 
 
             addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, {0, 255, 0, 255});
             pos = nextPos;
+            itr.next();
         }
 
         addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, {0, 255, 0, 255});

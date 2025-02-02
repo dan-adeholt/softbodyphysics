@@ -362,7 +362,7 @@ bool pointInShape(const Vector2 &point, const PointMassesRange &shape)
     return inside;
 }
 
-int countNumCollisions(PointMassesRange collisionShape, float pointX, float pointY, float outX)
+int countNumCollisions(const PointMassesRange &collisionShape, float pointX, float pointY, float outX)
 {
     int numIntersections = 0;
 
@@ -451,7 +451,7 @@ ClosestSegmentResult CollisionSolver::findEntryEdgeClosestSegment(PointMassesRan
 }
 
 // PointMassesRange collisionShape, float pointX, float pointY, float outX
-bool isPointOutsideShape(float pointX, float pointY, const ShapeBoundingBox &box, PointMassesRange shape)
+bool CollisionSolver::isPointOutsideShape(float pointX, float pointY, const ShapeBoundingBox &box, const PointMassesRange &shape)
 {
     // First check - is the point outside the bounding box of the other shape?
     // Then extend horizontal line from point to the right,  outside of bounding box.
@@ -782,7 +782,7 @@ void CollisionSolver::calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBo
 
 Array<ShapeBoundingBox> &CollisionSolver::boundingBoxes()
 {
-    return m->boundingBoxes; // TODO: insert return statement here
+    return m->boundingBoxes;
 }
 
 CollisionSolver::CollisionSolver() : m(new Impl())
@@ -801,6 +801,7 @@ void CollisionSolver::clear()
     m->boundingBoxes.clear();
     m->sortedBoundingBoxes.clear();
 }
+
 void CollisionSolver::updateBoundingBoxes(PhysicsSpace &space, ConsoleProfileInfo &profileInfo)
 {
     // m->grid.updateShapes(space.shapes, space.points);
@@ -892,6 +893,10 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSp
         const ShapeBoundingBox &box = m->sortedBoundingBoxes[i];
         const Shape &shape1 = space.shapes[box.shapeIndex];
 
+        if (shape1.hasIndices())
+        {
+            continue;
+        }
         for (int j = i + 1; j < m->sortedBoundingBoxes.size(); j++)
         {
             const ShapeBoundingBox &otherBox = m->sortedBoundingBoxes[j];
@@ -909,6 +914,11 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSp
             }
 
             const Shape &shape2 = space.shapes[otherBox.shapeIndex];
+
+            if (shape2.hasIndices())
+            {
+                continue;
+            }
 
             calculateCollisions(
                 space.points.range(shape1), space.points.range(shape2),

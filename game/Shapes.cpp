@@ -1,7 +1,6 @@
 #include "Shapes.h"
 #include "../containers/Array.h"
 #include "../physics/PhysicsSpace.h"
-#include "../physics/ShapeMatching.h"
 #include "../utils/Console.h"
 #include <math.h>
 
@@ -61,7 +60,6 @@ namespace Shapes
 
         Shape circle = Shape(startIndex, curIndex, 300.0f);
         space.shapes.push(circle);
-        ShapeMatching::shapeMatchAlignInit(space.points.range(), circle);
         return circle;
     }
 
@@ -146,13 +144,14 @@ namespace Shapes
 
     void resetShape(PhysicsSpace &space, int shapeIndex)
     {
-        Shape &shape = space.shapes[shapeIndex];
+        // TODO: Reimplement
+        // Shape &shape = space.shapes[shapeIndex];
 
-        for (int i = shape.start; i < shape.end; i++)
-        {
-            space.points.pos[i] = space.points.shapePos[i];
-            space.points.velocity[i] = Vector2();
-        }
+        // for (int i = shape.start; i < shape.end; i++)
+        // {
+        //     space.points.pos[i] = space.points.shapePos[i];
+        //     space.points.velocity[i] = Vector2();
+        // }
     }
 
     Shape createMesh(PhysicsSpace &space, float x, float y, float width, float height, int numSegments, float mass, float stiffnessFactor)
@@ -182,6 +181,8 @@ namespace Shapes
             curX -= width;
             curIndex++;
         }
+
+        Shape bridge = Shape(startIndex, curIndex);
 
         for (int i = 0; i < numSegments; i++)
         {
@@ -214,9 +215,7 @@ namespace Shapes
 
         curX -= width;
 
-        Shape bridge = Shape(startIndex, curIndex);
         // bridge.subShapeSpan = {partialShapesStart, space.partialShapes.size()};
-        ShapeMatching::shapeMatchAlignInit(space.points.range(), bridge);
         bridge.disableShapeMatching = true;
         space.shapes.push(bridge);
 
@@ -271,7 +270,6 @@ namespace Shapes
 
         Shape circle = Shape(startIndex, curIndex, 300.0f);
         space.shapes.push(circle);
-        ShapeMatching::shapeMatchAlignInit(space.points.range(), circle);
         return circle;
     }
 
@@ -304,43 +302,53 @@ namespace Shapes
             curX -= width;
             curIndex++;
         }
+        Shape bridge = Shape(startIndex, curIndex);
+        bridge.disableShapeMatching = true;
+        space.shapes.push(bridge);
+        int subShapeIndex = space.nextShapeIndex();
 
         for (int i = 0; i < numSegments; i++)
         {
             int topIndex = startIndex + i;
             int bottomIndex = startIndex + numSegments * 2 - i - 1;
 
-            space.springs.push(Spring(topIndex, bottomIndex, height, stiffness, damping, shapeIndex));
+            space.springs.push(Spring(topIndex, bottomIndex, height, stiffness, damping, subShapeIndex));
 
             if (i > 0)
             {
-                Vector2 topLeft = space.points.pos[topIndex];
-                Vector2 topRight = space.points.pos[topIndex - 1];
+                Vector2 topLeft = space.points.pos[topIndex - 1];
+                Vector2 topRight = space.points.pos[topIndex];
                 Vector2 bottomLeft = space.points.pos[bottomIndex + 1];
                 Vector2 bottomRight = space.points.pos[bottomIndex];
+
+                Shape subBridge(startIndex, curIndex);
+                subBridge.parentIndex = shapeIndex;
+                subBridge.indices[0] = (uint16_t)(topIndex - 1 - bridge.start);
+                subBridge.indices[1] = (uint16_t)(topIndex - bridge.start);
+                subBridge.indices[2] = (uint16_t)(bottomIndex - bridge.start);
+                subBridge.indices[3] = (uint16_t)(bottomIndex + 1 - bridge.start);
 
                 // ShapeQuad quad = {{topIndex - 1, topIndex, bottomIndex, bottomIndex + 1}, {topLeft, topRight, bottomLeft, bottomRight}, {topLeft, topRight, bottomLeft, bottomRight}, 4};
                 // space.partialShapes.push(quad);
 
                 // Top bar
-                space.springs.push(Spring(topIndex - 1, topIndex, width, stiffness, damping, shapeIndex));
+                space.springs.push(Spring(topIndex - 1, topIndex, width, stiffness, damping, subShapeIndex));
                 // Bottom bar
-                space.springs.push(Spring(bottomIndex + 1, bottomIndex, width, stiffness, damping, shapeIndex));
+                space.springs.push(Spring(bottomIndex + 1, bottomIndex, width, stiffness, damping, subShapeIndex));
 
                 // Diagonal 1
-                space.springs.push(Spring(topIndex, bottomIndex + 1, diagonal, stiffness, damping, shapeIndex));
+                space.springs.push(Spring(topIndex, bottomIndex + 1, diagonal, stiffness, damping, subShapeIndex));
                 // Diagonal 2
-                space.springs.push(Spring(bottomIndex, topIndex - 1, diagonal, stiffness, damping, shapeIndex));
+                space.springs.push(Spring(bottomIndex, topIndex - 1, diagonal, stiffness, damping, subShapeIndex));
+
+                space.shapes.push(subBridge);
+                subShapeIndex = space.nextShapeIndex();
             }
         }
 
         curX -= width;
 
-        Shape bridge = Shape(startIndex, curIndex);
         // bridge.subShapeSpan = {partialShapesStart, space.partialShapes.size()};
-        ShapeMatching::shapeMatchAlignInit(space.points.range(), bridge);
-        bridge.disableShapeMatching = true;
-        space.shapes.push(bridge);
 
         return bridge;
     }
@@ -355,7 +363,6 @@ namespace Shapes
         const Span span(space.points.size() - 4, space.points.size());
         Shape quad = Shape(span.start, span.end);
         quad.isStatic = true;
-        ShapeMatching::shapeMatchAlignInit(space.points.range(), quad);
         space.shapes.push(quad);
 
         return quad;
@@ -378,7 +385,6 @@ namespace Shapes
 
         const Span span(space.points.size() - 8, space.points.size());
         Shape quad = Shape(span.start, span.end);
-        ShapeMatching::shapeMatchAlignInit(space.points.range(), quad);
 
         Vector2 p0 = space.points.pos[span.start];
         Vector2 p1 = space.points.pos[span.start + 1];
@@ -455,7 +461,6 @@ namespace Shapes
 
         const Span span(space.points.size() - 4, space.points.size());
         Shape quad = Shape(span.start, span.end);
-        ShapeMatching::shapeMatchAlignInit(space.points.range(), quad);
 
         Vector2 p0 = space.points.pos[span.start];
         Vector2 p1 = space.points.pos[span.start + 1];
@@ -484,7 +489,6 @@ namespace Shapes
         space.points.push(x + sideOffset, y + height, mass);
 
         Shape parallelogram = Shape(space.points.size() - 4, space.points.size());
-        ShapeMatching::shapeMatchAlignInit(space.points.range(), parallelogram);
         space.shapes.push(parallelogram);
         return parallelogram;
     }
@@ -499,7 +503,6 @@ namespace Shapes
 
         Shape triangle = Shape(span.start, span.end);
         triangle.isStatic = isStatic;
-        ShapeMatching::shapeMatchAlignInit(space.points.range(), triangle);
         triangle.isStatic = isStatic;
         space.shapes.push(triangle);
 
@@ -516,7 +519,6 @@ namespace Shapes
         float lineLength = Vector2::vec2distance(x0, y0, x1, y1);
         space.springs.push(Spring(span.start, span.start + 1, lineLength, 1.5f, 28.9f, shapeIndex));
         Shape line = Shape(span.start, span.end);
-        ShapeMatching::shapeMatchAlignInit(space.points.range(), line);
         space.shapes.push(line);
         return line;
     }

@@ -22,6 +22,8 @@ struct PhysicsSpace
 
     int nextShapeIndex() const;
 
+    void updateIndices();
+
     void clear();
 
     void removeShape(int shapeIndex);
@@ -37,8 +39,6 @@ struct PhysicsSpace
     bool collisionsEnabled;
     bool shapeMatchingEnabled;
     bool springsEnabled;
-    int draggingShapeIndex;
-    int draggingSubShapeIndex;
 };
 
 #endif // __GAME_PHYSICSSPACE_H__

@@ -93,6 +93,8 @@ struct CollisionSolver
     static ShapeBoundingBox calculateShapeBoundingBox(int shapeIndex, const PointMassesRange &range);
     static void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<Shape> &shapes, const PointMasses &points);
 
+    static bool isPointOutsideShape(float pointX, float pointY, const ShapeBoundingBox &box, const PointMassesRange &shape);
+
     static int calculateCollisions(
         PointMassesRange collisionShape,
         PointMassesRange movingShape,

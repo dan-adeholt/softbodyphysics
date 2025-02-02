@@ -8,7 +8,6 @@
 #include "../utils/Console.h"
 #include "../utils/UnitTestUtil.h"
 #include "CollisionSolver.h"
-#include "ShapeMatching.h"
 
 void testCase(Shape &shape1, Shape &shape2, PointMasses &points, int expectedCollisions)
 {
@@ -42,29 +41,6 @@ void setVelocity(PointMasses &points, Shape shape, float vx, float vy)
     {
         range.velocity[i].x = vx;
         range.velocity[i].y = vy;
-    }
-}
-
-UNIT_TEST(PhysicsTestShapeMatching)
-{
-    PhysicsSpace space;
-    Shape shape = Shapes::createQuad(space, -0.5f, -0.5f, 1.0f, 1.0f, 1.0f);
-    PointMassesRange range = space.points.range(shape);
-
-    for (int i = 0; i < range.size(); i++)
-    {
-        Vector2 rotated = range.pos[i].rotate(-PI_F / 2.0f);
-        range.pos[i] = rotated;
-    }
-
-    printf("Rotated by: %f\n", -PI / 2.0f);
-
-    ShapeMatching::shapeMatchAlign(space.points.range(), space.shapes, space.draggingShapeIndex);
-
-    for (int i = 0; i < range.size(); i++)
-    {
-        Vector2 diff = range.shapePos[i] - range.pos[i];
-        testAssertMsg(diff.length() < 0.000001f, "After shape matching the points should be in the same position");
     }
 }
 
