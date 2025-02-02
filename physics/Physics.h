@@ -238,4 +238,39 @@ struct Range;
 
 void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, bool enableShapeMatching);
 
+struct ShapeIterator
+{
+    int cur = 0;
+    int end = 0;
+    int indices[4];
+    bool indexed = false;
+
+    ShapeIterator(const Shape &shape)
+    {
+        indexed = shape.hasIndices();
+        cur = indexed ? 0 : shape.start;
+        end = indexed ? 4 : shape.end;
+
+        for (int i = 0; i < 4; i++)
+        {
+            indices[i] = shape.start + shape.indices[i];
+        }
+    }
+
+    bool isValid() const
+    {
+        return cur < end;
+    }
+
+    int index()
+    {
+        return indexed ? indices[cur] : cur;
+    }
+
+    void next()
+    {
+        cur++;
+    }
+};
+
 #endif

@@ -82,46 +82,38 @@ struct CollisionSolver
 
     void clear();
     void updateBoundingBoxes(PhysicsSpace &space, ConsoleProfileInfo &profileInfo);
-    void handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSpace, ConsoleProfileInfo &profileInfo);
+    void handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &profileInfo);
 
     void assign(CollisionSolver &other);
 
-    static ClosestSegmentResult findEntryEdgeClosestSegment(
-        PointMassesRange collisionShape,
-        const Vector2 &point, bool log = false);
+    static ClosestSegmentResult findEntryEdgeClosestSegment(PointMassesRange points,
+                                                            const Shape &collisionShape,
+                                                            const Vector2 &currentPoint);
 
-    static ShapeBoundingBox calculateShapeBoundingBox(int shapeIndex, const PointMassesRange &range);
+    static ShapeBoundingBox calculateShapeBoundingBox(const PointMassesRange &points, int shapeIndex, const Shape &shape);
+
     static void calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes, const Array<Shape> &shapes, const PointMasses &points);
 
-    static bool isPointOutsideShape(float pointX, float pointY, const ShapeBoundingBox &box, const PointMassesRange &shape);
+    static bool isPointOutsideShape(int pointIndex, float pointX, float pointY, const ShapeBoundingBox &box, const PointMassesRange &points, const Shape &collisionShape);
 
     static int calculateCollisions(
-        PointMassesRange collisionShape,
-        PointMassesRange movingShape,
-        PointMassesRange prevCollisionShape,
-        PointMassesRange prevMovingShape,
+        PointMassesRange points,
+        const Shape &collisionShape,
+        const Shape &movingShape,
         const ShapeBoundingBox &collisionBox,
-        const ShapeBoundingBox &box2,
-        bool isStatiCollisionShape,
-        bool isStaticMovingShape);
+        const ShapeBoundingBox &movingBox);
 
     static int calculateCollisionsMidPoint(
-        PointMassesRange collisionShape,
-        PointMassesRange movingShape,
-        PointMassesRange prevCollisionShape,
-        PointMassesRange prevMovingShape,
+        PointMassesRange points,
+        const Shape &collisionShape,
+        const Shape &movingShape,
         const ShapeBoundingBox &collisionBox,
-        const ShapeBoundingBox &box2,
-        bool isStatiCollisionShape,
-        bool isStaticMovingShape);
+        const ShapeBoundingBox &movingBox);
 
     Array<ShapeBoundingBox> &boundingBoxes();
 
 private:
-    void boxSeparateDynamicAndStaticShapes(
-        PointMassesRange &movingRange,
-        PointMassesRange &staticRange,
-        PhysicsSpace &space);
+    void boxSeparateDynamicAndStaticShapes(PointMassesRange points, const Shape &movingShape, const Shape &staticShape);
 
     struct Impl;
     Impl *m;

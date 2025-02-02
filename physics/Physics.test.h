@@ -19,10 +19,9 @@ void testCase(Shape &shape1, Shape &shape2, PointMasses &points, int expectedCol
 
     CollisionSolver::calculateBoundingBoxes(boundingBoxes, shapes, points);
 
-    PointMassesRange shape1Points = points.range(shape1);
-    PointMassesRange shape2Points = points.range(shape2);
+    PointMassesRange range = points.range();
 
-    testExpectInt(CollisionSolver::calculateCollisions(shape1Points, shape2Points, shape1Points, shape2Points, boundingBoxes[0], boundingBoxes[1], 0, 1), expectedCollisions);
+    testExpectInt(CollisionSolver::calculateCollisions(range, shape1, shape2, boundingBoxes[0], boundingBoxes[1]), expectedCollisions);
 }
 
 UNIT_TEST(PhysicsTestfindEntryEdge)
@@ -30,7 +29,7 @@ UNIT_TEST(PhysicsTestfindEntryEdge)
     PhysicsSpace space;
     Shape shelf = Shapes::createTriangle(space, false, 50.0f, 700.0f, 800.0f, 500.0f, 800.0f, 700.0f, 0.0f);
     Vector2 pos1(500.0, 588.0);
-    ClosestSegmentResult result = CollisionSolver::findEntryEdgeClosestSegment(space.points.range(shelf), pos1);
+    ClosestSegmentResult result = CollisionSolver::findEntryEdgeClosestSegment(space.points.range(), shelf, pos1);
     testExpectInt(result.entryEdgeIndex0, 0);
 }
 

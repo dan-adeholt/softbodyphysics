@@ -9,23 +9,58 @@
 #include <math.h>
 #include <cstdio>
 
+struct ShapeIndexedRange
+{
+    int start = 0;
+    int end = 0;
+    int indices[4] = {0, 0, 0, 0};
+    bool indexed = false;
+
+    ShapeIndexedRange(const Shape &shape)
+    {
+        indexed = shape.hasIndices();
+        start = indexed ? 0 : shape.start;
+        end = indexed ? 4 : shape.end;
+
+        if (indexed)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                indices[i] = shape.start + shape.indices[i];
+            }
+        }
+    }
+
+    int operator[](int i) const
+    {
+        return indexed ? indices[i] : start + i;
+    }
+
+    int size() const
+    {
+        return end - start;
+    }
+};
+
 float coefficentOfRestitution = 0.65f;
 
 // EdgeStrategy intersectionStrategy = EdgeStrategy::ClosestSegment;
 
 bool logBox = true;
 
-ShapeBoundingBox CollisionSolver::calculateShapeBoundingBox(int shapeIndex, const PointMassesRange &range)
+ShapeBoundingBox CollisionSolver::calculateShapeBoundingBox(const PointMassesRange &points, int shapeIndex, const Shape &shape)
 {
-    Vector2 pos = range.pos[0];
+    ShapeIndexedRange range(shape);
+
+    Vector2 pos = points.pos[range[0]];
     float minX = pos.x;
     float maxX = pos.x;
     float minY = pos.y;
     float maxY = pos.y;
 
-    for (int j = 1; j < range.pos.size; j++)
+    for (int j = 1; j < range.size(); j++)
     {
-        Vector2 otherPos = range.pos[j];
+        Vector2 otherPos = points.pos[range[j]];
 
         minX = min(minX, otherPos.x);
         maxX = max(maxX, otherPos.x);
@@ -65,7 +100,7 @@ struct CollisionGrid
         for (int i = 0; i < shapes.size(); i++)
         {
             Shape shape = shapes[i];
-            ShapeBoundingBox box = CollisionSolver::calculateShapeBoundingBox(i, points.range(shape));
+            ShapeBoundingBox box = CollisionSolver::calculateShapeBoundingBox(points.range(), i, shape);
             addShapeBoundingBox(box, shape.isStatic);
         }
     }
@@ -325,14 +360,17 @@ bool lineSegmentsIntersect(const Vector2 &p1, const Vector2 &p2,
     return false;
 }
 
-bool shapesOverlap(const PointMassesRange &poly1, const PointMassesRange &poly2)
+bool shapesOverlap(const PointMassesRange &points, const Shape &shape1, const Shape &shape2)
 {
+    ShapeIndexedRange poly1(shape1);
+    ShapeIndexedRange poly2(shape2);
+
     for (int i = 0; i < poly1.size(); ++i)
     {
         for (int j = 0; j < poly2.size(); ++j)
         {
-            if (lineSegmentsIntersect(poly1.pos[i], poly1.pos[(i + 1) % poly1.size()],
-                                      poly2.pos[j], poly2.pos[(j + 1) % poly2.size()]))
+            if (lineSegmentsIntersect(points.pos[poly1[i]], points.pos[poly1[(i + 1) % poly1.size()]],
+                                      points.pos[poly2[j]], points.pos[poly2[(j + 1) % poly2.size()]]))
                 return true;
         }
     }
@@ -342,35 +380,25 @@ bool shapesOverlap(const PointMassesRange &poly1, const PointMassesRange &poly2)
 float lastMaxAmplitude = 0.0f;
 float lastMaxAmplitudeStatic = 0.0f;
 
-bool pointInShape(const Vector2 &point, const PointMassesRange &shape)
-{
-    bool inside = false;
-    int j = shape.size() - 1;
-
-    for (int i = 0; i < shape.size(); i++)
-    {
-        if ((shape.pos[i].y > point.y) != (shape.pos[j].y > point.y) &&
-            point.x < (shape.pos[j].x - shape.pos[i].x) * (point.y - shape.pos[i].y) /
-                              (shape.pos[j].y - shape.pos[i].y) +
-                          shape.pos[i].x)
-        {
-            inside = !inside;
-        }
-        j = i;
-    }
-
-    return inside;
-}
-
-int countNumCollisions(const PointMassesRange &collisionShape, float pointX, float pointY, float outX)
+int countNumCollisions(int pointIndex, const PointMassesRange &points, const Shape &collisionShape, float pointX, float pointY, float outX)
 {
     int numIntersections = 0;
+    const ShapeIndexedRange collisionShapeRange(collisionShape);
 
     // Check intersections between (point.pos.x, point.pos.y) -> (outX, point.pos.y) and each line segment in shape1
-    for (int i = 0; i < collisionShape.size(); i++)
+    for (int i = 0; i < collisionShapeRange.size(); i++)
     {
-        Vector2 p0 = collisionShape.pos[i];
-        Vector2 p1 = collisionShape.pos[(i + 1) % collisionShape.size()];
+        int collisionIndex0 = collisionShapeRange[i];
+        int collisionIndex1 = collisionShapeRange[(i + 1) % collisionShapeRange.size()];
+
+        // Return early here, we currently don't support self-collisions between adjacent subshapes
+        if (pointIndex == collisionIndex0 || pointIndex == collisionIndex1)
+        {
+            return 0;
+        }
+
+        Vector2 p0 = points.pos[collisionIndex0];
+        Vector2 p1 = points.pos[collisionIndex1];
 
         // If point is outside line segments vertical range, it can never intersect since line is horziontal
         if ((pointY < p0.y && pointY < p1.y) || (pointY > p0.y && pointY > p1.y))
@@ -399,19 +427,19 @@ int countNumCollisions(const PointMassesRange &collisionShape, float pointX, flo
     return numIntersections;
 }
 
-ClosestSegmentResult CollisionSolver::findEntryEdgeClosestSegment(PointMassesRange collisionShape,
-                                                                  const Vector2 &currentPoint,
-                                                                  bool log)
+ClosestSegmentResult CollisionSolver::findEntryEdgeClosestSegment(PointMassesRange points,
+                                                                  const Shape &collisionShape,
+                                                                  const Vector2 &currentPoint)
 {
     float minDistanceSquared = __FLT_MAX__;
 
-    int collisionShapeSize = collisionShape.pos.size;
     ClosestSegmentResult result = {-1, Vector2(), Vector2(), 0.0f};
+    const ShapeIndexedRange collisionShapeRange(collisionShape);
 
-    for (int i = 0; i < collisionShapeSize; i++)
+    for (int i = 0; i < collisionShapeRange.size(); i++)
     {
-        Vector2 segment0 = collisionShape.pos[i];
-        Vector2 segment1 = collisionShape.pos[(i + 1) % collisionShapeSize];
+        Vector2 segment0 = points.pos[collisionShapeRange[i]];
+        Vector2 segment1 = points.pos[collisionShapeRange[(i + 1) % collisionShapeRange.size()]];
 
         float distanceToVertex = (segment0 - currentPoint).length();
 
@@ -451,7 +479,7 @@ ClosestSegmentResult CollisionSolver::findEntryEdgeClosestSegment(PointMassesRan
 }
 
 // PointMassesRange collisionShape, float pointX, float pointY, float outX
-bool CollisionSolver::isPointOutsideShape(float pointX, float pointY, const ShapeBoundingBox &box, const PointMassesRange &shape)
+bool CollisionSolver::isPointOutsideShape(int pointIndex, float pointX, float pointY, const ShapeBoundingBox &box, const PointMassesRange &points, const Shape &collisionShape)
 {
     // First check - is the point outside the bounding box of the other shape?
     // Then extend horizontal line from point to the right,  outside of bounding box.
@@ -461,7 +489,7 @@ bool CollisionSolver::isPointOutsideShape(float pointX, float pointY, const Shap
            pointY > box.y2 ||
            // If the number of intersections is even, that means that the point is definitively outside
            // of our shape. If it is odd, then it is inside.
-           countNumCollisions(shape, pointX, pointY, box.x2 + 10.0f) % 2 == 0;
+           countNumCollisions(pointIndex, points, collisionShape, pointX, pointY, box.x2 + 10.0f) % 2 == 0;
 }
 
 void reduceOverlap(ShapeBoundingBox &box1, ShapeBoundingBox &box2)
@@ -575,34 +603,37 @@ void reduceOverlapStatic(ShapeBoundingBox &box1, ShapeBoundingBox &staticBox)
 }
 
 int CollisionSolver::calculateCollisionsMidPoint(
-    PointMassesRange collisionShape,
-    PointMassesRange movingShape,
-    PointMassesRange prevCollisionShape,
-    PointMassesRange prevMovingShape,
+    PointMassesRange points,
+    const Shape &collisionShape,
+    const Shape &movingShape,
     const ShapeBoundingBox &collisionBox,
-    const ShapeBoundingBox &movingBox,
-    bool isStaticCollisionShape,
-    bool isStaticMovingShape)
+    const ShapeBoundingBox &movingBox)
 {
-    if (isStaticMovingShape && isStaticCollisionShape)
+    if (movingShape.isStatic && collisionShape.isStatic)
     {
         return 0;
     }
 
     int numCollisions = 0;
 
-    for (int i = 0; i < movingShape.pos.size; i++)
-    {
-        int nextIndex = (i + 1) % movingShape.pos.size;
-        Vector2 prevPos = movingShape.pos[i == 0 ? movingShape.pos.size - 1 : i - 1];
-        Vector2 nextPos = movingShape.pos[nextIndex];
+    const ShapeIndexedRange movingRange(movingShape);
+    const ShapeIndexedRange collisionRange(collisionShape);
 
-        Vector2 pointToNext = nextPos - movingShape.pos[i];
-        Vector2 pointPos = movingShape.pos[i] + pointToNext * 0.5f;
+    for (int i = 0; i < movingRange.size(); i++)
+    {
+        int nextIndex = (i + 1) % movingRange.size();
+        int pointIndex = movingRange[i];
+        int nextPointIndex = movingRange[nextIndex];
+
+        Vector2 prevPos = points.pos[movingRange[i == 0 ? movingRange.size() - 1 : i - 1]];
+        Vector2 nextPos = points.pos[movingRange[nextIndex]];
+
+        Vector2 pointToNext = nextPos - points.pos[pointIndex];
+        Vector2 pointPos = points.pos[pointIndex] + pointToNext * 0.5f;
 
         // First check - is the point outside the bounding box of the other shape?
         // Then extend horizontal line from point to the right,  outside of bounding box.
-        if (isPointOutsideShape(pointPos.x, pointPos.y, collisionBox, collisionShape))
+        if (isPointOutsideShape(pointIndex, pointPos.x, pointPos.y, collisionBox, points, collisionShape))
         {
             continue;
         }
@@ -613,45 +644,49 @@ int CollisionSolver::calculateCollisionsMidPoint(
 
         // Console::log("** Find entry edge for point %d in %d **", i, movingBox.shapeIndex);
 
-        ClosestSegmentResult result = findEntryEdgeClosestSegment(collisionShape, pointPos, !isStaticCollisionShape && !isStaticMovingShape);
-        Vector2 pointVelocity = movingShape.velocity[i];
+        ClosestSegmentResult result = findEntryEdgeClosestSegment(points, collisionShape, pointPos);
+        Vector2 pointVelocity = points.velocity[pointIndex];
 
-        float pointMass = (movingShape.mass[i] + movingShape.mass[nextIndex]) * 0.5f;
-        Vector2 pm0Pos = collisionShape.pos[result.entryEdgeIndex0];
-        Vector2 pm1Pos = collisionShape.pos[(result.entryEdgeIndex0 + 1) % collisionShape.pos.size];
+        int collisionIndex0 = collisionRange[result.entryEdgeIndex0];
+        int collisionIndex1 = collisionRange[(result.entryEdgeIndex0 + 1) % collisionRange.size()];
+
+        float pointMass = (points.mass[pointIndex] + points.mass[pointIndex]) * 0.5f;
+
+        Vector2 pm0Pos = points.pos[collisionIndex0];
+        Vector2 pm1Pos = points.pos[collisionIndex1];
         Vector2 segmentNormal = Vector2(-pm1Pos.y + pm0Pos.y, pm1Pos.x - pm0Pos.x).normalized();
 
         Console::drawPoint(result.closestPoint0, 0x00FF00);
 
-        if (isStaticCollisionShape)
+        if (collisionShape.isStatic)
         {
             Vector2 impulse = calculateImpulseStatic(pointVelocity.x, pointVelocity.y, pointMass, segmentNormal);
             Vector2 reflection = pointVelocity.reflect(segmentNormal).normalized();
 
             Vector2 splitOffset = result.closestPoint0 - pointPos;
-            movingShape.pos[i] += splitOffset + reflection * 0.1f;
-            movingShape.pos[nextIndex] += splitOffset + reflection * 0.1f;
+            points.pos[pointIndex] += splitOffset + reflection * 0.1f;
+            points.pos[nextPointIndex] += splitOffset + reflection * 0.1f;
 
-            movingShape.velocity[i] += (impulse / pointMass) * 0.5f;
-            movingShape.velocity[nextIndex] += (impulse / pointMass) * 0.5f;
+            points.velocity[pointIndex] += (impulse / pointMass) * 0.5f;
+            points.velocity[nextPointIndex] += (impulse / pointMass) * 0.5f;
         }
         else
         {
-            float pm0Mass = collisionShape.mass[result.entryEdgeIndex0];
-            Vector2 pm0Vel = collisionShape.velocity[result.entryEdgeIndex0];
-            float pm1Mass = collisionShape.mass[(result.entryEdgeIndex0 + 1) % collisionShape.pos.size];
-            Vector2 pm1Vel = collisionShape.velocity[(result.entryEdgeIndex0 + 1) % collisionShape.pos.size];
+            float pm0Mass = points.mass[collisionIndex0];
+            Vector2 pm0Vel = points.velocity[collisionIndex0];
+            float pm1Mass = points.mass[collisionIndex1];
+            Vector2 pm1Vel = points.velocity[collisionIndex1];
 
-            Vector2 offset = movingShape.pos[i] - result.closestPoint0;
+            Vector2 offset = points.pos[pointIndex] - result.closestPoint0;
 
             Vector2 impulse = calculateImpulse(pm0Vel.x, pm0Vel.y, pm0Mass, pm1Vel.x, pm1Vel.y, pm1Mass, segmentNormal, pointVelocity.x, pointVelocity.y, pointMass, result.entryTime0);
 
             Vector2 pm0VelocityDiff = (impulse * (1.0f - result.entryTime0)) / pm0Mass;
-            collisionShape.velocity[result.entryEdgeIndex0] -= pm0VelocityDiff;
+            points.velocity[collisionIndex0] -= pm0VelocityDiff;
             Vector2 pm1VelocityDiff = (impulse * result.entryTime0) / pm1Mass;
-            collisionShape.velocity[(result.entryEdgeIndex0 + 1) % collisionShape.pos.size] -= pm1VelocityDiff;
+            points.velocity[collisionIndex1] -= pm1VelocityDiff;
 
-            if (!isStaticMovingShape)
+            if (!movingShape.isStatic)
             {
                 float totalMass = pm0Mass + pm1Mass + pointMass;
                 Vector2 splitOffset = result.closestPoint0 - pointPos;
@@ -663,18 +698,18 @@ int CollisionSolver::calculateCollisionsMidPoint(
                 Vector2 A = result.closestPoint0 - avgDir * 100.0f;
                 Vector2 B = result.closestPoint0 + avgDir * 100.0f;
 
-                collisionShape.pos[result.entryEdgeIndex0] = closestPointToAxis(A, B, pm0Pos);
-                collisionShape.pos[(result.entryEdgeIndex0 + 1) % collisionShape.pos.size] = closestPointToAxis(A, B, pm1Pos);
-                movingShape.pos[i] = closestPointToAxis(A, B, movingShape.pos[i]) + reflection * 0.2f;
-                movingShape.pos[nextIndex] = closestPointToAxis(A, B, movingShape.pos[nextIndex]) + reflection * 0.2f;
-                movingShape.velocity[i] += (impulse / pointMass) * 0.5f;
-                movingShape.velocity[nextIndex] += (impulse / pointMass) * 0.5f;
+                points.pos[collisionIndex0] = closestPointToAxis(A, B, pm0Pos);
+                points.pos[collisionIndex1] = closestPointToAxis(A, B, pm1Pos);
+                points.pos[pointIndex] = closestPointToAxis(A, B, points.pos[pointIndex]) + reflection * 0.2f;
+                points.pos[nextPointIndex] = closestPointToAxis(A, B, points.pos[nextPointIndex]) + reflection * 0.2f;
+                points.velocity[pointIndex] += (impulse / pointMass) * 0.5f;
+                points.velocity[nextPointIndex] += (impulse / pointMass) * 0.5f;
             }
             else
             {
                 Vector2 offsetExtended = offset * 1.01f;
-                collisionShape.pos[result.entryEdgeIndex0] -= offsetExtended;
-                collisionShape.pos[(result.entryEdgeIndex0 + 1) % collisionShape.pos.size] -= offsetExtended;
+                points.pos[collisionIndex0] -= offsetExtended;
+                points.pos[collisionIndex1] -= offsetExtended;
             }
         }
     }
@@ -683,86 +718,90 @@ int CollisionSolver::calculateCollisionsMidPoint(
 }
 
 int CollisionSolver::calculateCollisions(
-    PointMassesRange collisionShape,
-    PointMassesRange movingShape,
-    PointMassesRange prevCollisionShape,
-    PointMassesRange prevMovingShape,
+    PointMassesRange points,
+    const Shape &collisionShape,
+    const Shape &movingShape,
     const ShapeBoundingBox &collisionBox,
-    const ShapeBoundingBox &movingBox,
-    bool isStaticCollisionShape,
-    bool isStaticMovingShape)
+    const ShapeBoundingBox &movingBox)
 {
-    if (isStaticMovingShape && isStaticCollisionShape)
+    if (collisionShape.isStatic && movingShape.isStatic)
     {
         return 0;
     }
 
     int numCollisions = 0;
 
-    for (int i = 0; i < movingShape.pos.size; i++)
+    ShapeIndexedRange movingRange(movingShape);
+    ShapeIndexedRange collisionRange(collisionShape);
+
+    for (int i = 0; i < movingRange.size(); i++)
     {
-        Vector2 pointPos = movingShape.pos[i];
-        Vector2 prevPos = movingShape.pos[i == 0 ? movingShape.pos.size - 1 : i - 1];
-        Vector2 nextPos = movingShape.pos[(i + 1) % movingShape.pos.size];
+        int pointIndex = movingRange[i];
+        Vector2 pointPos = points.pos[pointIndex];
+        Vector2 prevPos = points.pos[movingRange[i == 0 ? movingRange.size() - 1 : i - 1]];
+        Vector2 nextPos = points.pos[movingRange[(i + 1) % movingRange.size()]];
 
         // First check - is the point outside the bounding box of the other shape?
         // Then extend horizontal line from point to the right,  outside of bounding box.
-        if (isPointOutsideShape(pointPos.x, pointPos.y, collisionBox, collisionShape))
+        if (isPointOutsideShape(pointIndex, pointPos.x, pointPos.y, collisionBox, points, collisionShape))
         {
             continue;
         }
 
         numCollisions++;
 
-        ClosestSegmentResult result = findEntryEdgeClosestSegment(collisionShape, pointPos, !isStaticCollisionShape && !isStaticMovingShape);
-        Vector2 pointVelocity = movingShape.velocity[i];
+        ClosestSegmentResult result = findEntryEdgeClosestSegment(points, collisionShape, pointPos);
 
-        float pointMass = movingShape.mass[i];
-        Vector2 pm0Pos = collisionShape.pos[result.entryEdgeIndex0];
-        Vector2 pm1Pos = collisionShape.pos[(result.entryEdgeIndex0 + 1) % collisionShape.pos.size];
+        Vector2 pointVelocity = points.velocity[pointIndex];
+
+        float pointMass = points.mass[pointIndex];
+        int collisionIndex0 = collisionRange[result.entryEdgeIndex0];
+        int collisionIndex1 = collisionRange[(result.entryEdgeIndex0 + 1) % collisionRange.size()];
+
+        Vector2 pm0Pos = points.pos[collisionIndex0];
+        Vector2 pm1Pos = points.pos[collisionIndex1];
         Vector2 segmentNormal = Vector2(-pm1Pos.y + pm0Pos.y, pm1Pos.x - pm0Pos.x).normalized();
 
-        if (isStaticCollisionShape)
+        if (collisionShape.isStatic)
         {
             Vector2 impulse = calculateImpulseStatic(pointVelocity.x, pointVelocity.y, pointMass, segmentNormal);
 
             Vector2 reflection = pointVelocity.reflect(segmentNormal).normalized();
-            movingShape.velocity[i] += impulse / pointMass;
-            Vector2 diff = movingShape.pos[i] - result.closestPoint0;
-
-            movingShape.pos[i] = result.closestPoint0 + reflection * 0.1f;
+            points.velocity[pointIndex] += impulse / pointMass;
+            Vector2 diff = points.pos[pointIndex] - result.closestPoint0;
+            points.pos[pointIndex] = result.closestPoint0 + reflection * 0.1f;
         }
         else
         {
-            float pm0Mass = collisionShape.mass[result.entryEdgeIndex0];
-            Vector2 pm0Vel = collisionShape.velocity[result.entryEdgeIndex0];
-            float pm1Mass = collisionShape.mass[(result.entryEdgeIndex0 + 1) % collisionShape.pos.size];
-            Vector2 pm1Vel = collisionShape.velocity[(result.entryEdgeIndex0 + 1) % collisionShape.pos.size];
+            float pm0Mass = points.mass[collisionIndex0];
+            Vector2 pm0Vel = points.velocity[collisionIndex0];
+            float pm1Mass = points.mass[collisionIndex1];
+            Vector2 pm1Vel = points.velocity[collisionIndex1];
 
-            Vector2 offset = movingShape.pos[i] - result.closestPoint0;
+            Vector2 offset = points.pos[pointIndex] - result.closestPoint0;
 
             Vector2 impulse = calculateImpulse(pm0Vel.x, pm0Vel.y, pm0Mass, pm1Vel.x, pm1Vel.y, pm1Mass, segmentNormal, pointVelocity.x, pointVelocity.y, pointMass, result.entryTime0);
 
             Vector2 pm0VelocityDiff = (impulse * (1.0f - result.entryTime0)) / pm0Mass;
-            collisionShape.velocity[result.entryEdgeIndex0] -= pm0VelocityDiff;
+            points.velocity[collisionIndex0] -= pm0VelocityDiff;
             Vector2 pm1VelocityDiff = (impulse * result.entryTime0) / pm1Mass;
-            collisionShape.velocity[(result.entryEdgeIndex0 + 1) % collisionShape.pos.size] -= pm1VelocityDiff;
+            points.velocity[collisionIndex1] -= pm1VelocityDiff;
 
-            if (!isStaticMovingShape)
+            if (!movingShape.isStatic)
             {
                 float totalMass = pm0Mass + pm1Mass + pointMass;
                 Vector2 reflection = pointVelocity.reflect(segmentNormal).normalized();
 
-                collisionShape.pos[result.entryEdgeIndex0] = pm0Pos;
-                collisionShape.pos[(result.entryEdgeIndex0 + 1) % collisionShape.pos.size] = pm1Pos;
-                movingShape.pos[i] = result.closestPoint0 + reflection * 0.1f;
-                movingShape.velocity[i] += impulse / pointMass;
+                points.pos[collisionIndex0] = pm0Pos;
+                points.pos[collisionIndex1] = pm1Pos;
+                points.pos[pointIndex] = result.closestPoint0 + reflection * 0.1f;
+                points.velocity[pointIndex] += impulse / pointMass;
             }
             else
             {
                 Vector2 offsetExtended = offset * 1.01f;
-                collisionShape.pos[result.entryEdgeIndex0] += offsetExtended;
-                collisionShape.pos[(result.entryEdgeIndex0 + 1) % collisionShape.pos.size] += offsetExtended;
+                points.pos[collisionIndex0] += offsetExtended;
+                points.pos[collisionIndex1] += offsetExtended;
             }
         }
     }
@@ -776,7 +815,7 @@ void CollisionSolver::calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBo
 
     for (int i = 0; i < shapes.size(); i++)
     {
-        boundingBoxes.push(calculateShapeBoundingBox(i, points.range(shapes[i])));
+        boundingBoxes.push(calculateShapeBoundingBox(points.range(), i, shapes[i]));
     }
 }
 
@@ -867,21 +906,24 @@ void CollisionSolver::updateBoundingBoxes(PhysicsSpace &space, ConsoleProfileInf
     profileInfo.numCollisions = 0;
 }
 
-void CollisionSolver::boxSeparateDynamicAndStaticShapes(PointMassesRange &movingRange, PointMassesRange &staticRange, PhysicsSpace &space)
+void CollisionSolver::boxSeparateDynamicAndStaticShapes(PointMassesRange points, const Shape &movingShape, const Shape &staticShape)
 {
-    ShapeBoundingBox movingBoxContracted = calculateShapeBoundingBox(1, movingRange);
-    ShapeBoundingBox staticBoxContracted = calculateShapeBoundingBox(1, staticRange);
+    ShapeBoundingBox movingBoxContracted = calculateShapeBoundingBox(points, 1, movingShape);
+    ShapeBoundingBox staticBoxContracted = calculateShapeBoundingBox(points, 1, staticShape);
     reduceOverlapStatic(movingBoxContracted, staticBoxContracted);
+
+    ShapeIndexedRange movingRange(movingShape);
 
     for (int i = 0; i < movingRange.size(); i++)
     {
-        movingRange.pos[i].x = clamp(movingRange.pos[i].x, movingBoxContracted.x1, movingBoxContracted.x2);
-        movingRange.pos[i].y = clamp(movingRange.pos[i].y, movingBoxContracted.y1, movingBoxContracted.y2);
+        int pointIndex = movingRange[i];
+        points.pos[pointIndex].x = clamp(points.pos[pointIndex].x, movingBoxContracted.x1, movingBoxContracted.x2);
+        points.pos[pointIndex].y = clamp(points.pos[pointIndex].y, movingBoxContracted.y1, movingBoxContracted.y2);
         // movingRange.velocity[i] *= 0.5f;
     }
 }
 
-void CollisionSolver::handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSpace, ConsoleProfileInfo &profileInfo)
+void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &profileInfo)
 {
     Timer collisionsTimer;
     updateBoundingBoxes(space, profileInfo);
@@ -893,7 +935,7 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSp
         const ShapeBoundingBox &box = m->sortedBoundingBoxes[i];
         const Shape &shape1 = space.shapes[box.shapeIndex];
 
-        if (shape1.hasIndices())
+        if (shape1.disableShapeMatching)
         {
             continue;
         }
@@ -915,33 +957,28 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSp
 
             const Shape &shape2 = space.shapes[otherBox.shapeIndex];
 
-            if (shape2.hasIndices())
+            if (shape1.parentIndex != -1 && shape1.parentIndex == shape2.parentIndex)
             {
                 continue;
             }
 
-            calculateCollisions(
-                space.points.range(shape1), space.points.range(shape2),
-                prevSpace.points.range(shape1), prevSpace.points.range(shape2),
-                box, otherBox, shape1.isStatic, shape2.isStatic);
-            calculateCollisions(space.points.range(shape2), space.points.range(shape1),
-                                prevSpace.points.range(shape2), prevSpace.points.range(shape1),
-                                otherBox, box, shape2.isStatic, shape1.isStatic);
+            if (shape2.disableShapeMatching)
+            {
+                continue;
+            }
 
-            if (shapesOverlap(space.points.range(shape1), space.points.range(shape2)))
+            calculateCollisions(space.points.range(), shape1, shape2, box, otherBox);
+            calculateCollisions(space.points.range(), shape2, shape1, otherBox, box);
+
+            if (shapesOverlap(space.points.range(), shape1, shape2))
             {
                 m->collisionMap.incrementCollision(box.shapeIndex, otherBox.shapeIndex);
                 int numCollisions = m->collisionMap.getCollisionCount(box.shapeIndex, otherBox.shapeIndex);
-                calculateCollisionsMidPoint(
-                    space.points.range(shape1), space.points.range(shape2),
-                    prevSpace.points.range(shape1), prevSpace.points.range(shape2),
-                    box, otherBox, shape1.isStatic, shape2.isStatic);
+                calculateCollisionsMidPoint(space.points.range(), shape1, shape2, box, otherBox);
+                calculateCollisionsMidPoint(space.points.range(), shape2, shape1, otherBox, box);
 
-                calculateCollisionsMidPoint(space.points.range(shape2), space.points.range(shape1),
-                                            prevSpace.points.range(shape2), prevSpace.points.range(shape1),
-                                            otherBox, box, shape2.isStatic, shape1.isStatic);
                 // Console::log("Num collisions: %d", numCollisions);
-                if (numCollisions > 32 && shapesOverlap(space.points.range(shape1), space.points.range(shape2)))
+                if (numCollisions > 32 && shapesOverlap(space.points.range(), shape1, shape2))
                 {
                     PointMassesRange range1 = space.points.range(shape1);
                     PointMassesRange range2 = space.points.range(shape2);
@@ -954,13 +991,13 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, PhysicsSpace &prevSp
                     else if ((shape1.isStatic && !shape2.isStatic) || (shape2.isStatic && !shape1.isStatic))
                     {
                         // Console::log("Case B");
-                        PointMassesRange staticRange = shape1.isStatic ? range1 : range2;
-                        PointMassesRange movingRange = shape1.isStatic ? range2 : range1;
-                        boxSeparateDynamicAndStaticShapes(movingRange, staticRange, space);
+                        const Shape &staticShape(shape1.isStatic ? shape1 : shape2);
+                        const Shape &movingShape(shape1.isStatic ? shape2 : shape1);
+                        boxSeparateDynamicAndStaticShapes(space.points.range(), movingShape, staticShape);
                     }
                 }
 
-                if (!shapesOverlap(space.points.range(shape1), space.points.range(shape2)))
+                if (!shapesOverlap(space.points.range(), shape1, shape2))
                 {
                     m->collisionMap.resetCollision(box.shapeIndex, otherBox.shapeIndex);
                 }

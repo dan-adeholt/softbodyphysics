@@ -214,7 +214,7 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
             // Console::clearCollisionFrame();
             if (m->hasLastCollisionSpace)
             {
-                m->collisionSolver.handleCollisions(m->physicsSpace, m->lastCollisionSpace, profileInfo);
+                m->collisionSolver.handleCollisions(m->physicsSpace, profileInfo);
             }
 
             m->hasLastCollisionSpace = true;
@@ -332,7 +332,7 @@ void Game::mouseButtonDown(int button, int x, int y, bool shiftDown)
             Shape &shape = m->physicsSpace.shapes[box.shapeIndex];
 
             // Don't take subshapes as the drag item, they are small portions of large object
-            if (shape.parentIndex == -1 && !CollisionSolver::isPointOutsideShape(translatedPos.x, translatedPos.y, box, m->physicsSpace.points.range(shape)))
+            if (shape.parentIndex == -1 && !CollisionSolver::isPointOutsideShape(-1, translatedPos.x, translatedPos.y, box, m->physicsSpace.points.range(), shape))
             {
                 m->selectedShapeIndex = box.shapeIndex;
                 m->shapeMatchDragData.dragShapeIndex = box.shapeIndex;

@@ -285,6 +285,7 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, 
 
             if (isnan(pos.x) || isnan(pos.y) || isnan(nextPos.x) || isnan(nextPos.y))
             {
+                itr.next();
                 continue;
             }
 
