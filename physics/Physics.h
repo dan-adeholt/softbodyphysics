@@ -273,4 +273,37 @@ struct ShapeIterator
     }
 };
 
+struct ShapeIndexedRange
+{
+    int start = 0;
+    int end = 0;
+    int indices[4] = {0, 0, 0, 0};
+    bool indexed = false;
+
+    ShapeIndexedRange(const Shape &shape)
+    {
+        indexed = shape.hasIndices();
+        start = indexed ? 0 : shape.start;
+        end = indexed ? 4 : shape.end;
+
+        if (indexed)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                indices[i] = shape.start + shape.indices[i];
+            }
+        }
+    }
+
+    int operator[](int i) const
+    {
+        return indexed ? indices[i] : start + i;
+    }
+
+    int size() const
+    {
+        return end - start;
+    }
+};
+
 #endif

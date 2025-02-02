@@ -127,10 +127,10 @@ SceneDefinition collisionScenes[] = {
                  separated = true;
                  Shape &shape = space.shapes[0];
                  Shape &otherShape = space.shapes[1];
-                 PointMassesRange range1 = space.points.range(shape);
-                 PointMassesRange range2 = space.points.range(otherShape);
 
-                 ShapeAxisSeparator::separateShapesFromIntersectionAxis(range1, range2);
+                 PointMassesRange range = space.points.range();
+
+                 ShapeAxisSeparator::separateShapesFromIntersectionAxis(range, shape, otherShape);
              },
              nullptr);
      }},
@@ -616,6 +616,7 @@ SceneDefinition gameScenes[] = {
          //  game->offset() = Vector2(-2150.0f, -1200.0f);
          //  game->setPaused();
          //  Shapes::createQuad(space.points, space.springs, 600.0f, 190.0f, 100.0f, 100.0f, 1.0f);
+         game->setPaused();
      }},
     {"Falling box with shelf", [](Game *game)
      {

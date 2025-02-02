@@ -2,10 +2,11 @@
 #define __GAME_ShapeAxisSeparator_H__
 
 struct PointMassesRange;
+struct Shape;
 
 namespace ShapeAxisSeparator
 {
-    void separateShapesFromIntersectionAxis(PointMassesRange &range1, PointMassesRange &range2);
+    void separateShapesFromIntersectionAxis(PointMassesRange &points, const Shape &shape1, const Shape &shape2);
 }
 
 #endif

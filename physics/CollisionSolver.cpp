@@ -9,39 +9,6 @@
 #include <math.h>
 #include <cstdio>
 
-struct ShapeIndexedRange
-{
-    int start = 0;
-    int end = 0;
-    int indices[4] = {0, 0, 0, 0};
-    bool indexed = false;
-
-    ShapeIndexedRange(const Shape &shape)
-    {
-        indexed = shape.hasIndices();
-        start = indexed ? 0 : shape.start;
-        end = indexed ? 4 : shape.end;
-
-        if (indexed)
-        {
-            for (int i = 0; i < 4; i++)
-            {
-                indices[i] = shape.start + shape.indices[i];
-            }
-        }
-    }
-
-    int operator[](int i) const
-    {
-        return indexed ? indices[i] : start + i;
-    }
-
-    int size() const
-    {
-        return end - start;
-    }
-};
-
 float coefficentOfRestitution = 0.65f;
 
 // EdgeStrategy intersectionStrategy = EdgeStrategy::ClosestSegment;
@@ -957,10 +924,10 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &
 
             const Shape &shape2 = space.shapes[otherBox.shapeIndex];
 
-            if (shape1.parentIndex != -1 && shape1.parentIndex == shape2.parentIndex)
-            {
-                continue;
-            }
+            // if (shape1.parentIndex != -1 && shape1.parentIndex == shape2.parentIndex)
+            // {
+            //     continue;
+            // }
 
             if (shape2.disableShapeMatching)
             {
@@ -980,13 +947,11 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &
                 // Console::log("Num collisions: %d", numCollisions);
                 if (numCollisions > 32 && shapesOverlap(space.points.range(), shape1, shape2))
                 {
-                    PointMassesRange range1 = space.points.range(shape1);
-                    PointMassesRange range2 = space.points.range(shape2);
-
                     if (!shape1.isStatic && !shape2.isStatic)
                     {
                         // Console::log("Case A");
-                        ShapeAxisSeparator::separateShapesFromIntersectionAxis(range1, range2);
+                        PointMassesRange range(space.points.range());
+                        ShapeAxisSeparator::separateShapesFromIntersectionAxis(range, shape1, shape2);
                     }
                     else if ((shape1.isStatic && !shape2.isStatic) || (shape2.isStatic && !shape1.isStatic))
                     {
