@@ -184,8 +184,8 @@ struct Spring
 
 struct Shape
 {
-    Shape() : start(0), end(0), volume(0.0f), isStatic(false), disableShapeMatching(false), index(-1), parentIndex(-1) {}
-    Shape(int start, int end, float volume = 0.0f) : start(start), end(end), volume(volume), isStatic(false), disableShapeMatching(false), index(-1), parentIndex(-1) {}
+    Shape() : start(0), end(0), volume(0.0f), isStatic(false), disableShapeMatching(false), index(-1), parentId(-1) {}
+    Shape(int start, int end, float volume = 0.0f) : start(start), end(end), volume(volume), isStatic(false), disableShapeMatching(false), index(-1), parentId(-1) {}
 
     int start;
     int end;
@@ -193,7 +193,7 @@ struct Shape
     bool isStatic;
     bool disableShapeMatching;
     int index;
-    int parentIndex;
+    int parentId;
 
     uint16_t indices[4] = {UINT16_MAX, UINT16_MAX, UINT16_MAX, UINT16_MAX};
 
@@ -205,11 +205,6 @@ struct Shape
     int size() const
     {
         return hasIndices() ? 4 : end - start;
-    }
-
-    operator Span() const
-    {
-        return Span(start, end);
     }
 };
 

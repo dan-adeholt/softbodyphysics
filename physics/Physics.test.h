@@ -35,11 +35,12 @@ UNIT_TEST(PhysicsTestfindEntryEdge)
 
 void setVelocity(PointMasses &points, Shape shape, float vx, float vy)
 {
-    PointMassesRange range = points.range(shape);
+    ShapeIndexedRange range = ShapeIndexedRange(shape);
+
     for (int i = 0; i < range.size(); i++)
     {
-        range.velocity[i].x = vx;
-        range.velocity[i].y = vy;
+        points.velocity[range[i]].x = vx;
+        points.velocity[range[i]].y = vy;
     }
 }
 

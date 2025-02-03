@@ -61,6 +61,39 @@ SceneDefinition deformedScenes[] = {
 };
 
 SceneDefinition collisionScenes[] = {
+    {"New Unit Test 16", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_16.txt");
+         game->setPaused();
+     }},
+
+    {"New Unit Test 15", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_15.txt");
+         space.gravityEnabled = false;
+         game->setPaused();
+     }},
+
+    {"New Unit Test 13", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_13.txt");
+         space.gravityEnabled = false;
+         game->offset() = Vector2(-300.0f, 504.0f);
+         game->setPaused();
+     }},
+
+    {"New Unit Test 11", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_11.txt");
+         game->offset() = Vector2(200.0f, 304.0f);
+
+         game->runFor(41, true);
+     }},
+
     {"UNFIXED New Unit Test 8", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();
@@ -248,10 +281,11 @@ SceneDefinition collisionScenes[] = {
          Shape &firstBox = space.shapes[0];
          Shape &secondBox = space.shapes[1];
 
-         PointMassesRange firstBoxPoints = space.points.range(firstBox);
-         for (Vector2 &velocity : firstBoxPoints.velocity)
+         ShapeIndexedRange firstBoxRange = ShapeIndexedRange(firstBox);
+
+         for (int i = 0; i < firstBoxRange.size(); i++)
          {
-             velocity.x = 0.3f;
+             space.points.velocity[firstBoxRange[i]].x = 0.3f;
          }
 
          game->physicsSpace().gravityEnabled = false;
@@ -266,15 +300,12 @@ SceneDefinition collisionScenes[] = {
          Shape &firstBox = space.shapes[0];
          Shape &secondBox = space.shapes[1];
 
-         PointMassesRange firstBoxPoints = space.points.range(firstBox);
-         for (Vector2 &velocity : firstBoxPoints.velocity)
-         {
-             velocity.y = 1.0f;
-         }
+         ShapeIndexedRange firstBoxRange = ShapeIndexedRange(firstBox);
 
-         for (Vector2 &pos : firstBoxPoints.pos)
+         for (int i = 0; i < firstBoxRange.size(); i++)
          {
-             pos = pos.rotate(0.3f);
+             space.points.velocity[firstBoxRange[i]].y = 1.0f;
+             space.points.pos[firstBoxRange[i]] = space.points.pos[firstBoxRange[i]].rotate(0.3f);
          }
 
          GameRenderSettings renderSettings;
@@ -407,11 +438,11 @@ SceneDefinition collisionScenes[] = {
 
          Shapes::createStaticQuad(space, 1099.0f, 90.0f, 50.0f, 600.0f, 1.0f);
 
-         PointMassesRange firstBoxPoints = space.points.range(firstBox);
-         for (Vector2 &velocity : firstBoxPoints.velocity)
+         ShapeIndexedRange firstBoxRange(firstBox);
+
+         for (int i = 0; i < firstBoxRange.size(); i++)
          {
-             velocity.x = 3.5f;
-             //  velocity.y = 0.01f;
+             space.points.velocity[firstBoxRange[i]].x = 3.5f;
          }
 
          game->physicsSpace().gravityEnabled = false;
@@ -624,9 +655,10 @@ SceneDefinition gameScenes[] = {
          Shapes::createQuad(space, 400.0f, 40.0f, 100.0f, 100.0f, 1.0f);
          Shape shelf = Shapes::createTriangle(space, true, 50.0f, 700.0f, 800.0f, 500.0f, 800.0f, 700.0f, 0.0f);
 
-         for (float &mass : space.points.range(shelf).mass)
+         ShapeIndexedRange range(shelf);
+         for (int i = 0; i < range.size(); i++)
          {
-             mass = 10000000.0f;
+             space.points.mass[range[i]] = 10000000.0f;
          }
      }},
     {"Crusher", [](Game *game)
@@ -644,35 +676,6 @@ SceneDefinition gameScenes[] = {
          Shapes::createStaticQuad(space, 1214.0f, 0.0f, 40.0f, 755.0f, 30.0f);
          Shapes::createStaticQuad(space, 1.0f, 755.0f, 1217.0f, 80.0f, 30.0f);
      }},
-
-    {"Joint bridge", [](Game *game)
-     {
-         PhysicsSpace &space = game->physicsSpace();
-
-         float size = 30.0f;
-         int shapeIndex = space.shapes.size();
-         for (int i = 0; i < 10; i++)
-         {
-             Shapes::createQuad(space, 400.0f + i * size, 40.0f, size, size, 1.0f);
-             Shape &shape = space.shapes[space.shapes.size() - 1];
-             shape.parentIndex = shapeIndex;
-
-             if (i > 0)
-             {
-                 int sideIndex1 = space.points.size() - 1;
-                 space.pointJoints.push({sideIndex1, sideIndex1 - 5});
-                 int sideIndex2 = space.points.size() - 4;
-                 space.pointJoints.push({sideIndex2, sideIndex2 - 3});
-                 Vector2 p1 = space.points.pos[sideIndex1];
-                 Vector2 p2 = space.points.pos[sideIndex1 - 4];
-                 Console::log("Should be same: %f %f", p1.x, p2.x);
-             }
-         }
-         Shapes::createStaticQuad(space, -36.0f, 0.0f, 40.0f, 755.0f, 30.0f);
-         Shapes::createStaticQuad(space, 1214.0f, 0.0f, 40.0f, 755.0f, 30.0f);
-         Shapes::createStaticQuad(space, 1.0f, 755.0f, 1217.0f, 80.0f, 30.0f);
-     }},
-
 };
 
 template <int N>

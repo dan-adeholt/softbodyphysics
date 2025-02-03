@@ -38,7 +38,19 @@ void applySpringDerivatives(
         Vector2 direction(p1 - p0);
         float offsetLength = direction.length();
 
-        if (offsetLength > 0.001f)
+        const ShapeProperties &averages = shapeProperties[spring.shapeIndex];
+        const Shape &shape = shapes[spring.shapeIndex];
+
+        // These don't work well since multiple springs are connected to the same point,
+        // and the point has different meanings in each substructure
+
+        Vector2 origPointA = ShapeUtils::getShapePos(points, shape, spring.pointA, averages, dragData);
+        Vector2 origPointB = ShapeUtils::getShapePos(points, shape, spring.pointB, averages, dragData);
+
+        float dot = (p1 - p0).dot(origPointB - origPointA);
+        // dot = 1.0f;
+
+        if (offsetLength > 0.001f && dot > 0)
         {
             float delta = (offsetLength - spring.length);
 
@@ -75,10 +87,9 @@ void applySpringDerivatives(
         const Shape &shape = shapes[i];
 
         const ShapeProperties averages = ShapeUtils::getShapeProperties(points, shape);
-        bool shapeIsBeingDragged = dragData.dragShapeIndex == shape.index;
 
         // Shape is being dragged == enable shape matching in order to drag the shape
-        if ((shape.disableShapeMatching && !shapeIsBeingDragged) || shape.isStatic)
+        if ((shape.disableShapeMatching) || shape.isStatic)
         {
             continue;
         }
@@ -94,21 +105,26 @@ void applySpringDerivatives(
             Vector2 p1(points.pos[j]);
             Vector2 direction = p0 - p1;
             float offsetLength = direction.length();
+            float scale = shape.index == dragData.dragShapeIndex ? 0.0025f : 0.0025f;
+            float damping = shape.index == dragData.dragShapeIndex ? -0.015f : -0.015f;
 
             if (offsetLength > 0.001f)
             {
-
-                // Console::log("Shape: %d %d", shape.start, shape.end);
                 Vector2 directionNormalized = direction.normalized();
                 Vector2 averageVelocity = ShapeUtils::getAverageShapeVelocity(points, shape);
                 Vector2 velocityAlongSpringAxis = directionNormalized * (points.velocity[j] - averageVelocity).dot(directionNormalized);
-                Vector2 force = (p0 - p1) * 0.00015f;
+                Vector2 force = (p0 - p1) * scale;
                 Vector2 acceleration = force;
-                // Console::log("Accel %f %f", acceleration.x, acceleration.y);
 
-                derivative.acceleration += acceleration;
-                derivative.acceleration += (velocityAlongSpringAxis * -0.0025f) / points.mass[j];
-                // derivative.acceleration -= (points.velocity[j] - avgVelocity) * 0.000025f;
+                derivative.acceleration += force;
+                derivative.acceleration += (velocityAlongSpringAxis * damping) / points.mass[j];
+
+                if (shape.index == dragData.dragShapeIndex)
+                {
+                    derivative.acceleration -= points.velocity[j] * 0.025f;
+                }
+
+                derivative.acceleration += (velocityAlongSpringAxis * damping) / points.mass[j];
             }
         }
     }
@@ -151,10 +167,10 @@ void Springs::performThreadedSpringDerivatives(Range<Shape> shapeRange,
     {
         int curEnd = min(curStart + batchSize, springs.size);
         int startShapeIndex = i == 0 ? 0 : springs[curStart].shapeIndex;
-        int curShapeParentIndex = shapeRange[springs[curEnd - 1].shapeIndex].parentIndex;
+        int curShapeparentId = shapeRange[springs[curEnd - 1].shapeIndex].parentId;
         int curShapeIndex = springs[curEnd - 1].shapeIndex;
 
-        while (curEnd < springs.size && (springs[curEnd].shapeIndex == curShapeIndex || (shapeRange[springs[curEnd].shapeIndex].parentIndex != -1 && shapeRange[springs[curEnd].shapeIndex].parentIndex == curShapeParentIndex)))
+        while (curEnd < springs.size && (springs[curEnd].shapeIndex == curShapeIndex || (shapeRange[springs[curEnd].shapeIndex].parentId != -1 && shapeRange[springs[curEnd].shapeIndex].parentId == curShapeparentId)))
         {
             curEnd++;
         }

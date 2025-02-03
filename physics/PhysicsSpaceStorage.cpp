@@ -89,7 +89,7 @@ void readShapeArray(FILE *file, Array<Shape> &array)
         Shape shape;
         int isStatic = 0;
         int disableShapeMatching = 0;
-        fscanf(file, "start=%d end=%d volume=%f isStatic=%d parentIndex=%d disableShapeMatching=%d indices=%hu,%hu,%hu,%hu\n", &shape.start, &shape.end, &shape.volume, &isStatic, &shape.parentIndex, &disableShapeMatching, &shape.indices[0], &shape.indices[1], &shape.indices[2], &shape.indices[3]);
+        fscanf(file, "start=%d end=%d volume=%f isStatic=%d parentId=%d disableShapeMatching=%d indices=%hu,%hu,%hu,%hu\n", &shape.start, &shape.end, &shape.volume, &isStatic, &shape.parentId, &disableShapeMatching, &shape.indices[0], &shape.indices[1], &shape.indices[2], &shape.indices[3]);
         shape.isStatic = isStatic != 0;
         shape.disableShapeMatching = disableShapeMatching != 0;
         array.push(shape);
@@ -133,7 +133,7 @@ void dumpShapeArray(FILE *file, Shape *array, int size)
     for (int i = 0; i < size; ++i)
     {
         const Shape &shape = array[i];
-        fprintf(file, "start=%d end=%d volume=%f isStatic=%d parentIndex=%d disableShapeMatching=%d indices=%hu,%hu,%hu,%hu\n", shape.start, shape.end, shape.volume, shape.isStatic ? 1 : 0, shape.parentIndex, shape.disableShapeMatching ? 1 : 0, shape.indices[0], shape.indices[1], shape.indices[2], shape.indices[3]);
+        fprintf(file, "start=%d end=%d volume=%f isStatic=%d parentId=%d disableShapeMatching=%d indices=%hu,%hu,%hu,%hu\n", shape.start, shape.end, shape.volume, shape.isStatic ? 1 : 0, shape.parentId, shape.disableShapeMatching ? 1 : 0, shape.indices[0], shape.indices[1], shape.indices[2], shape.indices[3]);
     }
 }
 

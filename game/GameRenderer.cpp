@@ -266,7 +266,7 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, 
 
         addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, color);
 
-        if (!renderShapeMatching || shape.disableShapeMatching)
+        if (!renderShapeMatching || shape.disableShapeMatching || shape.isStatic)
         {
             continue;
         }

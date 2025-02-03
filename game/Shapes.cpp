@@ -273,9 +273,8 @@ namespace Shapes
         return circle;
     }
 
-    Shape createBridge(PhysicsSpace &space, float x, float y, float mass, int numSegments)
+    int createBridge(PhysicsSpace &space, float x, float y, float mass, int numSegments)
     {
-        int shapeIndex = space.nextShapeIndex();
         int startIndex = space.points.size();
         int curIndex = startIndex;
         float curX = x;
@@ -302,9 +301,10 @@ namespace Shapes
             curX -= width;
             curIndex++;
         }
-        Shape bridge = Shape(startIndex, curIndex);
-        bridge.disableShapeMatching = true;
-        space.shapes.push(bridge);
+
+        int bridgeStart = startIndex;
+        int bridgeEnd = curIndex;
+        int parentId = space.nextParentId();
         int subShapeIndex = space.nextShapeIndex();
 
         for (int i = 0; i < numSegments; i++)
@@ -321,12 +321,12 @@ namespace Shapes
                 Vector2 bottomLeft = space.points.pos[bottomIndex + 1];
                 Vector2 bottomRight = space.points.pos[bottomIndex];
 
-                Shape subBridge(startIndex, curIndex);
-                subBridge.parentIndex = shapeIndex;
-                subBridge.indices[0] = (uint16_t)(topIndex - 1 - bridge.start);
-                subBridge.indices[1] = (uint16_t)(topIndex - bridge.start);
-                subBridge.indices[2] = (uint16_t)(bottomIndex - bridge.start);
-                subBridge.indices[3] = (uint16_t)(bottomIndex + 1 - bridge.start);
+                Shape subBridge(bridgeStart, bridgeEnd);
+                subBridge.parentId = parentId;
+                subBridge.indices[0] = (uint16_t)(topIndex - 1 - bridgeStart);
+                subBridge.indices[1] = (uint16_t)(topIndex - bridgeStart);
+                subBridge.indices[2] = (uint16_t)(bottomIndex - bridgeStart);
+                subBridge.indices[3] = (uint16_t)(bottomIndex + 1 - bridgeStart);
 
                 // ShapeQuad quad = {{topIndex - 1, topIndex, bottomIndex, bottomIndex + 1}, {topLeft, topRight, bottomLeft, bottomRight}, {topLeft, topRight, bottomLeft, bottomRight}, 4};
                 // space.partialShapes.push(quad);
@@ -347,10 +347,7 @@ namespace Shapes
         }
 
         curX -= width;
-
-        // bridge.subShapeSpan = {partialShapesStart, space.partialShapes.size()};
-
-        return bridge;
+        return parentId;
     }
 
     Shape createStaticQuad(PhysicsSpace &space, float x, float y, float width, float height, float mass)

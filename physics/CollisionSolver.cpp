@@ -588,11 +588,12 @@ int CollisionSolver::calculateCollisionsMidPoint(
 
     for (int i = 0; i < movingRange.size(); i++)
     {
+        int prevIndex = (i == 0 ? movingRange.size() - 1 : i - 1);
         int nextIndex = (i + 1) % movingRange.size();
         int pointIndex = movingRange[i];
         int nextPointIndex = movingRange[nextIndex];
 
-        Vector2 prevPos = points.pos[movingRange[i == 0 ? movingRange.size() - 1 : i - 1]];
+        Vector2 prevPos = points.pos[movingRange[prevIndex]];
         Vector2 nextPos = points.pos[movingRange[nextIndex]];
 
         Vector2 pointToNext = nextPos - points.pos[pointIndex];
@@ -604,8 +605,6 @@ int CollisionSolver::calculateCollisionsMidPoint(
         {
             continue;
         }
-
-        Console::drawPoint(pointPos, 0xFF0000);
 
         numCollisions++;
 
@@ -622,8 +621,6 @@ int CollisionSolver::calculateCollisionsMidPoint(
         Vector2 pm0Pos = points.pos[collisionIndex0];
         Vector2 pm1Pos = points.pos[collisionIndex1];
         Vector2 segmentNormal = Vector2(-pm1Pos.y + pm0Pos.y, pm1Pos.x - pm0Pos.x).normalized();
-
-        Console::drawPoint(result.closestPoint0, 0x00FF00);
 
         if (collisionShape.isStatic)
         {
@@ -902,10 +899,6 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &
         const ShapeBoundingBox &box = m->sortedBoundingBoxes[i];
         const Shape &shape1 = space.shapes[box.shapeIndex];
 
-        if (shape1.disableShapeMatching)
-        {
-            continue;
-        }
         for (int j = i + 1; j < m->sortedBoundingBoxes.size(); j++)
         {
             const ShapeBoundingBox &otherBox = m->sortedBoundingBoxes[j];
@@ -924,15 +917,10 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &
 
             const Shape &shape2 = space.shapes[otherBox.shapeIndex];
 
-            // if (shape1.parentIndex != -1 && shape1.parentIndex == shape2.parentIndex)
+            // if (shape1.parentId != -1 && shape1.parentId == shape2.parentId)
             // {
             //     continue;
             // }
-
-            if (shape2.disableShapeMatching)
-            {
-                continue;
-            }
 
             calculateCollisions(space.points.range(), shape1, shape2, box, otherBox);
             calculateCollisions(space.points.range(), shape2, shape1, otherBox, box);
@@ -941,12 +929,13 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &
             {
                 m->collisionMap.incrementCollision(box.shapeIndex, otherBox.shapeIndex);
                 int numCollisions = m->collisionMap.getCollisionCount(box.shapeIndex, otherBox.shapeIndex);
+
                 calculateCollisionsMidPoint(space.points.range(), shape1, shape2, box, otherBox);
                 calculateCollisionsMidPoint(space.points.range(), shape2, shape1, otherBox, box);
 
-                // Console::log("Num collisions: %d", numCollisions);
                 if (numCollisions > 32 && shapesOverlap(space.points.range(), shape1, shape2))
                 {
+
                     if (!shape1.isStatic && !shape2.isStatic)
                     {
                         // Console::log("Case A");

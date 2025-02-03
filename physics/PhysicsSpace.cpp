@@ -1,5 +1,6 @@
 #include "PhysicsSpace.h"
 #include "../utils/Console.h"
+#include "../utils/MinMax.h"
 
 #define NUM_SHAPES 40
 #define NUM_POINTS 1024
@@ -48,6 +49,18 @@ int PhysicsSpace::nextShapeIndex() const
     return shapes.size();
 }
 
+int PhysicsSpace::nextParentId() const
+{
+    int maxParentId = -1;
+
+    for (int i = 0; i < shapes.size(); i++)
+    {
+        maxParentId = max(maxParentId, shapes[i].parentId);
+    }
+
+    return maxParentId + 1;
+}
+
 void PhysicsSpace::updateIndices()
 {
     for (int i = 0; i < shapes.size(); i++)
@@ -68,7 +81,7 @@ void PhysicsSpace::clear()
     gravityEnabled = true;
 }
 
-void PhysicsSpace::removeShape(int shapeIndex)
+void PhysicsSpace::removeShapeWithoutPoints(int shapeIndex)
 {
     if (shapeIndex < 0 || shapeIndex >= shapes.size())
     {
@@ -76,56 +89,7 @@ void PhysicsSpace::removeShape(int shapeIndex)
     }
 
     Shape &shape = shapes[shapeIndex];
-
-    points.mass.removeRange(shape);
-    points.pos.removeRange(shape);
-    points.velocity.removeRange(shape);
-    points.shapeOriginalPos.removeRange(shape);
-
-    int shapeSize = shape.end - shape.start;
     shapes.remove(shapeIndex);
-
-    for (int i = 0; i < staticJoints.size(); i++)
-    {
-        StaticJoint &joint = staticJoints[i];
-        if (joint.pointIndex >= shape.start && joint.pointIndex < shape.end)
-        {
-            staticJoints.remove(i);
-            i--;
-        }
-        else if (joint.pointIndex >= shape.end)
-        {
-            joint.pointIndex -= shapeSize;
-        }
-    }
-    for (int i = 0; i < pointJoints.size(); i++)
-    {
-        PointJoint &joint = pointJoints[i];
-        if ((joint.pointIndex >= shape.start && joint.pointIndex < shape.end) ||
-            (joint.otherPointIndex >= shape.start && joint.otherPointIndex < shape.end))
-        {
-            staticJoints.remove(i);
-            i--;
-        }
-        else if (joint.pointIndex >= shape.end)
-        {
-            joint.pointIndex -= shapeSize;
-        }
-        else if (joint.otherPointIndex >= shape.end)
-        {
-            joint.otherPointIndex -= shapeSize;
-        }
-    }
-
-    for (int i = 0; i < shapes.size(); i++)
-    {
-        Shape &s = shapes[i];
-        if (i >= shapeIndex)
-        {
-            s.start -= shapeSize;
-            s.end -= shapeSize;
-        }
-    }
 
     for (int i = 0; i < springs.size(); i++)
     {
@@ -139,7 +103,106 @@ void PhysicsSpace::removeShape(int shapeIndex)
         else if (spring.shapeIndex >= shapeIndex)
         {
             spring.shapeIndex--;
+        }
+    }
+}
+
+void PhysicsSpace::removeShape(int shapeIndex)
+{
+    if (shapeIndex < 0 || shapeIndex >= shapes.size())
+    {
+        return;
+    }
+
+    Shape shapeToDelete = shapes[shapeIndex];
+
+    int shapeStart = shapeToDelete.start;
+    int shapeEnd = shapeToDelete.end;
+    Console::log("Shape at start: %d end: %d", shapeStart, shapeEnd);
+
+    if (shapeToDelete.parentId != -1)
+    {
+        for (int i = 0; i < shapes.size(); i++)
+        {
+            Shape s = shapes[i];
+            if (s.parentId == shapeToDelete.parentId)
+            {
+                shapeStart = min(shapeStart, s.start);
+                shapeEnd = max(shapeEnd, s.end);
+                removeShapeWithoutPoints(i);
+
+                i--;
+            }
+        }
+    }
+    else
+    {
+        removeShapeWithoutPoints(shapeIndex);
+    }
+
+    Console::log("Shape after itr: %d end: %d", shapeStart, shapeEnd);
+
+    int shapeSize = shapeEnd - shapeStart;
+    Span shapeSpan = Span(shapeStart, shapeEnd);
+    Console::log("Removing points %d => %d", shapeStart, shapeEnd);
+    points.mass.removeRange(shapeSpan);
+    points.pos.removeRange(shapeSpan);
+    points.velocity.removeRange(shapeSpan);
+    points.shapeOriginalPos.removeRange(shapeSpan);
+
+    for (int i = 0; i < staticJoints.size(); i++)
+    {
+        StaticJoint &joint = staticJoints[i];
+        if (joint.pointIndex >= shapeSpan.start && joint.pointIndex < shapeSpan.end)
+        {
+            staticJoints.remove(i);
+            i--;
+        }
+        else if (joint.pointIndex >= shapeSpan.end)
+        {
+            joint.pointIndex -= shapeSize;
+        }
+    }
+    for (int i = 0; i < pointJoints.size(); i++)
+    {
+        PointJoint &joint = pointJoints[i];
+        if ((joint.pointIndex >= shapeSpan.start && joint.pointIndex < shapeSpan.end) ||
+            (joint.otherPointIndex >= shapeSpan.start && joint.otherPointIndex < shapeSpan.end))
+        {
+            staticJoints.remove(i);
+            i--;
+        }
+        else if (joint.pointIndex >= shapeSpan.end)
+        {
+            joint.pointIndex -= shapeSize;
+        }
+        else if (joint.otherPointIndex >= shapeSpan.end)
+        {
+            joint.otherPointIndex -= shapeSize;
+        }
+    }
+
+    for (int i = 0; i < shapes.size(); i++)
+    {
+        Shape &s = shapes[i];
+        if (s.start >= shapeStart)
+        {
+            s.start -= shapeSize;
+            s.end -= shapeSize;
+        }
+    }
+
+    for (int i = 0; i < springs.size(); i++)
+    {
+        Spring &spring = springs[i];
+
+        if (spring.pointA >= shapeStart)
+        {
             spring.pointA -= shapeSize;
+        }
+
+        if (spring.pointB >= shapeStart)
+        {
             spring.pointB -= shapeSize;
         }
     }

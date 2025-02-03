@@ -205,7 +205,7 @@ public:
     }
 
     template <typename Predicate>
-    void filter(Predicate predicate)
+    int filter(Predicate predicate)
     {
         int numRemoved = 0;
         for (int i = 0; i < m_size; i++)
@@ -219,6 +219,7 @@ public:
         }
 
         m_size -= numRemoved;
+        return numRemoved;
     }
 
     void insert(int index, const T &element)

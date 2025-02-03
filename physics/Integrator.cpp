@@ -225,19 +225,33 @@ void RK4Integrator::performRK4Integration(PhysicsSpace &space, const ShapeMatchD
         const ShapeProperties &averages = m->shapeProperties[spring.shapeIndex];
         const Shape &shape = space.shapes[spring.shapeIndex];
 
+        // These don't work well since multiple springs are connected to the same point,
+        // and the point has different meanings in each substructure
+
         Vector2 origPointA = ShapeUtils::getShapePos(space.points.range(), space.shapes[spring.shapeIndex], spring.pointA, averages, dragData);
         Vector2 origPointB = ShapeUtils::getShapePos(space.points.range(), space.shapes[spring.shapeIndex], spring.pointB, averages, dragData);
 
         float dot = (pointB - pointA).dot(origPointB - origPointA);
 
-        if (dot < 0)
-        {
-            space.points.pos[spring.pointB] = pointA;
-            space.points.pos[spring.pointA] = pointB;
-            Vector2 velocityA = space.points.velocity[spring.pointA];
-            space.points.velocity[spring.pointA] = space.points.velocity[spring.pointB] * 0.5f;
-            space.points.velocity[spring.pointB] = velocityA * 0.5f;
-        }
+        // if (dot < 0)
+        // {
+        //     Console::log("Flipping spring %d => %d %d", i, spring.pointA, spring.pointB);
+        //     if (shape.hasIndices())
+        //     {
+        //         space.points.pos[spring.pointB] = origPointB;
+        //         space.points.pos[spring.pointA] = origPointA;
+        //         space.points.velocity[spring.pointA] *= 0.5f;
+        //         space.points.velocity[spring.pointB] *= 0.5f;
+        //     }
+        //     else
+        //     {
+        //         space.points.pos[spring.pointB] = pointA;
+        //         space.points.pos[spring.pointA] = pointB;
+        //         Vector2 velocityA = space.points.velocity[spring.pointA];
+        //         space.points.velocity[spring.pointA] = space.points.velocity[spring.pointB] * 0.5f;
+        //         space.points.velocity[spring.pointB] = velocityA * 0.5f;
+        //     }
+        // }
     }
 
     for (int i = 0; i < space.shapes.size(); i++)

@@ -83,7 +83,7 @@
 966.000000 614.000000
 896.000000 614.000000
 shapes=1
-start=0 end=20 volume=0.000000 isStatic=0 parentIndex=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=0 end=20 volume=0.000000 isStatic=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
 springs=46
 0 19 70.000000 6.500000 280.899994 0
 1 18 70.000000 6.500000 280.899994 0

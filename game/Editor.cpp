@@ -553,10 +553,12 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 
                 if (selectedShapeIndex != -1)
                 {
-                    ImGui::Text("Selected shape: %d", selectedShapeIndex);
+
                     if (space.shapes.size() > selectedShapeIndex)
                     {
                         Shape &shape = space.shapes[selectedShapeIndex];
+                        ImGui::Text("Selected shape: %d [%d]", selectedShapeIndex, shape.parentId);
+
                         ImGui::Checkbox("Static", &shape.isStatic);
                         ImGui::Checkbox("Disable shape matching", &shape.disableShapeMatching);
                         if (ImGui::Button("Reset to original"))
@@ -623,7 +625,7 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
         if (ImGui::BeginMenu("Shapes"))
         {
 
-            float defaultMass = 20.0f;
+            float defaultMass = 2.0f;
             float size = 50.0f;
 
             if (ImGui::MenuItem("Quad"))
