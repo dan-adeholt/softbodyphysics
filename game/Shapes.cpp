@@ -154,72 +154,90 @@ namespace Shapes
         // }
     }
 
-    Shape createMesh(PhysicsSpace &space, float x, float y, float width, float height, int numSegments, float mass, float stiffnessFactor)
+    int createMesh(PhysicsSpace &space, float x, float y, float meshWidth, float meshHeight, int numSegments, float mass, float stiffnessFactor)
     {
-        int shapeIndex = space.nextShapeIndex();
         int startIndex = space.points.size();
         int curIndex = startIndex;
         float curX = x;
+        float curY = y;
+
+        float width = meshWidth / numSegments;
+        float height = meshHeight / numSegments;
+
         float diagonal = sqrt(width * width + height * height);
         float stiffness = 4.5f;
-        float damping = 180.9f;
-
-        for (int i = 0; i < numSegments; i++)
+        float damping = 1280.9f;
+        Console::log("Mesh size: %f %f %d", meshWidth, meshHeight, numSegments);
+        Console::log("Width: %f", width);
+        Console::log("Height: %f", height);
+        for (int row = 0; row < numSegments; row++)
         {
-            space.points.push(curX, y, mass);
-
-            curX += width;
-            curIndex++;
-        }
-
-        curX -= width;
-
-        for (int i = 0; i < numSegments; i++)
-        {
-            space.points.push(curX, y + height, mass);
-
-            curX -= width;
-            curIndex++;
-        }
-
-        Shape bridge = Shape(startIndex, curIndex);
-
-        for (int i = 0; i < numSegments; i++)
-        {
-            int topIndex = startIndex + i;
-            int bottomIndex = startIndex + numSegments * 2 - i - 1;
-
-            space.springs.push(Spring(topIndex, bottomIndex, height, stiffness, damping, shapeIndex));
-
-            if (i > 0)
+            for (int i = 0; i < numSegments; i++)
             {
-                Vector2 topLeft = space.points.pos[topIndex];
-                Vector2 topRight = space.points.pos[topIndex - 1];
-                Vector2 bottomLeft = space.points.pos[bottomIndex + 1];
-                Vector2 bottomRight = space.points.pos[bottomIndex];
+                space.points.push(curX, curY, mass);
 
-                // ShapeQuad quad = {{topIndex - 1, topIndex, bottomIndex, bottomIndex + 1}, {topLeft, topRight, bottomLeft, bottomRight}, {topLeft, topRight, bottomLeft, bottomRight}, 4};
-                // space.partialShapes.push(quad);
-
-                // Top bar
-                space.springs.push(Spring(topIndex - 1, topIndex, width, stiffness, damping, shapeIndex));
-                // Bottom bar
-                space.springs.push(Spring(bottomIndex + 1, bottomIndex, width, stiffness, damping, shapeIndex));
-
-                // Diagonal 1
-                space.springs.push(Spring(topIndex, bottomIndex + 1, diagonal, stiffness, damping, shapeIndex));
-                // Diagonal 2
-                space.springs.push(Spring(bottomIndex, topIndex - 1, diagonal, stiffness, damping, shapeIndex));
+                curX += width;
+                curIndex++;
             }
+
+            curX = x;
+            curY += height;
         }
 
+        int meshStart = startIndex;
+        int meshEnd = curIndex;
+        int parentId = space.nextParentId();
+        int subShapeIndex = space.nextShapeIndex();
+        int rowOffset = 0;
+        for (int row = 0; row < numSegments - 1; row++)
+        {
+            for (int i = 0; i < numSegments; i++)
+            {
+
+                int topIndex = rowOffset + startIndex + i;
+                int bottomIndex = topIndex + numSegments;
+
+                space.springs.push(Spring(topIndex, bottomIndex, height, stiffness, damping, subShapeIndex));
+
+                if (i > 0)
+                {
+                    Vector2 topLeft = space.points.pos[topIndex - 1];
+                    Vector2 topRight = space.points.pos[topIndex];
+                    Vector2 bottomLeft = space.points.pos[bottomIndex - 1];
+                    Vector2 bottomRight = space.points.pos[bottomIndex];
+
+                    Shape subMesh(meshStart, meshEnd);
+                    subMesh.parentId = parentId;
+                    subMesh.indices[0] = (uint16_t)(topIndex - 1 - meshStart);
+                    subMesh.indices[1] = (uint16_t)(topIndex - meshStart);
+                    subMesh.indices[2] = (uint16_t)(bottomIndex - meshStart);
+                    subMesh.indices[3] = (uint16_t)(bottomIndex - 1 - meshStart);
+
+                    subMesh.interiorEdges[0] = row > 0;
+                    subMesh.interiorEdges[1] = i < numSegments - 1;
+                    subMesh.interiorEdges[2] = row < numSegments - 2;
+                    subMesh.interiorEdges[3] = i > 1;
+
+                    // Top bar
+                    space.springs.push(Spring(topIndex - 1, topIndex, width, stiffness, damping, subShapeIndex));
+                    // Bottom bar
+                    space.springs.push(Spring(bottomIndex - 1, bottomIndex, width, stiffness, damping, subShapeIndex));
+
+                    // // Diagonal 1
+                    space.springs.push(Spring(topIndex - 1, bottomIndex, diagonal, stiffness, damping, subShapeIndex));
+                    // // Diagonal 2
+                    space.springs.push(Spring(bottomIndex - 1, topIndex, diagonal, stiffness, damping, subShapeIndex));
+
+                    space.shapes.push(subMesh);
+
+                    subShapeIndex = space.nextShapeIndex();
+                }
+            }
+
+            rowOffset += numSegments;
+        }
         curX -= width;
-
-        // bridge.subShapeSpan = {partialShapesStart, space.partialShapes.size()};
-        bridge.disableShapeMatching = true;
-        space.shapes.push(bridge);
-
-        return bridge;
+        return parentId;
     }
 
     Shape createCircle(PhysicsSpace &space, float x, float y, float radius, float mass, float stiffnessFactor)
@@ -327,6 +345,9 @@ namespace Shapes
                 subBridge.indices[1] = (uint16_t)(topIndex - bridgeStart);
                 subBridge.indices[2] = (uint16_t)(bottomIndex - bridgeStart);
                 subBridge.indices[3] = (uint16_t)(bottomIndex + 1 - bridgeStart);
+
+                subBridge.interiorEdges[1] = i < numSegments - 1;
+                subBridge.interiorEdges[3] = i > 1;
 
                 // ShapeQuad quad = {{topIndex - 1, topIndex, bottomIndex, bottomIndex + 1}, {topLeft, topRight, bottomLeft, bottomRight}, {topLeft, topRight, bottomLeft, bottomRight}, 4};
                 // space.partialShapes.push(quad);

@@ -196,6 +196,7 @@ struct Shape
     int parentId;
 
     uint16_t indices[4] = {UINT16_MAX, UINT16_MAX, UINT16_MAX, UINT16_MAX};
+    bool interiorEdges[4] = {false, false, false, false};
 
     bool hasIndices() const
     {
@@ -270,11 +271,6 @@ struct ShapeIterator
 
 struct ShapeIndexedRange
 {
-    int start = 0;
-    int end = 0;
-    int indices[4] = {0, 0, 0, 0};
-    bool indexed = false;
-
     ShapeIndexedRange(const Shape &shape)
     {
         indexed = shape.hasIndices();
@@ -287,7 +283,17 @@ struct ShapeIndexedRange
             {
                 indices[i] = shape.start + shape.indices[i];
             }
+
+            for (int i = 0; i < 4; i++)
+            {
+                interiorEdges[i] = shape.interiorEdges[i];
+            }
         }
+    }
+
+    bool hasInteriorEdge(int i) const
+    {
+        return indexed ? interiorEdges[i] : false;
     }
 
     int operator[](int i) const
@@ -299,6 +305,13 @@ struct ShapeIndexedRange
     {
         return end - start;
     }
+
+private:
+    int start = 0;
+    int end = 0;
+    int indices[4] = {0, 0, 0, 0};
+    bool interiorEdges[4] = {false, false, false, false};
+    bool indexed = false;
 };
 
 #endif

@@ -1,0 +1,142 @@
+20
+1.000000
+1.000000
+1.000000
+1.000000
+1.000000
+1.000000
+1.000000
+1.000000
+1.000000
+1.000000
+1.000000
+1.000000
+1.000000
+1.000000
+1.000000
+1.000000
+1.000000
+1.000000
+1.000000
+1.000000
+20
+895.000000 412.118958
+965.000000 412.118958
+1035.000000 412.118958
+1105.000000 412.118958
+1175.000000 412.118958
+1245.000000 412.118958
+1315.000000 412.118958
+1385.000000 412.118958
+1455.000000 412.118958
+1525.000000 412.118958
+1525.000000 482.118958
+1455.000000 482.118958
+1385.000000 482.118958
+1315.000000 482.118958
+1245.000000 482.118958
+1175.000000 482.118958
+1105.000000 482.118958
+1035.000000 482.118958
+965.000000 482.118958
+895.000000 482.118958
+20
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+0.000000 0.215098
+20
+895.000000 258.000000
+965.000000 258.000000
+1035.000000 258.000000
+1105.000000 258.000000
+1175.000000 258.000000
+1245.000000 258.000000
+1315.000000 258.000000
+1385.000000 258.000000
+1455.000000 258.000000
+1525.000000 258.000000
+1525.000000 328.000000
+1455.000000 328.000000
+1385.000000 328.000000
+1315.000000 328.000000
+1245.000000 328.000000
+1175.000000 328.000000
+1105.000000 328.000000
+1035.000000 328.000000
+965.000000 328.000000
+895.000000 328.000000
+shapes=9
+ interiorEdges=0,1,0,0
+ interiorEdges=0,1,0,1
+ interiorEdges=0,1,0,1
+ interiorEdges=0,1,0,1
+ interiorEdges=0,1,0,1
+ interiorEdges=0,1,0,1
+ interiorEdges=0,1,0,1
+ interiorEdges=0,1,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=20 volume=0.000000 isStatic=0 parentId=0 disableShapeMatching=0 indices=8,9,10,11 interiorEdges=0,0,0,1

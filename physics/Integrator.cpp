@@ -254,30 +254,30 @@ void RK4Integrator::performRK4Integration(PhysicsSpace &space, const ShapeMatchD
         // }
     }
 
-    for (int i = 0; i < space.shapes.size(); i++)
-    {
-        Shape &shape = space.shapes[i];
+    // for (int i = 0; i < space.shapes.size(); i++)
+    // {
+    //     Shape &shape = space.shapes[i];
 
-        if (shape.isStatic || shape.disableShapeMatching)
-        {
-            continue;
-        }
+    //     if (shape.isStatic || shape.disableShapeMatching)
+    //     {
+    //         continue;
+    //     }
 
-        ShapeProperties &averages = m->shapeProperties[i];
+    //     ShapeProperties &averages = m->shapeProperties[i];
 
-        for (ShapeIterator s(shape); s.isValid(); s.next())
-        {
-            int j = s.index();
-            Vector2 shapePos = ShapeUtils::getShapePos(space.points.range(), shape, j, averages, dragData);
+    //     for (ShapeIterator s(shape); s.isValid(); s.next())
+    //     {
+    //         int j = s.index();
+    //         Vector2 shapePos = ShapeUtils::getShapePos(space.points.range(), shape, j, averages, dragData);
 
-            Vector2 delta = space.points.pos[j] - shapePos;
+    //         Vector2 delta = space.points.pos[j] - shapePos;
 
-            if (delta.length() > maxDistFromCenter)
-            {
-                space.points.pos[j] = shapePos + delta.normalized() * maxDistFromCenter;
-            }
-        }
-    }
+    //         if (delta.length() > maxDistFromCenter)
+    //         {
+    //             space.points.pos[j] = shapePos + delta.normalized() * maxDistFromCenter;
+    //         }
+    //     }
+    // }
 }
 
 void RK4Integrator::testRK4Performance(int iterations, PhysicsSpace &space)

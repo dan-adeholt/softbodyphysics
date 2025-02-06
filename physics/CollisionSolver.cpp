@@ -408,6 +408,11 @@ ClosestSegmentResult CollisionSolver::findEntryEdgeClosestSegment(PointMassesRan
         Vector2 segment0 = points.pos[collisionShapeRange[i]];
         Vector2 segment1 = points.pos[collisionShapeRange[(i + 1) % collisionShapeRange.size()]];
 
+        if (collisionShapeRange.hasInteriorEdge(i))
+        {
+            continue;
+        }
+
         float distanceToVertex = (segment0 - currentPoint).length();
 
         // Vector from A to B
@@ -611,8 +616,15 @@ int CollisionSolver::calculateCollisionsMidPoint(
         // Console::log("** Find entry edge for point %d in %d **", i, movingBox.shapeIndex);
 
         ClosestSegmentResult result = findEntryEdgeClosestSegment(points, collisionShape, pointPos);
+
+        if (result.entryEdgeIndex0 == -1)
+        {
+            continue;
+        }
+
         Vector2 pointVelocity = points.velocity[pointIndex];
 
+        Console::drawPoint(result.closestPoint0, 0xFF0000);
         int collisionIndex0 = collisionRange[result.entryEdgeIndex0];
         int collisionIndex1 = collisionRange[(result.entryEdgeIndex0 + 1) % collisionRange.size()];
 
@@ -716,6 +728,11 @@ int CollisionSolver::calculateCollisions(
 
         ClosestSegmentResult result = findEntryEdgeClosestSegment(points, collisionShape, pointPos);
 
+        if (result.entryEdgeIndex0 == -1)
+        {
+            continue;
+        }
+
         Vector2 pointVelocity = points.velocity[pointIndex];
 
         float pointMass = points.mass[pointIndex];
@@ -733,7 +750,10 @@ int CollisionSolver::calculateCollisions(
             Vector2 reflection = pointVelocity.reflect(segmentNormal).normalized();
             points.velocity[pointIndex] += impulse / pointMass;
             Vector2 diff = points.pos[pointIndex] - result.closestPoint0;
+            Vector2 oldPos = points.pos[pointIndex];
             points.pos[pointIndex] = result.closestPoint0 + reflection * 0.1f;
+
+            float distance = (points.pos[pointIndex] - oldPos).length();
         }
         else
         {
@@ -758,7 +778,15 @@ int CollisionSolver::calculateCollisions(
 
                 points.pos[collisionIndex0] = pm0Pos;
                 points.pos[collisionIndex1] = pm1Pos;
+                Vector2 oldPos = points.pos[pointIndex];
                 points.pos[pointIndex] = result.closestPoint0 + reflection * 0.1f;
+                float distance = (points.pos[pointIndex] - oldPos).length();
+
+                if (distance > 100.0f)
+                {
+                    Console::log("Distance %.2f", distance);
+                }
+
                 points.velocity[pointIndex] += impulse / pointMass;
             }
             else

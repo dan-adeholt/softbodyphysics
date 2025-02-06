@@ -7,6 +7,10 @@
 #include <SDL.h>
 #include <dirent.h>
 
+//  interiorEdges=0,1,0,0
+//  interiorEdges=0,1,0,1
+//  interiorEdges=0,0,0,1
+
 void readVector2QuadArray(FILE *file, Vector2 *array)
 {
     int size = 0;
@@ -89,9 +93,16 @@ void readShapeArray(FILE *file, Array<Shape> &array)
         Shape shape;
         int isStatic = 0;
         int disableShapeMatching = 0;
-        fscanf(file, "start=%d end=%d volume=%f isStatic=%d parentId=%d disableShapeMatching=%d indices=%hu,%hu,%hu,%hu\n", &shape.start, &shape.end, &shape.volume, &isStatic, &shape.parentId, &disableShapeMatching, &shape.indices[0], &shape.indices[1], &shape.indices[2], &shape.indices[3]);
+        int interiorEdges[4] = {0, 0, 0, 0};
+
+        fscanf(file, "start=%d end=%d volume=%f isStatic=%d parentId=%d disableShapeMatching=%d indices=%hu,%hu,%hu,%hu interiorEdges=%d,%d,%d,%d\n", &shape.start, &shape.end, &shape.volume, &isStatic, &shape.parentId, &disableShapeMatching, &shape.indices[0], &shape.indices[1], &shape.indices[2], &shape.indices[3], &interiorEdges[0], &interiorEdges[1], &interiorEdges[2], &interiorEdges[3]);
         shape.isStatic = isStatic != 0;
         shape.disableShapeMatching = disableShapeMatching != 0;
+        shape.interiorEdges[0] = interiorEdges[0] != 0;
+        shape.interiorEdges[1] = interiorEdges[1] != 0;
+        shape.interiorEdges[2] = interiorEdges[2] != 0;
+        shape.interiorEdges[3] = interiorEdges[3] != 0;
+
         array.push(shape);
     }
 }
@@ -133,7 +144,7 @@ void dumpShapeArray(FILE *file, Shape *array, int size)
     for (int i = 0; i < size; ++i)
     {
         const Shape &shape = array[i];
-        fprintf(file, "start=%d end=%d volume=%f isStatic=%d parentId=%d disableShapeMatching=%d indices=%hu,%hu,%hu,%hu\n", shape.start, shape.end, shape.volume, shape.isStatic ? 1 : 0, shape.parentId, shape.disableShapeMatching ? 1 : 0, shape.indices[0], shape.indices[1], shape.indices[2], shape.indices[3]);
+        fprintf(file, "start=%d end=%d volume=%f isStatic=%d parentId=%d disableShapeMatching=%d indices=%hu,%hu,%hu,%hu interiorEdges=%d,%d,%d,%d\n", shape.start, shape.end, shape.volume, shape.isStatic ? 1 : 0, shape.parentId, shape.disableShapeMatching ? 1 : 0, shape.indices[0], shape.indices[1], shape.indices[2], shape.indices[3], shape.interiorEdges[0] ? 1 : 0, shape.interiorEdges[1] ? 1 : 0, shape.interiorEdges[2] ? 1 : 0, shape.interiorEdges[3] ? 1 : 0);
     }
 }
 
@@ -143,7 +154,6 @@ void readPointMasses(FILE *file, PointMasses &points)
     readVector2Array(file, points.pos);
     readVector2Array(file, points.velocity);
     readVector2Array(file, points.shapeOriginalPos);
-    printf("Array size after read: %d\n", points.shapeOriginalPos.size());
 }
 
 void dumpPointMasses(FILE *file, PointMasses &points)

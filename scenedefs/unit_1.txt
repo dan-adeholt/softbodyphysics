@@ -131,8 +131,8 @@
 10.606598 -10.606628
 13.858185 -5.740234
 shapes=2
-start=0 end=16 volume=300.000000 isStatic=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
-start=16 end=32 volume=300.000000 isStatic=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535
+start=0 end=16 volume=300.000000 isStatic=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=16 end=32 volume=300.000000 isStatic=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
 springs=64
 0 3 16.667126 2.500000 1080.900024 0
 5 0 24.944103 2.500000 1080.900024 0

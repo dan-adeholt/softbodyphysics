@@ -240,8 +240,8 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, 
     for (int i = 0; i < shapes.size; i++)
     {
         const Shape &shape = shapes.data[i];
-
-        Vector2 startPos = pointMasses.pos[shape.start];
+        ShapeIndexedRange shapeRange(shape);
+        Vector2 startPos = pointMasses.pos[shapeRange[0]];
         Vector2 pos = startPos;
 
         SDL_Color color = {0, 0, 0, 255};
@@ -251,18 +251,28 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, 
             color = {0, 255, 0, 255};
         }
 
-        for (int pointIndex = shape.start + 1; pointIndex < shape.end; pointIndex++)
+        for (int pointIndex = 1; pointIndex < shapeRange.size(); pointIndex++)
         {
-            Vector2 nextPos = pointMasses.pos[pointIndex];
+            Vector2 nextPos = pointMasses.pos[shapeRange[pointIndex]];
 
             if (isnan(pos.x) || isnan(pos.y) || isnan(nextPos.x) || isnan(nextPos.y))
             {
                 continue;
             }
 
+            // if (shapeRange.hasInteriorEdge(pointIndex - 1))
+            // {
+            //     Console::drawSegment(pos, nextPos, 0xFF0000);
+            // }
+
             addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, color);
             pos = nextPos;
         }
+
+        // if (shapeRange.hasInteriorEdge(3))
+        // {
+        //     Console::drawSegment(pos, startPos, 0xFF0000);
+        // }
 
         addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, color);
 

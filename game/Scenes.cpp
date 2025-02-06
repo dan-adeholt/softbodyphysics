@@ -61,6 +61,13 @@ SceneDefinition deformedScenes[] = {
 };
 
 SceneDefinition collisionScenes[] = {
+    {"New Unit Test 19", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_19.txt");
+         game->setPaused();
+     }},
+
     {"New Unit Test 16", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();
@@ -452,13 +459,13 @@ SceneDefinition shapeScenes[] = {
     {"Mesh", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();
-         Shapes::createMesh(space, 600.0f, 350.0f, 10.0f, 100.0f, 100.0f, 10);
+         Shapes::createMesh(space, 400.0f, 250.0f, 400.0f, 400.0f, 10, 44.0f);
 
          Shapes::createStaticQuad(space, 149.0f, 91.0f, 50.0f, 598.0f, 1.0f);
          Shapes::createStaticQuad(space, 1099.0f, 91.0f, 50.0f, 598.0f, 1.0f);
-         Shapes::createStaticQuad(space, 149.0f, 690.0f, 1000.0f, 50.0f, 1.0f);
+         Shapes::createStaticQuad(space, 149.0f, 690.0f, 1000.0f, 650.0f, 1.0f);
          Shapes::createStaticQuad(space, 149.0f, 40.0f, 1000.0f, 50.0f, 1.0f);
-         space.gravityEnabled = false;
+         space.gravityEnabled = true;
      }},
     {"Circle", [](Game *game)
      {
