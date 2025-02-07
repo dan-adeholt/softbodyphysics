@@ -35,7 +35,7 @@
 -41.250000 55.000000
 -55.000000 41.250000
 shapes=1
-start=0 end=8 volume=0.000000 isStatic=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=0 end=8 volume=0.000000 isStatic=0 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
 springs=28
 0 1 19.445436 4.000000 5.780000 0
 1 2 82.500000 4.000000 5.780000 0

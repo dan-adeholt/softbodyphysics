@@ -194,9 +194,15 @@ struct Shape
     bool disableShapeMatching;
     int index;
     int parentId;
+    bool selfIntersecting = false;
 
     uint16_t indices[4] = {UINT16_MAX, UINT16_MAX, UINT16_MAX, UINT16_MAX};
     bool interiorEdges[4] = {false, false, false, false};
+
+    bool allInteriorEdges() const
+    {
+        return interiorEdges[0] && interiorEdges[1] && interiorEdges[2] && interiorEdges[3];
+    }
 
     bool hasIndices() const
     {
