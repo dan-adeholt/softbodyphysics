@@ -235,193 +235,12 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
     bool triggerOpenPopup = false;
     int deleteGameIndex = -1;
     ImGuiIO &io = ImGui::GetIO();
+    ImVec2 displaySize = io.DisplaySize;
 
     if (ImGui::IsKeyPressed(ImGuiKey_N) && (io.KeyMods & ImGuiModFlags_Ctrl) != 0)
     {
         triggerOpenPopup = true;
     }
-
-    if (ImGui::BeginMainMenuBar())
-    {
-        if (ImGuiBeginTallerMenu("File"))
-        {
-            if (ImGui::MenuItem("New", "Ctrl+N/Meta+N"))
-            {
-                triggerOpenPopup = true;
-            }
-
-            if (ImGui::BeginMenu("Open"))
-            {
-                for (int i = 0; i < m->fileList.size(); i++)
-                {
-                    if (ImGui::MenuItem(m->fileList[i].name.data))
-                    {
-                        m->lastOpenedFile.clear();
-                        m->lastOpenedFile.append(m->fileList[i].name.data);
-
-                        Game *newGame = new Game(m->appPath, m->lastOpenedFile.data);
-                        m->games.push(newGame);
-                        m->currentGameIndex = m->games.size() - 1;
-                        m->openedBuffers.push({m->lastOpenedFile});
-                        saveState();
-                        StringBuffer<512> fullPath;
-                        fullPath.append("%s/%s", m->appPath, m->lastOpenedFile.data);
-                        PhysicsSpaceStorage::loadFromFile(newGame->physicsSpace(), fullPath.data);
-                    }
-                }
-                ImGui::EndMenu();
-            }
-
-            if (ImGui::MenuItem("Save", "Ctrl+S/Meta+S"))
-            {
-                game.saveToFile();
-            }
-
-            if (ImGui::MenuItem("Dump to unit test"))
-            {
-                PhysicsSpaceStorage::dumpToUnitTest(game.physicsSpace());
-            }
-            ImGui::EndMenu();
-        }
-
-        if (ImGuiBeginTallerMenu("Settings"))
-        {
-            ImGui::Checkbox("Gravity", &game.physicsSpace().gravityEnabled);
-            ImGui::Checkbox("Collisions", &game.physicsSpace().collisionsEnabled);
-            ImGui::Checkbox("Shape matching", &game.physicsSpace().shapeMatchingEnabled);
-            ImGui::Checkbox("Springs", &game.physicsSpace().springsEnabled);
-            ImGui::DragInt("Speed", &game.simulationSpeed(), 1.0, 1, 100, "%d", ImGuiSliderFlags_AlwaysClamp);
-            ImGui::EndMenu();
-        }
-
-        if (ImGuiBeginTallerMenu("Tests"))
-        {
-            for (int i = 0; i < PhysicsTestDefinition::numTests; i++)
-            {
-                PhysicsTestDefinition *testCase = &PhysicsTestDefinition::allTests[i];
-                const bool isSelected = curTestCase == testCase;
-                if (ImGui::Selectable(testCase->name, isSelected))
-                {
-                    curTestCase = testCase;
-                    curTestCase->start(&game);
-                }
-
-                // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
-                if (isSelected)
-                {
-                    ImGui::SetItemDefaultFocus();
-                }
-            }
-
-            if (curTestCase != nullptr)
-            {
-                ImGui::SeparatorText("Test executor");
-                ImGui::Text("Test progress: %d / %d", curTestCase->time, curTestCase->duration);
-                ImGui::Text("Failed: %s", curTestCase->invariantResult != nullptr ? curTestCase->invariantResult : "false");
-            }
-
-            ImGui::EndMenu();
-        }
-
-        ImGui::EndMainMenuBar();
-    }
-
-    ImVec2 displaySize = io.DisplaySize;
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-
-    ImGui::SetNextWindowSizeConstraints(ImVec2(displaySize.x - 246, 29), ImVec2(displaySize.x - 246, 29));
-    ImGui::SetNextWindowPos(ImVec2(246, 23), ImGuiCond_Always, ImVec2(0, 0));
-
-    if (ImGui::Begin("Scenes window", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoDecoration))
-    {
-        if (triggerOpenPopup)
-        {
-            ImGui::OpenPopup("Add level");
-        }
-
-        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-
-        if (ImGui::BeginPopupModal("Add level", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-        {
-            if (triggerOpenPopup)
-            {
-                m->newFileName[0] = '\0';
-                ImGui::SetKeyboardFocusHere();
-            }
-
-            ImGui::InputText("Level name", m->newFileName, sizeof(m->newFileName));
-
-            if (ImGui::Button("OK", ImVec2(120, 0)))
-            {
-                Console::log("Closing popup");
-                if (strlen(m->newFileName) > 0)
-                {
-                    StringBuffer<256> newFileNameWithExtension;
-                    newFileNameWithExtension.append("%s.txt", m->newFileName);
-                    Game *newGame = new Game(m->appPath, newFileNameWithExtension.data);
-                    m->games.push(newGame);
-                    m->openedBuffers.push({newFileNameWithExtension});
-
-                    m->currentGameIndex = m->games.size() - 1;
-                    saveState();
-                }
-                ImGui::CloseCurrentPopup();
-            }
-
-            ImGui::SameLine();
-            if (ImGui::Button("Cancel", ImVec2(120, 0)))
-            {
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndPopup();
-        }
-        m->closeTabStates.fill(true, m->games.size());
-
-        if (ImGui::BeginTabBar("Scenes", ImGuiTabBarFlags_FittingPolicyResizeDown))
-        {
-            bool setSelectedTabState = m->currentGameIndex != m->gameTabIndex;
-
-            for (int i = 0; i < m->closeTabStates.size(); i++)
-            {
-                StringBuffer<256> tabName;
-                tabName.append(" %s %s ", ICON_FA_FILE_CODE_O, m->games[i]->title());
-
-                if (m->closeTabStates[i] && ImGui::BeginTabItem(tabName.data, i == 0 ? nullptr : &m->closeTabStates[i], i == m->currentGameIndex && setSelectedTabState ? ImGuiTabItemFlags_SetSelected : 0))
-                {
-                    if (ImGui::IsItemActive() && i != m->currentGameIndex)
-                    {
-                        m->currentGameIndex = i;
-                        saveState();
-                    }
-
-                    ImGui::EndTabItem();
-                }
-            }
-
-            m->gameTabIndex = m->currentGameIndex;
-
-            if (ImGui::TabItemButton("...", ImGuiTabItemFlags_Trailing | ImGuiTabItemFlags_NoTooltip))
-            {
-                // m->games.push(new Game(m->appPath));
-                // m->closeTabStates.push(true);
-                ImGui::EndTabItem();
-            }
-            ImGui::EndTabBar();
-        }
-
-        for (int i = 0; i < m->closeTabStates.size(); i++)
-        {
-            if (!m->closeTabStates[i])
-            {
-                deleteGameIndex = i;
-                break;
-            }
-        }
-
-        ImGui::End();
-    }
-    ImGui::PopStyleVar(1);
 
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.85f, 0.85f, 0.85f, 1.0f)); // Menu bar background color
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));     // Menu bar background color
@@ -504,9 +323,10 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
                             ImGui::TreeNodeEx((void *)(intptr_t)j, node_flags, "%s %s", ICON_FA_FILE_CODE_O, scene.name);
                             if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
                             {
+                                m->currentGameIndex = 0;
                                 m->lastScene.clear();
                                 m->lastScene.append(scene.name);
-                                game.init(scene);
+                                m->games[0]->init(scene);
                                 saveState();
                             }
                         }
@@ -669,6 +489,187 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 
         ImGui::EndPopup();
     }
+
+    if (ImGui::BeginMainMenuBar())
+    {
+        if (ImGuiBeginTallerMenu("File"))
+        {
+            if (ImGui::MenuItem("New", "Ctrl+N/Meta+N"))
+            {
+                triggerOpenPopup = true;
+            }
+
+            if (ImGui::BeginMenu("Open"))
+            {
+                for (int i = 0; i < m->fileList.size(); i++)
+                {
+                    if (ImGui::MenuItem(m->fileList[i].name.data))
+                    {
+                        m->lastOpenedFile.clear();
+                        m->lastOpenedFile.append(m->fileList[i].name.data);
+
+                        Game *newGame = new Game(m->appPath, m->lastOpenedFile.data);
+                        m->games.push(newGame);
+                        m->currentGameIndex = m->games.size() - 1;
+                        m->openedBuffers.push({m->lastOpenedFile});
+                        saveState();
+                        StringBuffer<512> fullPath;
+                        fullPath.append("%s/%s", m->appPath, m->lastOpenedFile.data);
+                        PhysicsSpaceStorage::loadFromFile(newGame->physicsSpace(), fullPath.data);
+                    }
+                }
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::MenuItem("Save", "Ctrl+S/Meta+S"))
+            {
+                game.saveToFile();
+            }
+
+            if (ImGui::MenuItem("Dump to unit test"))
+            {
+                PhysicsSpaceStorage::dumpToUnitTest(game.physicsSpace());
+            }
+            ImGui::EndMenu();
+        }
+
+        if (ImGuiBeginTallerMenu("Settings"))
+        {
+            ImGui::Checkbox("Gravity", &game.physicsSpace().gravityEnabled);
+            ImGui::Checkbox("Collisions", &game.physicsSpace().collisionsEnabled);
+            ImGui::Checkbox("Shape matching", &game.physicsSpace().shapeMatchingEnabled);
+            ImGui::Checkbox("Springs", &game.physicsSpace().springsEnabled);
+            ImGui::DragInt("Speed", &game.simulationSpeed(), 1.0, 1, 100, "%d", ImGuiSliderFlags_AlwaysClamp);
+            ImGui::EndMenu();
+        }
+
+        if (ImGuiBeginTallerMenu("Tests"))
+        {
+            for (int i = 0; i < PhysicsTestDefinition::numTests; i++)
+            {
+                PhysicsTestDefinition *testCase = &PhysicsTestDefinition::allTests[i];
+                const bool isSelected = curTestCase == testCase;
+                if (ImGui::Selectable(testCase->name, isSelected))
+                {
+                    curTestCase = testCase;
+                    curTestCase->start(&game);
+                }
+
+                // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+                if (isSelected)
+                {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+
+            if (curTestCase != nullptr)
+            {
+                ImGui::SeparatorText("Test executor");
+                ImGui::Text("Test progress: %d / %d", curTestCase->time, curTestCase->duration);
+                ImGui::Text("Failed: %s", curTestCase->invariantResult != nullptr ? curTestCase->invariantResult : "false");
+            }
+
+            ImGui::EndMenu();
+        }
+
+        ImGui::EndMainMenuBar();
+    }
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+
+    ImGui::SetNextWindowSizeConstraints(ImVec2(displaySize.x - 246, 29), ImVec2(displaySize.x - 246, 29));
+    ImGui::SetNextWindowPos(ImVec2(246, 23), ImGuiCond_Always, ImVec2(0, 0));
+
+    if (ImGui::Begin("Scenes window", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoDecoration))
+    {
+        if (triggerOpenPopup)
+        {
+            ImGui::OpenPopup("Add level");
+        }
+
+        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+        if (ImGui::BeginPopupModal("Add level", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            if (triggerOpenPopup)
+            {
+                m->newFileName[0] = '\0';
+                ImGui::SetKeyboardFocusHere();
+            }
+
+            ImGui::InputText("Level name", m->newFileName, sizeof(m->newFileName));
+
+            if (ImGui::Button("OK", ImVec2(120, 0)))
+            {
+                Console::log("Closing popup");
+                if (strlen(m->newFileName) > 0)
+                {
+                    StringBuffer<256> newFileNameWithExtension;
+                    newFileNameWithExtension.append("%s.txt", m->newFileName);
+                    Game *newGame = new Game(m->appPath, newFileNameWithExtension.data);
+                    m->games.push(newGame);
+                    m->openedBuffers.push({newFileNameWithExtension});
+
+                    m->currentGameIndex = m->games.size() - 1;
+                    saveState();
+                }
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(120, 0)))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+        m->closeTabStates.fill(true, m->games.size());
+
+        if (ImGui::BeginTabBar("Scenes", ImGuiTabBarFlags_FittingPolicyResizeDown))
+        {
+            bool setSelectedTabState = m->currentGameIndex != m->gameTabIndex;
+
+            for (int i = 0; i < m->closeTabStates.size(); i++)
+            {
+                StringBuffer<256> tabName;
+                tabName.append(" %s %s ", ICON_FA_FILE_CODE_O, m->games[i]->title());
+
+                if (m->closeTabStates[i] && ImGui::BeginTabItem(tabName.data, i == 0 ? nullptr : &m->closeTabStates[i], i == m->currentGameIndex && setSelectedTabState ? ImGuiTabItemFlags_SetSelected : 0))
+                {
+                    if (ImGui::IsItemActive() && i != m->currentGameIndex)
+                    {
+                        m->currentGameIndex = i;
+                        saveState();
+                    }
+
+                    ImGui::EndTabItem();
+                }
+            }
+
+            m->gameTabIndex = m->currentGameIndex;
+
+            if (ImGui::TabItemButton("...", ImGuiTabItemFlags_Trailing | ImGuiTabItemFlags_NoTooltip))
+            {
+                // m->games.push(new Game(m->appPath));
+                // m->closeTabStates.push(true);
+                ImGui::EndTabItem();
+            }
+            ImGui::EndTabBar();
+        }
+
+        for (int i = 0; i < m->closeTabStates.size(); i++)
+        {
+            if (!m->closeTabStates[i])
+            {
+                deleteGameIndex = i;
+                break;
+            }
+        }
+
+        ImGui::End();
+    }
+    ImGui::PopStyleVar(1);
 
     m->bridgePopup.render(game);
 
