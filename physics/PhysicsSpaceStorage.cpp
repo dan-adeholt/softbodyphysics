@@ -283,7 +283,7 @@ int getHighestFileNumber(const char *directory, const char *format)
     return max_number;
 }
 
-void PhysicsSpaceStorage::dumpToUnitTest(PhysicsSpace &space)
+void PhysicsSpaceStorage::dumpToUnitTest(PhysicsSpace &space, float scale, const Vector2 &offset)
 {
     int saveNumber = getHighestFileNumber("scenedefs", "unit_%d.txt") + 1;
     StringBuffer<256> filename;
@@ -298,6 +298,8 @@ void PhysicsSpaceStorage::dumpToUnitTest(PhysicsSpace &space)
     fprintf(f, "      {\n");
     fprintf(f, "         PhysicsSpace &space = game->physicsSpace();\n");
     fprintf(f, "         PhysicsSpaceStorage::loadFromFile(space, \"%s\");\n", filename.data);
+    fprintf(f, "         game->scale() = %.2ff;\n", scale);
+    fprintf(f, "         game->offset() = Vector2(%.2ff, %.2ff);\n", offset.x, offset.y);
     fprintf(f, "         game->setPaused();\n");
     fprintf(f, "    }},\n");
     fclose(f);

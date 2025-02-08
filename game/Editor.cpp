@@ -528,7 +528,7 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 
             if (ImGui::MenuItem("Dump to unit test"))
             {
-                PhysicsSpaceStorage::dumpToUnitTest(game.physicsSpace());
+                PhysicsSpaceStorage::dumpToUnitTest(game.physicsSpace(), game.scale(), game.offset());
             }
             ImGui::EndMenu();
         }
@@ -575,7 +575,7 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
         ImGui::EndMainMenuBar();
     }
 
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 
     ImGui::SetNextWindowSizeConstraints(ImVec2(displaySize.x - 246, 29), ImVec2(displaySize.x - 246, 29));
     ImGui::SetNextWindowPos(ImVec2(246, 23), ImGuiCond_Always, ImVec2(0, 0));
