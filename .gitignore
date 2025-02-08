@@ -5,3 +5,4 @@ build-release
 .vscode
 build
 window_settings.txt
+editor_state.ini
