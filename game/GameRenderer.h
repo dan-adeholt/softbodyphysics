@@ -18,10 +18,10 @@ struct GameRenderer
     GameRenderer(SDL_Renderer *renderer);
     ~GameRenderer();
 
-    void renderGame(SDL_Renderer *renderer, Game &game, bool renderShapeMatching, ConsoleProfileInfo &profileInfo);
+    void renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfileInfo &profileInfo);
 
 private:
-    void renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, Range<Shape> shapes, PointMassesRange &pointMasses, PhysicsSpace &space, bool renderShapeMatching, float scale, const ShapeMatchDragData &dragData);
+    void renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, Range<Shape> shapes, PointMassesRange &pointMasses, PhysicsSpace &space, bool renderShapeMatching, bool renderVelocity, bool renderPointIndices, float scale, const ShapeMatchDragData &dragData);
     void renderSprings(SDL_Renderer *renderer, Range<Spring> springs, const PointMassesRange &points, float scale);
 
     // Disable copy constructor and assignment

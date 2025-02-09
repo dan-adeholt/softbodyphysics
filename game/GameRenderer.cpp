@@ -159,7 +159,7 @@ void addLine(Array<Vertex> &vertices, float p0x, float p0y, float p1x, float p1y
                    whiteColor.topRight});
 }
 
-void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, bool renderShapeMatching, ConsoleProfileInfo &profileInfo)
+void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfileInfo &profileInfo)
 {
     m->vertices.clear();
 
@@ -176,7 +176,7 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, bool renderSha
 
     if (renderSettings.renderShapeLines)
     {
-        renderShapes(renderer, game.selectedShapeIndex(), physicsSpace.shapes.range(), points, physicsSpace, renderShapeMatching, scaleForGeometry, game.shapeMatchDragData());
+        renderShapes(renderer, game.selectedShapeIndex(), physicsSpace.shapes.range(), points, physicsSpace, renderSettings.renderVelocityVectors, renderSettings.renderShapeMatching, renderSettings.renderPointIndices, scaleForGeometry, game.shapeMatchDragData());
     }
 
     if (renderSettings.renderSprings)
@@ -235,7 +235,7 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, bool renderSha
                           m->vertices.size(), nullptr, 0, 0);
 }
 
-void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, Range<Shape> shapes, PointMassesRange &pointMasses, PhysicsSpace &space, bool renderShapeMatching, float scale, const ShapeMatchDragData &dragData)
+void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, Range<Shape> shapes, PointMassesRange &pointMasses, PhysicsSpace &space, bool renderVelocity, bool renderShapeMatching, bool renderPointIndices, float scale, const ShapeMatchDragData &dragData)
 {
     for (int i = 0; i < shapes.size; i++)
     {
@@ -251,28 +251,41 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, 
             color = {0, 255, 0, 255};
         }
 
+        Vector2 startVelocity = pointMasses.velocity[shapeRange[0]];
+
+        if (renderVelocity)
+        {
+            Console::drawVelocityVector(startPos, startVelocity, 0xFF0000);
+        }
+
+        if (renderPointIndices)
+        {
+            Console::logFrame(startPos.x, startPos.y, "%d", shapeRange[0]);
+        }
+
         for (int pointIndex = 1; pointIndex < shapeRange.size(); pointIndex++)
         {
             Vector2 nextPos = pointMasses.pos[shapeRange[pointIndex]];
+            Vector2 nextVelocity = pointMasses.velocity[shapeRange[pointIndex]];
+
+            if (renderPointIndices)
+            {
+                Console::logFrame(nextPos.x, nextPos.y, "%d", shapeRange[pointIndex]);
+            }
 
             if (isnan(pos.x) || isnan(pos.y) || isnan(nextPos.x) || isnan(nextPos.y))
             {
                 continue;
             }
 
-            // if (shapeRange.hasInteriorEdge(pointIndex - 1))
-            // {
-            //     Console::drawSegment(pos, nextPos, 0xFF0000);
-            // }
+            if (renderVelocity)
+            {
+                Console::drawVelocityVector(nextPos, nextVelocity, 0xFF0000);
+            }
 
             addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, color);
             pos = nextPos;
         }
-
-        // if (shapeRange.hasInteriorEdge(3))
-        // {
-        //     Console::drawSegment(pos, startPos, 0xFF0000);
-        // }
 
         addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, color);
 

@@ -234,7 +234,6 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
     uint64_t programStartNanos = monotonicTimeNanos();
 
-    bool renderShapeMatching = true;
     SDL_Event event;
 
     char cwd[512];
@@ -338,11 +337,6 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
                 GameKeyCode keyCode = convertSdlKeycode((SDL_KeyCode)event.key.keysym.sym);
 
-                if (keyCode == GameKeyCode::F1)
-                {
-                    renderShapeMatching = !renderShapeMatching;
-                }
-
                 if (keyCode != GameKeyCode::NUM_KEY_CODES)
                 {
                     game->keyDown(keyCode, getSdlModState(), profileInfo);
@@ -358,11 +352,6 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
                 }
 
                 GameKeyCode keyCode = convertSdlKeycode((SDL_KeyCode)event.key.keysym.sym);
-
-                if (keyCode == GameKeyCode::F1)
-                {
-                    renderShapeMatching = !renderShapeMatching;
-                }
 
                 if (keyCode != GameKeyCode::NUM_KEY_CODES)
                 {
@@ -462,7 +451,7 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer);
 
-        gameRenderer.renderGame(renderer, *game, renderShapeMatching, profileInfo);
+        gameRenderer.renderGame(renderer, *game, profileInfo);
         profileInfo.renderTimeMillis = renderTimer.elapsedMillis();
         Console::draw(profileInfo, game->scale(), game->offset(), boldFont);
         editor.renderUI(*game, profileInfo);

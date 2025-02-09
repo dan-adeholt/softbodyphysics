@@ -98,6 +98,7 @@ void Game::init(const SceneDefinition &scene)
     space.collisionsEnabled = true;
     space.gravityEnabled = true;
     space.springsEnabled = true;
+    space.shapeMatchingEnabled = true;
     m->shapeMatchDragData = ShapeMatchDragData();
     m->hasLastCollisionSpace = false;
     m->renderSettings = GameRenderSettings();
@@ -381,13 +382,25 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
         updateBoundingBoxes(true);
         break;
     case GameKeyCode::F1:
-        PhysicsSpaceStorage::dumpToUnitTest(m->physicsSpace);
+        PhysicsSpaceStorage::dumpToUnitTest(m->physicsSpace, scale(), offset());
         break;
     case GameKeyCode::F2:
         physicsSpace().shapeMatchingEnabled = !physicsSpace().shapeMatchingEnabled;
         break;
     case GameKeyCode::F5:
         togglePaused();
+        break;
+    case GameKeyCode::F9:
+        for (int i = 0; i < m->physicsSpace.points.velocity.size(); i++)
+        {
+            m->physicsSpace.points.velocity[i] = Vector2();
+        }
+        break;
+    case GameKeyCode::PLUS:
+        m->scale *= 1.1f;
+        break;
+    case GameKeyCode::MINUS:
+        m->scale *= 0.9f;
         break;
     case GameKeyCode::F8:
         update(1000.0 / 120.0, true, profileInfo);

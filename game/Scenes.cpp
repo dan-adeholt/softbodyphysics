@@ -61,6 +61,53 @@ SceneDefinition deformedScenes[] = {
 };
 
 SceneDefinition collisionScenes[] = {
+    {"New Unit Test 29", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_29.txt");
+         space.gravityEnabled = false;
+         GameRenderSettings renderSettings;
+         renderSettings.renderSprings = false;
+         renderSettings.renderShapeMatching = true;
+         game->setRenderSettings(renderSettings);
+         for (int i = 0; i < space.points.velocity.size(); i++)
+         {
+             space.points.velocity[i] = Vector2();
+         }
+         game->scale() = 1.00f;
+         game->offset() = Vector2(400.00f, 0.00f);
+         game->setPaused();
+     }},
+
+    {"New Unit Test 28", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_28.txt");
+         game->scale() = 1.00f;
+         game->offset() = Vector2(-231.00f, -560.00f);
+         game->setPaused();
+     }},
+    {"New Unit Test 24", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_24.txt");
+         GameRenderSettings renderSettings;
+         renderSettings.renderVelocityVectors = true;
+         renderSettings.renderSprings = false;
+         renderSettings.renderShapeMatching = false;
+         renderSettings.renderPointIndices = true;
+         game->setRenderSettings(renderSettings);
+         game->setPaused();
+     }},
+    {"New Unit Test 21", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_21.txt");
+         space.gravityEnabled = false;
+         //  space.collisionsEnabled = false;
+         game->setPaused();
+     }},
+
     {"New Unit Test 19", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();

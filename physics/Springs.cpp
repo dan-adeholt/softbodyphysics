@@ -105,8 +105,8 @@ void applySpringDerivatives(
             Vector2 p1(points.pos[j]);
             Vector2 direction = p0 - p1;
             float offsetLength = direction.length();
-            float scale = shape.index == dragData.dragShapeIndex ? 0.0025f : 0.0025f;
-            float damping = shape.index == dragData.dragShapeIndex ? -0.015f : -0.015f;
+            float scale = 0.0025f;
+            float damping = -0.015f;
 
             if (offsetLength > 0.001f)
             {
