@@ -32,16 +32,21 @@ ShapeUtils::getShapeProperties(PointMassesRange points, const Shape &shape)
     result.center /= numPoints;
     result.origCenter /= numPoints;
 
+    float A = 0.0f;
+    float B = 0.0f;
+
+    // Average angle calculation taken from: https://lisyarus.github.io/blog/posts/soft-body-physics.html
+    // More accurate than my first attempt
     for (ShapeIterator s(shape); s.isValid(); s.next())
     {
         int j = s.index();
         Vector2 translatedPos = points.pos[j] - result.center;
         Vector2 translatedOrigPos = points.shapeOriginalPos[j] - result.origCenter;
-        float angleDiff = translatedOrigPos.angle(translatedPos);
-        result.diffAngle += angleDiff;
+        A += translatedPos.dot(translatedOrigPos);
+        B += translatedPos.cross(translatedOrigPos);
     }
 
-    result.diffAngle /= numPoints;
+    result.diffAngle = -atan2f(B, A);
 
     return result;
 }
