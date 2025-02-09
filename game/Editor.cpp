@@ -458,6 +458,11 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
                 Shapes::createCircle(space, addPos.x, addPos.y, size, defaultMass);
             }
 
+            if (ImGui::MenuItem("Heavy circle"))
+            {
+                Shapes::createCircle(space, addPos.x, addPos.y, size, defaultMass * 50.0f);
+            }
+
             if (ImGui::MenuItem("Loose circle"))
             {
                 Shapes::createLooseCircle(space, addPos.x, addPos.y, size, defaultMass);

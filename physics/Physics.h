@@ -191,7 +191,7 @@ struct Shape
     int end;
     float volume;
     bool isStatic;
-    bool disableShapeMatching;
+    bool disableShapeMatching = false;
     int index;
     int parentId;
     bool selfIntersecting = false;

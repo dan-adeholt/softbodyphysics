@@ -1038,11 +1038,6 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &
         const ShapeBoundingBox &box = m->sortedBoundingBoxes[i];
         const Shape &shape1 = space.shapes[box.shapeIndex];
 
-        if (shape1.allInteriorEdges())
-        {
-            continue;
-        }
-
         for (int j = i + 1; j < m->sortedBoundingBoxes.size(); j++)
         {
             const ShapeBoundingBox &otherBox = m->sortedBoundingBoxes[j];
@@ -1060,11 +1055,6 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &
             }
 
             const Shape &shape2 = space.shapes[otherBox.shapeIndex];
-
-            if (shape2.allInteriorEdges())
-            {
-                continue;
-            }
 
             bool isSameShape = shape1.parentId != -1 && shape1.parentId == shape2.parentId;
 

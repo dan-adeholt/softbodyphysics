@@ -244,10 +244,8 @@ namespace Shapes
     {
         int shapeIndex = space.nextShapeIndex();
         float stiffness = mass * stiffnessFactor;
-        float damping = 28.9f * mass;
+        float damping = 545.0f * mass;
 
-        stiffness = 2.5f;
-        damping = 1090.0f;
         int numSegments = 16;
         float segmentAngle = 2 * PI_F / numSegments;
         int startIndex = space.points.size();
@@ -341,6 +339,7 @@ namespace Shapes
 
                 Shape subBridge(bridgeStart, bridgeEnd);
                 subBridge.parentId = parentId;
+                subBridge.selfIntersecting = true;
                 subBridge.indices[0] = (uint16_t)(topIndex - 1 - bridgeStart);
                 subBridge.indices[1] = (uint16_t)(topIndex - bridgeStart);
                 subBridge.indices[2] = (uint16_t)(bottomIndex - bridgeStart);
