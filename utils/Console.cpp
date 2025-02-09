@@ -442,7 +442,7 @@ void Console::drawSegment(const Vector2 &v0, const Vector2 &v1, unsigned int col
 
 void Console::drawVelocityVector(const Vector2 &position, const Vector2 &vector, unsigned int color)
 {
-    drawVector(position, vector * 10000.0f, color);
+    drawVector(position, vector * 10.0f, color);
 }
 
 void Console::drawVector(const Vector2 &position, const Vector2 &vector, unsigned int color)
