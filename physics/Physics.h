@@ -213,6 +213,43 @@ struct Shape
     {
         return hasIndices() ? 4 : end - start;
     }
+
+    int commonEdge(const Shape &other) const
+    {
+        if (hasIndices() && other.hasIndices() && other.start == start)
+        {
+            int o1 = other.indices[0];
+            int o2 = other.indices[1];
+            int o3 = other.indices[2];
+            int o4 = other.indices[3];
+
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    if (indices[i] == other.indices[j])
+                    {
+                        {
+                            // Check if the prev index starts the edge
+                            int prev = i == 0 ? 3 : i - 1;
+                            int next = i == 3 ? 0 : i + 1;
+
+                            if (indices[prev] == o1 || indices[prev] == o2 || indices[prev] == o3 || indices[prev] == o4)
+                            {
+                                return prev;
+                            }
+                            else if (indices[next] == o1 || indices[next] == o2 || indices[next] == o3 || indices[next] == o4)
+                            {
+                                return i;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return -1;
+    }
 };
 
 struct ShapeProperties
@@ -227,6 +264,7 @@ struct ShapeMatchDragData
     ShapeMatchDragData()
     {
         dragShapeIndex = -1;
+        center = Vector2::zero();
     }
 
     Vector2 center;

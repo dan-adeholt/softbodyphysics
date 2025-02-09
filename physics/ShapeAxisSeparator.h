@@ -6,7 +6,7 @@ struct Shape;
 
 namespace ShapeAxisSeparator
 {
-    void separateShapesFromIntersectionAxis(PointMassesRange &points, const Shape &shape1, const Shape &shape2);
+    bool separateShapesFromIntersectionAxis(PointMassesRange &points, const Shape &shape1, const Shape &shape2);
 }
 
 #endif

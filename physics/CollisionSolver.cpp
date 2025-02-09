@@ -8,6 +8,7 @@
 #include "./PhysicsSpace.h"
 #include <math.h>
 #include <cstdio>
+#include "ShapeUtils.h"
 
 float coefficentOfRestitution = 0.65f;
 
@@ -327,23 +328,6 @@ bool lineSegmentsIntersect(const Vector2 &p1, const Vector2 &p2,
     return false;
 }
 
-bool shapesOverlap(const PointMassesRange &points, const Shape &shape1, const Shape &shape2)
-{
-    ShapeIndexedRange poly1(shape1);
-    ShapeIndexedRange poly2(shape2);
-
-    for (int i = 0; i < poly1.size(); ++i)
-    {
-        for (int j = 0; j < poly2.size(); ++j)
-        {
-            if (lineSegmentsIntersect(points.pos[poly1[i]], points.pos[poly1[(i + 1) % poly1.size()]],
-                                      points.pos[poly2[j]], points.pos[poly2[(j + 1) % poly2.size()]]))
-                return true;
-        }
-    }
-    return false;
-}
-
 float lastMaxAmplitude = 0.0f;
 float lastMaxAmplitudeStatic = 0.0f;
 
@@ -394,13 +378,99 @@ int countNumCollisions(int pointIndex, const PointMassesRange &points, const Sha
     return numIntersections;
 }
 
+bool isPointInPolygon(int index, const Vector2 &pt, const PointMassesRange &points, const Shape &shape)
+{
+    bool inside = false;
+    ShapeIndexedRange polygon(shape);
+    int n = polygon.size();
+
+    // Loop over each edge of the polygon
+    for (int i = 0, j = n - 1; i < n; j = i++)
+    {
+        if (index == polygon[i])
+        {
+            return false;
+        }
+
+        // Check if point's y is between the y-coordinates of the edge endpoints
+        if (((points.pos[polygon[i]].y > pt.y) != (points.pos[polygon[j]].y > pt.y)))
+        {
+            // Compute the x coordinate where the line through the edge intersects the horizontal line at pt.y
+            float intersectX = (points.pos[polygon[j]].x - points.pos[polygon[i]].x) * (pt.y - points.pos[polygon[i]].y) /
+                                   (points.pos[polygon[j]].y - points.pos[polygon[i]].y) +
+                               points.pos[polygon[i]].x;
+            // If the intersection point is to the right of pt, toggle the inside flag
+            if (pt.x < intersectX)
+                inside = !inside;
+        }
+    }
+
+    return inside;
+}
+
+bool shapesOverlap(const PointMassesRange &points, const Shape &shape1, const Shape &shape2)
+{
+    ShapeIndexedRange poly1(shape1);
+    ShapeIndexedRange poly2(shape2);
+
+    bool hasInteriorEdge = false;
+
+    float y = 400.0f;
+    bool intersected = false;
+    for (int i = 0; i < poly1.size(); ++i)
+    {
+        for (int j = 0; j < poly2.size(); ++j)
+        {
+            int p1 = poly1[i];
+            int p2 = poly1[(i + 1) % poly1.size()];
+            int p3 = poly2[j];
+            int p4 = poly2[(j + 1) % poly2.size()];
+
+            IntersectionResult result = lineIntersection(points.pos[p1], points.pos[p2], points.pos[p3], points.pos[p4]);
+
+            bool hasSharedEdge = p1 == p3 || p1 == p4 || p2 == p3 || p2 == p4;
+
+            if (result.found && !hasSharedEdge)
+            {
+                intersected = true;
+            }
+        }
+    }
+
+    if (intersected)
+    {
+        return true;
+    }
+
+    for (int i = 0; i < poly1.size(); ++i)
+    {
+        int p1 = poly1[i];
+        Vector2 point(points.pos[p1]);
+        if (isPointInPolygon(p1, point, points, shape2))
+        {
+            intersected = true;
+        }
+    }
+
+    for (int i = 0; i < poly2.size(); ++i)
+    {
+        int p1 = poly2[i];
+        Vector2 point(points.pos[p1]);
+        if (isPointInPolygon(p1, point, points, shape1))
+        {
+            intersected = true;
+        }
+    }
+    return intersected;
+}
+
 ClosestSegmentResult CollisionSolver::findEntryEdgeClosestSegment(PointMassesRange points,
                                                                   const Shape &collisionShape,
                                                                   const Vector2 &currentPoint)
 {
     float minDistanceSquared = __FLT_MAX__;
 
-    ClosestSegmentResult result = {-1, Vector2(), Vector2(), 0.0f};
+    ClosestSegmentResult result = {-1, Vector2(), 0.0f};
     const ShapeIndexedRange collisionShapeRange(collisionShape);
 
     for (int i = 0; i < collisionShapeRange.size(); i++)
@@ -424,8 +494,6 @@ ClosestSegmentResult CollisionSolver::findEntryEdgeClosestSegment(PointMassesRan
 
         // float t_point, t_edge;
 
-        // Console::drawPoint(pointOutside, 0x00FF00);
-
         // The projection of point P onto the line defined by segment AB is given by:
         // v dot w / v dot v
         // Compute projection t
@@ -443,7 +511,6 @@ ClosestSegmentResult CollisionSolver::findEntryEdgeClosestSegment(PointMassesRan
             result.entryEdgeIndex0 = i;
             result.closestPoint0 = closestPoint;
             result.entryTime0 = t;
-            result.pointOutside0 = pointOutside;
         }
     }
 
@@ -590,6 +657,7 @@ int CollisionSolver::calculateCollisionsMidPoint(
 
     const ShapeIndexedRange movingRange(movingShape);
     const ShapeIndexedRange collisionRange(collisionShape);
+    int commonEdge = collisionShape.commonEdge(movingShape);
 
     for (int i = 0; i < movingRange.size(); i++)
     {
@@ -615,7 +683,31 @@ int CollisionSolver::calculateCollisionsMidPoint(
 
         // Console::log("** Find entry edge for point %d in %d **", i, movingBox.shapeIndex);
 
-        ClosestSegmentResult result = findEntryEdgeClosestSegment(points, collisionShape, pointPos);
+        ClosestSegmentResult result = {-1, Vector2(), 0.0f};
+
+        if (commonEdge != -1)
+        {
+            Vector2 segment0 = points.pos[collisionRange[commonEdge]];
+            Vector2 segment1 = points.pos[collisionRange[(commonEdge + 1) % collisionRange.size()]];
+
+            float distanceToVertex = (segment0 - pointPos).length();
+
+            // Vector from A to B
+            Vector2 segment = segment1 - segment0;
+            // Vector from A to P
+            Vector2 segmentToPoint = pointPos - segment0;
+            // Compute projection t
+            float t = segmentToPoint.dot(segment) / segment.dot();
+            t = clamp(t, 0.0f, 1.0f);
+            Vector2 closestPoint = segment0 + segment * t;
+            result.closestPoint0 = closestPoint;
+            result.entryEdgeIndex0 = commonEdge;
+            result.entryTime0 = t;
+        }
+        else
+        {
+            result = findEntryEdgeClosestSegment(points, collisionShape, pointPos);
+        }
 
         if (result.entryEdgeIndex0 == -1)
         {
@@ -624,7 +716,6 @@ int CollisionSolver::calculateCollisionsMidPoint(
 
         Vector2 pointVelocity = points.velocity[pointIndex];
 
-        Console::drawPoint(result.closestPoint0, 0xFF0000);
         int collisionIndex0 = collisionRange[result.entryEdgeIndex0];
         int collisionIndex1 = collisionRange[(result.entryEdgeIndex0 + 1) % collisionRange.size()];
 
@@ -709,6 +800,7 @@ int CollisionSolver::calculateCollisions(
 
     ShapeIndexedRange movingRange(movingShape);
     ShapeIndexedRange collisionRange(collisionShape);
+    int commonEdge = collisionShape.commonEdge(movingShape);
 
     for (int i = 0; i < movingRange.size(); i++)
     {
@@ -726,7 +818,31 @@ int CollisionSolver::calculateCollisions(
 
         numCollisions++;
 
-        ClosestSegmentResult result = findEntryEdgeClosestSegment(points, collisionShape, pointPos);
+        ClosestSegmentResult result = {-1, Vector2(), 0.0f};
+
+        if (commonEdge != -1)
+        {
+            Vector2 segment0 = points.pos[collisionRange[commonEdge]];
+            Vector2 segment1 = points.pos[collisionRange[(commonEdge + 1) % collisionRange.size()]];
+
+            float distanceToVertex = (segment0 - pointPos).length();
+
+            // Vector from A to B
+            Vector2 segment = segment1 - segment0;
+            // Vector from A to P
+            Vector2 segmentToPoint = pointPos - segment0;
+            // Compute projection t
+            float t = segmentToPoint.dot(segment) / segment.dot();
+            t = clamp(t, 0.0f, 1.0f);
+            Vector2 closestPoint = segment0 + segment * t;
+            result.closestPoint0 = closestPoint;
+            result.entryEdgeIndex0 = commonEdge;
+            result.entryTime0 = t;
+        }
+        else
+        {
+            result = findEntryEdgeClosestSegment(points, collisionShape, pointPos);
+        }
 
         if (result.entryEdgeIndex0 == -1)
         {
@@ -781,11 +897,6 @@ int CollisionSolver::calculateCollisions(
                 Vector2 oldPos = points.pos[pointIndex];
                 points.pos[pointIndex] = result.closestPoint0 + reflection * 0.1f;
                 float distance = (points.pos[pointIndex] - oldPos).length();
-
-                if (distance > 100.0f)
-                {
-                    Console::log("Distance %.2f", distance);
-                }
 
                 points.velocity[pointIndex] += impulse / pointMass;
             }
@@ -927,6 +1038,11 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &
         const ShapeBoundingBox &box = m->sortedBoundingBoxes[i];
         const Shape &shape1 = space.shapes[box.shapeIndex];
 
+        if (shape1.allInteriorEdges())
+        {
+            continue;
+        }
+
         for (int j = i + 1; j < m->sortedBoundingBoxes.size(); j++)
         {
             const ShapeBoundingBox &otherBox = m->sortedBoundingBoxes[j];
@@ -945,10 +1061,17 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &
 
             const Shape &shape2 = space.shapes[otherBox.shapeIndex];
 
-            // if (shape1.parentId != -1 && shape1.parentId == shape2.parentId)
-            // {
-            //     continue;
-            // }
+            if (shape2.allInteriorEdges())
+            {
+                continue;
+            }
+
+            bool isSameShape = shape1.parentId != -1 && shape1.parentId == shape2.parentId;
+
+            if (!shape1.selfIntersecting && isSameShape)
+            {
+                continue;
+            }
 
             calculateCollisions(space.points.range(), shape1, shape2, box, otherBox);
             calculateCollisions(space.points.range(), shape2, shape1, otherBox, box);
@@ -961,18 +1084,17 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &
                 calculateCollisionsMidPoint(space.points.range(), shape1, shape2, box, otherBox);
                 calculateCollisionsMidPoint(space.points.range(), shape2, shape1, otherBox, box);
 
-                if (numCollisions > 32 && shapesOverlap(space.points.range(), shape1, shape2))
-                {
+                bool shapesOverlapAfterMidpoint = shapesOverlap(space.points.range(), shape1, shape2);
 
+                if (numCollisions > 32 && shapesOverlapAfterMidpoint)
+                {
                     if (!shape1.isStatic && !shape2.isStatic)
                     {
-                        // Console::log("Case A");
                         PointMassesRange range(space.points.range());
                         ShapeAxisSeparator::separateShapesFromIntersectionAxis(range, shape1, shape2);
                     }
                     else if ((shape1.isStatic && !shape2.isStatic) || (shape2.isStatic && !shape1.isStatic))
                     {
-                        // Console::log("Case B");
                         const Shape &staticShape(shape1.isStatic ? shape1 : shape2);
                         const Shape &movingShape(shape1.isStatic ? shape2 : shape1);
                         boxSeparateDynamicAndStaticShapes(space.points.range(), movingShape, staticShape);

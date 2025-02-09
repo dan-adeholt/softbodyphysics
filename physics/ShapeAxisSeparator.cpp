@@ -1,4 +1,5 @@
 #include "ShapeAxisSeparator.h"
+#include "ShapeUtils.h"
 #include "../math/Vector2.h"
 #include "../physics/Physics.h"
 #include "../utils/Console.h"
@@ -157,8 +158,15 @@ void findFarthestPointFromRange(const PointMassesRange &points, const Shape &sha
     }
 }
 
-void ShapeAxisSeparator::separateShapesFromIntersectionAxis(PointMassesRange &points, const Shape &shape1, const Shape &shape2)
+bool ShapeAxisSeparator::separateShapesFromIntersectionAxis(PointMassesRange &points, const Shape &shape1, const Shape &shape2)
 {
+
+    int commonEdge = shape1.commonEdge(shape2);
+    if (commonEdge != -1)
+    {
+        // TODO: Handle common edge?
+        return false;
+    }
 
     ShapeIntersectionInfo info = getShapeIntersectionInfo(points, shape1, shape2);
 
@@ -175,5 +183,8 @@ void ShapeAxisSeparator::separateShapesFromIntersectionAxis(PointMassesRange &po
         findFarthestPointFromRange(points, shape2, info.averageIntersectionPoint, direction, 1, result);
         placeOutsideRange(points, shape1, info.averageIntersectionPoint, direction, 0, result);
         placeOutsideRange(points, shape2, info.averageIntersectionPoint, direction, 1, result);
+        return true;
     }
+
+    return false;
 }

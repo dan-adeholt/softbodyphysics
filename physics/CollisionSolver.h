@@ -51,6 +51,8 @@ struct ShapeBoundingBox
     }
 };
 
+IntersectionResult lineIntersection(const Vector2 &s1, const Vector2 &s2, const Vector2 &p1, const Vector2 &p2);
+
 struct ConsoleProfileInfo;
 
 // enum class EdgeStrategy
@@ -67,7 +69,6 @@ struct ClosestSegmentResult
 {
     int entryEdgeIndex0;
     Vector2 closestPoint0;
-    Vector2 pointOutside0;
     float entryTime0;
 };
 
