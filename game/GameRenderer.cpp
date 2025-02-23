@@ -18,7 +18,7 @@
 float MIN_LINE_POS = -100000;
 float MAX_LINE_POS = 1000000;
 
-struct Vertex
+struct GameVertex
 {
     SDL_Color color;
     Vector2 pos;
@@ -72,7 +72,7 @@ struct GameRenderer::Impl
     }
 
     SDL_Texture *texture;
-    Array<Vertex> vertices;
+    Array<GameVertex> vertices;
 };
 
 GameRenderer::GameRenderer(SDL_Renderer *renderer) : m(new Impl(renderer))
@@ -104,7 +104,7 @@ AtlasCoordinate whiteColor(0, 0, 15, 15);
 AtlasCoordinate circle(17, 1, 13, 13);
 AtlasCoordinate springData(50, 0, 3, 512);
 
-void addCircle(Array<Vertex> &vertices, float x, float y, float scale, SDL_Color color)
+void addCircle(Array<GameVertex> &vertices, float x, float y, float scale, SDL_Color color)
 {
     float size = circle.w * 0.5f / scale;
     float cx = x - size * 0.5f;
@@ -130,7 +130,7 @@ void addCircle(Array<Vertex> &vertices, float x, float y, float scale, SDL_Color
                    circle.topLeft});
 }
 
-void addLine(Array<Vertex> &vertices, float p0x, float p0y, float p1x, float p1y, float scale, SDL_Color color)
+void addLine(Array<GameVertex> &vertices, float p0x, float p0y, float p1x, float p1y, float scale, SDL_Color color)
 {
     float lineWidth = 1.0f / scale;
     float dx = p1x - p0x;
@@ -159,16 +159,30 @@ void addLine(Array<Vertex> &vertices, float p0x, float p0y, float p1x, float p1y
                    whiteColor.topRight});
 }
 
+void GameRenderer::drawSubshape(SDL_Renderer *renderer, const AddSubShapeData &addSubshapeData, float scale, const Vector2 &offset)
+{
+    for (int i = 0; i < addSubshapeData.numPoints; i++)
+    {
+        Vector2 pos = addSubshapeData.points[i] + offset;
+        int next = (i + 1) % addSubshapeData.numPoints;
+        Vector2 nextPos = addSubshapeData.points[next] + offset;
+        addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, {255, 0, 0, 255});
+    }
+}
+
 void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfileInfo &profileInfo)
 {
     m->vertices.clear();
 
+    Vector2 mousePos(game.mousePos());
+    Vector2 translatedMousePos = (mousePos - game.offset()) / game.scale();
     Vector2 &offset = game.offset();
     float &scale = game.scale();
+    renderGrid(renderer, game, scale);
+    PhysicsSpace &physicsSpace = game.physicsSpace();
 
     Range<Shape> shapes;
 
-    PhysicsSpace &physicsSpace = game.physicsSpace();
     PointMassesRange points = physicsSpace.points.range();
     float scaleForGeometry = min(3.1f, scale);
 
@@ -204,11 +218,67 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
 
             if (i >= selectedShapeStart && i < selectedShapeEnd)
             {
-                addCircle(m->vertices, pos.x, pos.y, scale, {0, 255, 0, 255});
+                if (i == game.pendingSpringSourceIndex())
+                {
+                    addCircle(m->vertices, pos.x, pos.y, scale, {255, 0, 0, 255});
+                }
+                else
+                {
+                    addCircle(m->vertices, pos.x, pos.y, scale, {0, 64, 255, 255});
+                }
             }
             else
             {
-                addCircle(m->vertices, pos.x, pos.y, scale, {255, 255, 255, 255});
+                addCircle(m->vertices, pos.x, pos.y, scale, {255, 0, 0, 255});
+            }
+        }
+    }
+
+    const AddSubShapeData &addSubShapeData = game.addSubShapeData();
+
+    if (addSubShapeData.active)
+    {
+        Vector2 sourcePos = addSubShapeData.mouseDown ? addSubShapeData.sourcePos : translatedMousePos;
+        drawSubshape(renderer, addSubShapeData, scale, sourcePos);
+
+        if (addSubShapeData.mouseDown)
+        {
+            for (int i = 0; i < abs(addSubShapeData.repeatX); i++)
+            {
+                Vector2 subOffset(i * gridSize, 0);
+
+                if (addSubShapeData.repeatX < 0)
+                {
+                    subOffset.x = -subOffset.x;
+                }
+
+                drawSubshape(renderer, addSubShapeData, scale, sourcePos + subOffset);
+            }
+
+            for (int i = 0; i < abs(addSubShapeData.repeatY); i++)
+            {
+                Vector2 subOffset(0.0f, i * gridSize);
+
+                if (addSubShapeData.repeatY < 0)
+                {
+                    subOffset.y = -subOffset.y;
+                }
+
+                drawSubshape(renderer, addSubShapeData, scale, sourcePos + subOffset);
+            }
+        }
+
+        for (int i = 0; i < addSubShapeData.numPoints; i++)
+        {
+            Vector2 p0 = addSubShapeData.points[i] + sourcePos;
+
+            for (int j = 0; j < physicsSpace.points.size(); j++)
+            {
+                Vector2 p1 = physicsSpace.points.pos[j];
+                if (Vector2::vec2distance(p0.x, p0.y, p1.x, p1.y) < minPointSnapDist)
+                {
+                    addCircle(m->vertices, p0.x, p0.y, scale / 1.25f, {0, 255, 0, 255});
+                }
             }
         }
     }
@@ -216,10 +286,10 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
     PhysicsSpace &prevPhysicsSpace = game.lastCollisionSpace();
     PointMassesRange lastCollisionPoints = physicsSpace.points.range();
 
-    Vertex *vtx_buffer = &m->vertices[0];
-    const float *xy = (const float *)(const void *)((const char *)(vtx_buffer) + offsetof(Vertex, pos));
-    const float *uv = (const float *)(const void *)((const char *)(vtx_buffer) + offsetof(Vertex, uv));
-    const SDL_Color *color = (const SDL_Color *)(const void *)((const char *)(vtx_buffer) + offsetof(Vertex, color)); // SDL 2.0.19+
+    GameVertex *vtx_buffer = &m->vertices[0];
+    const float *xy = (const float *)(const void *)((const char *)(vtx_buffer) + offsetof(GameVertex, pos));
+    const float *uv = (const float *)(const void *)((const char *)(vtx_buffer) + offsetof(GameVertex, uv));
+    const SDL_Color *color = (const SDL_Color *)(const void *)((const char *)(vtx_buffer) + offsetof(GameVertex, color)); // SDL 2.0.19+
 
     for (int i = 0; i < m->vertices.size(); i++)
     {
@@ -229,9 +299,9 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
     }
 
     SDL_RenderGeometryRaw(renderer, m->texture,
-                          xy, (int)sizeof(Vertex),
-                          color, (int)sizeof(Vertex),
-                          uv, (int)sizeof(Vertex),
+                          xy, (int)sizeof(GameVertex),
+                          color, (int)sizeof(GameVertex),
+                          uv, (int)sizeof(GameVertex),
                           m->vertices.size(), nullptr, 0, 0);
 }
 
@@ -250,6 +320,10 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, 
         {
             color = {0, 255, 0, 255};
         }
+
+        SDL_Color colorInterior = {0, 0, 255, 255};
+
+        bool interiorEdge = shapeRange.hasInteriorEdge(0);
 
         Vector2 startVelocity = pointMasses.velocity[shapeRange[0]];
 
@@ -283,11 +357,12 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, 
                 Console::drawVelocityVector(nextPos, nextVelocity, 0xFF0000);
             }
 
-            addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, color);
+            addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, interiorEdge ? colorInterior : color);
             pos = nextPos;
+            interiorEdge = shapeRange.hasInteriorEdge(pointIndex);
         }
 
-        addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, color);
+        addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, interiorEdge ? colorInterior : color);
 
         if (!renderShapeMatching || shape.disableShapeMatching || shape.isStatic)
         {
@@ -302,6 +377,8 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, 
         pos = startPos;
         itr.next();
 
+        SDL_Color lineColor = {0, 255, 0, 255};
+
         while (itr.isValid())
         {
             Vector2 nextPos = ShapeUtils::getShapePos(pointMasses, shape, itr.index(), averages, dragData);
@@ -312,16 +389,16 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, 
                 continue;
             }
 
-            addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, {0, 255, 0, 255});
+            addLine(m->vertices, pos.x, pos.y, nextPos.x, nextPos.y, scale, lineColor);
             pos = nextPos;
             itr.next();
         }
 
-        addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, {0, 255, 0, 255});
+        addLine(m->vertices, pos.x, pos.y, startPos.x, startPos.y, scale, lineColor);
     }
 }
 
-inline void addSpring(Array<Vertex> &vertices, float p0x, float p0y, float p1x, float p1y, float springLength, float scale)
+inline void addSpring(Array<GameVertex> &vertices, float p0x, float p0y, float p1x, float p1y, float springLength, float scale)
 {
     AtlasCoordinate springDataMod(springData.x, springData.y, springData.w, min(512.0f, springLength) * scale);
 
@@ -374,5 +451,23 @@ void GameRenderer::renderSprings(SDL_Renderer *renderer, Range<Spring> springs, 
         {
             addSpring(m->vertices, p0.x, p0.y, p1.x, p1.y, spring.length, scale);
         }
+    }
+}
+
+void GameRenderer::renderGrid(SDL_Renderer *renderer, Game &game, float scale)
+{
+    unsigned char gray = 240;
+    SDL_Color color = {gray, gray, gray, 255};
+
+    for (int i = 0; i < 200; i++)
+    {
+        float x = -2000.0f + i * gridSize;
+        addLine(m->vertices, x, -10000, x, 10000, scale, color);
+    }
+
+    for (int i = 0; i < 200; i++)
+    {
+        float y = -2000.0f + i * gridSize;
+        addLine(m->vertices, -10000, y, 10000, y, scale, color);
     }
 }

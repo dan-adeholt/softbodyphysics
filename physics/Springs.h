@@ -8,8 +8,8 @@ struct SpringsTempDataImpl;
 struct ShapeMatchDragData;
 
 struct Springs
-
 {
+
     static void performThreadedSpringDerivatives(
         Range<Shape> shapeRange,
         Range<ShapeProperties> shapeProperties,

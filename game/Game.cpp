@@ -10,6 +10,7 @@
 #include "../physics/CollisionSolver.h"
 #include "../containers/StringBuffer.h"
 #include <stdio.h>
+#include <math.h>
 #include "Shapes.h"
 #include "Scenes.h"
 #include <assert.h>
@@ -48,6 +49,11 @@ struct Game::Impl
         collisionSolver.clear();
     }
 
+    Vector2 translatedMousePos()
+    {
+        return (mousePos - offset) / scale;
+    }
+
     PhysicsSpace history[NUM_HISTORICAL_STATES];
     PhysicsSpace lastCollisionSpace;
     bool hasLastCollisionSpace = false;
@@ -81,6 +87,10 @@ struct Game::Impl
     GameRenderSettings renderSettings;
     StringBuffer<512> title;
     ShapeMatchDragData shapeMatchDragData;
+    int copyShapeIndex = -1;
+    Vector2 mousePos;
+    int pendingSpringSourceIndex = -1;
+    AddSubShapeData addSubshapeData;
 };
 
 Game::Game(const char *appPath, const char *filePath) : m(new Game::Impl(appPath, filePath))
@@ -135,6 +145,16 @@ float terminalVelocity = 1000.0f;
 const char *Game::title() const
 {
     return m->title.data;
+}
+
+const AddSubShapeData &Game::addSubShapeData() const
+{
+    return m->addSubshapeData;
+}
+
+const Vector2 &Game::mousePos() const
+{
+    return m->mousePos;
 }
 
 void Game::updateAfterRewindOrForward()
@@ -283,15 +303,39 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
     }
 }
 
-void Game::mouseButtonDown(int button, int x, int y, bool shiftDown)
+void Game::onMouseDown(int button, int x, int y, bool shiftDown)
 {
+    m->mousePos = Vector2((float)x, (float)y);
     if (button == 2)
     {
         m->panning = true;
         return;
     }
 
-    Vector2 translatedPos = (Vector2((float)x, (float)y) - m->offset) / m->scale;
+    if (m->addSubshapeData.active)
+    {
+        m->addSubshapeData.sourcePos = m->translatedMousePos();
+        m->addSubshapeData.mouseDown = true;
+        return;
+    }
+
+    Vector2 translatedPos = m->translatedMousePos();
+
+    if (m->pendingSpringSourceIndex != -1)
+    {
+        int otherIndex = m->physicsSpace.closestPointIndex(translatedPos.x, translatedPos.y, m->selectedShapeIndex);
+
+        Vector2 p0 = m->physicsSpace.points.pos[m->pendingSpringSourceIndex];
+        Vector2 p1 = m->physicsSpace.points.pos[otherIndex];
+        float distance = Vector2::vec2distance(p0.x, p0.y, p1.x, p1.y);
+
+        float stiffness = 0.1f;
+        float damping = 0.1f;
+        m->physicsSpace.springs.push(Spring(m->pendingSpringSourceIndex, otherIndex, distance, stiffness, damping, m->selectedShapeIndex));
+        m->pendingSpringSourceIndex = -1;
+        return;
+    }
+
     for (int i = 0; i < m->physicsSpace.points.size(); i++)
     {
         Vector2 pos = m->physicsSpace.points.pos[i];
@@ -345,6 +389,134 @@ void Game::mouseButtonDown(int button, int x, int y, bool shiftDown)
     }
 }
 
+void Game::onMouseUp(int button, int x, int y, bool shiftDown)
+{
+
+    m->mousePos = Vector2((float)x, (float)y);
+    m->physicsSpace.mouseJoint.pointIndex = -1;
+    m->shapeMatchDragData.dragShapeIndex = -1;
+
+    if (button == 2)
+    {
+        m->panning = false;
+        return;
+    }
+
+    if (m->addSubshapeData.active && m->addSubshapeData.mouseDown)
+    {
+
+        Range<Vector2> points(m->addSubshapeData.points, m->addSubshapeData.numPoints);
+        Shapes::addSubshapeToShape(m->physicsSpace, m->addSubshapeData.sourcePos, points);
+        updateBoundingBoxes();
+
+        float signX = m->addSubshapeData.repeatX < 0 ? -1.0f : 1.0f;
+        float signY = m->addSubshapeData.repeatY < 0 ? -1.0f : 1.0f;
+
+        for (int i = 0; i < abs(m->addSubshapeData.repeatX); i++)
+        {
+            Shapes::addSubshapeToShape(m->physicsSpace, m->addSubshapeData.sourcePos + Vector2(i * gridSize * signX, 0.0f), points);
+        }
+
+        for (int i = 0; i < abs(m->addSubshapeData.repeatY); i++)
+        {
+            Shapes::addSubshapeToShape(m->physicsSpace, m->addSubshapeData.sourcePos + Vector2(0.0f, signY * i * gridSize), points);
+        }
+
+        m->addSubshapeData.repeatX = 0;
+        m->addSubshapeData.repeatY = 0;
+        m->addSubshapeData.mouseDown = false;
+        m->addSubshapeData.active = false;
+
+        updateBoundingBoxes();
+    }
+
+    if (paused())
+    {
+        updateBoundingBoxes();
+    }
+}
+
+void Game::onMouseMove(int x, int y, int relativeX, int relativeY)
+{
+    m->mousePos = Vector2((float)x, (float)y);
+
+    if (m->panning)
+    {
+        m->offset.x += relativeX;
+        m->offset.y += relativeY;
+        return;
+    }
+    Vector2 translatedPos = m->translatedMousePos();
+
+    if (m->addSubshapeData.active && m->addSubshapeData.mouseDown)
+    {
+        Vector2 delta = translatedPos - m->addSubshapeData.sourcePos;
+
+        if (m->addSubshapeData.shape == AddSubshapeShape::SUBSHAPE_RECT)
+        {
+
+            float magY = delta.y;
+            float magX = delta.x;
+
+            if (abs(magX) > abs(magY))
+            {
+                m->addSubshapeData.repeatX = (int)ceilf(magX / gridSize);
+                m->addSubshapeData.repeatY = 0;
+            }
+            else
+            {
+                m->addSubshapeData.repeatY = (int)ceilf(magY / gridSize);
+                m->addSubshapeData.repeatX = 0;
+            }
+        }
+        else
+        {
+            m->addSubshapeData.repeatX = 0;
+            m->addSubshapeData.repeatY = 0;
+        }
+    }
+
+    if (m->physicsSpace.mouseJoint.pointIndex != -1)
+    {
+        int i = m->physicsSpace.mouseJoint.pointIndex;
+        m->physicsSpace.points.pos[i] = translatedPos;
+
+        if (paused())
+        {
+            Vector2 offset = (Vector2((float)relativeX, (float)relativeY)) / m->scale;
+            m->physicsSpace.points.shapeOriginalPos[i] += offset;
+        }
+
+        if (m->stopPointWhenDragging)
+        {
+            m->physicsSpace.points.velocity[i] = Vector2();
+        }
+
+        m->physicsSpace.mouseJoint.position = translatedPos;
+    }
+
+    float translatedRelativeX = (float)relativeX / m->scale;
+    float translatedRelativeY = (float)relativeY / m->scale;
+
+    if (m->shapeMatchDragData.dragShapeIndex != -1)
+    {
+        Shape &shape = m->physicsSpace.shapes[m->shapeMatchDragData.dragShapeIndex];
+        Vector2 delta(translatedRelativeX, translatedRelativeY);
+
+        if (shape.isStatic || paused())
+        {
+            for (int i = shape.start; i < shape.end; i++)
+            {
+                m->physicsSpace.points.pos[i] += delta;
+            }
+        }
+        else
+        {
+            m->shapeMatchDragData.center += delta;
+        }
+    }
+}
+
 void Game::mouseWheel(int x, int y)
 {
     float zoomFactor = y > 0 ? 0.9f : 1.1f;
@@ -385,7 +557,7 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
         PhysicsSpaceStorage::dumpToUnitTest(m->physicsSpace, scale(), offset());
         break;
     case GameKeyCode::F2:
-        physicsSpace().shapeMatchingEnabled = !physicsSpace().shapeMatchingEnabled;
+        PhysicsSpaceStorage::dumpToPrefab(m->physicsSpace, m->selectedShapeIndex);
         break;
     case GameKeyCode::F5:
         togglePaused();
@@ -431,6 +603,27 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
         }
     }
     break;
+    case GameKeyCode::C:
+    {
+        if (modState & (int)GameModkey::Ctrl || modState & (int)GameModkey::Meta)
+        {
+            m->copyShapeIndex = m->selectedShapeIndex;
+        }
+    }
+    break;
+    case GameKeyCode::V:
+    {
+        if (modState & (int)GameModkey::Ctrl || modState & (int)GameModkey::Meta)
+        {
+            PhysicsSpace &space(m->physicsSpace);
+
+            if (m->copyShapeIndex != -1 && m->copyShapeIndex < space.shapes.size())
+            {
+                space.pasteShape(m->copyShapeIndex);
+            }
+        }
+    }
+    break;
     case GameKeyCode::S:
     {
         if (modState & (int)GameModkey::Ctrl || modState & (int)GameModkey::Meta)
@@ -444,6 +637,84 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
         }
     }
 
+    break;
+    case GameKeyCode::O:
+    {
+        if (m->selectedShapeIndex != -1)
+        {
+            Shapes::snapToGrid(m->physicsSpace, m->selectedShapeIndex);
+        }
+    }
+    break;
+    case GameKeyCode::I:
+    {
+        Vector2 translatedPos = (Vector2((float)m->mousePos.x, (float)m->mousePos.y) - m->offset) / m->scale;
+        m->pendingSpringSourceIndex = m->physicsSpace.closestPointIndex(translatedPos.x, translatedPos.y, m->selectedShapeIndex);
+        break;
+    }
+    case GameKeyCode::K:
+        if (!m->addSubshapeData.active)
+        {
+            m->addSubshapeData.active = true;
+        }
+
+        m->addSubshapeData.shape = (AddSubshapeShape)((m->addSubshapeData.shape + 1) % (int)AddSubshapeShape::NUM_SUBSHAPES);
+        m->addSubshapeData.repeatX = 0;
+        m->addSubshapeData.repeatY = 0;
+
+        switch (m->addSubshapeData.shape)
+        {
+        case AddSubshapeShape::SUBSHAPE_RECT:
+            m->addSubshapeData.numPoints = 4;
+            m->addSubshapeData.points[0] = Vector2(0, 0);
+            m->addSubshapeData.points[1] = Vector2(gridSize, 0.0f);
+            m->addSubshapeData.points[2] = Vector2(gridSize, gridSize);
+            m->addSubshapeData.points[3] = Vector2(0, gridSize);
+            break;
+        case AddSubshapeShape::SUBSHAPE_TRIANGLE_1:
+            m->addSubshapeData.numPoints = 3;
+            m->addSubshapeData.points[0] = Vector2(gridSize, 0.0f);
+            m->addSubshapeData.points[1] = Vector2(gridSize, gridSize);
+            m->addSubshapeData.points[2] = Vector2(0, gridSize);
+            break;
+        case AddSubshapeShape::SUBSHAPE_TRIANGLE_2:
+            m->addSubshapeData.numPoints = 3;
+            m->addSubshapeData.points[0] = Vector2(gridSize, gridSize);
+            m->addSubshapeData.points[1] = Vector2(0, gridSize);
+            m->addSubshapeData.points[2] = Vector2(0, 0);
+            break;
+        case AddSubshapeShape::SUBSHAPE_TRIANGLE_3:
+            m->addSubshapeData.numPoints = 3;
+            m->addSubshapeData.points[0] = Vector2(0, gridSize);
+            m->addSubshapeData.points[1] = Vector2(0, 0);
+            m->addSubshapeData.points[2] = Vector2(gridSize, 0.0f);
+            break;
+        case AddSubshapeShape::SUBSHAPE_TRIANGLE_4:
+            m->addSubshapeData.numPoints = 3;
+            m->addSubshapeData.points[0] = Vector2(0, 0);
+            m->addSubshapeData.points[1] = Vector2(gridSize, 0.0f);
+            m->addSubshapeData.points[2] = Vector2(gridSize, gridSize);
+            break;
+        default:
+            break;
+        }
+
+        break;
+    case GameKeyCode::L:
+    {
+        m->addSubshapeData = AddSubShapeData();
+        m->addSubshapeData.active = true;
+        break;
+    }
+    case GameKeyCode::P:
+    {
+        Vector2 newPos = m->translatedMousePos();
+
+        if (m->selectedShapeIndex != -1)
+        {
+            Shapes::addPointToShape(m->physicsSpace, m->selectedShapeIndex, newPos.x, newPos.y);
+        }
+    }
     break;
     case GameKeyCode::R:
         maxLength = -10000.0f;
@@ -471,64 +742,6 @@ bool Game::keyWasPressed(GameKeyCode keyCode)
 Array<ShapeBoundingBox> &Game::shapeBoundingBoxes()
 {
     return m->collisionSolver.boundingBoxes();
-}
-
-void Game::mouseButtonUp(int button, int x, int y, bool shiftDown)
-{
-    if (button == 2)
-    {
-        m->panning = false;
-        return;
-    }
-
-    m->physicsSpace.mouseJoint.pointIndex = -1;
-    m->shapeMatchDragData.dragShapeIndex = -1;
-}
-
-void Game::mouseMove(int x, int y, int relativeX, int relativeY)
-{
-    if (m->panning)
-    {
-        m->offset.x += relativeX;
-        m->offset.y += relativeY;
-        return;
-    }
-
-    Vector2 translatedPos = (Vector2((float)x, (float)y) - m->offset) / m->scale;
-
-    if (m->physicsSpace.mouseJoint.pointIndex != -1)
-    {
-        int i = m->physicsSpace.mouseJoint.pointIndex;
-        m->physicsSpace.points.pos[i] = translatedPos;
-
-        if (m->stopPointWhenDragging)
-        {
-            m->physicsSpace.points.velocity[i] = Vector2();
-        }
-
-        m->physicsSpace.mouseJoint.position = translatedPos;
-    }
-
-    float translatedRelativeX = (float)relativeX / m->scale;
-    float translatedRelativeY = (float)relativeY / m->scale;
-
-    if (m->shapeMatchDragData.dragShapeIndex != -1)
-    {
-        Shape &shape = m->physicsSpace.shapes[m->shapeMatchDragData.dragShapeIndex];
-        Vector2 delta(translatedRelativeX, translatedRelativeY);
-
-        if (shape.isStatic)
-        {
-            for (int i = shape.start; i < shape.end; i++)
-            {
-                m->physicsSpace.points.pos[i] += delta;
-            }
-        }
-        else
-        {
-            m->shapeMatchDragData.center += delta;
-        }
-    }
 }
 
 PhysicsSpace &Game::physicsSpace()
@@ -574,6 +787,11 @@ void Game::togglePaused()
     setPaused(!m->paused);
 }
 
+int Game::pendingSpringSourceIndex() const
+{
+    return m->pendingSpringSourceIndex;
+}
+
 bool Game::paused()
 {
     return m->paused;
@@ -588,6 +806,12 @@ void Game::updateBoundingBoxes(bool clear)
     }
 
     m->collisionSolver.updateBoundingBoxes(m->physicsSpace, profileInfo);
+
+    for (int i = 0; i < m->physicsSpace.shapes.size(); i++)
+    {
+        Shape &shape = m->physicsSpace.shapes[i];
+        shape.index = i;
+    }
 }
 
 void Game::setShouldQuit()
@@ -628,6 +852,11 @@ void Game::scheduleFrameCallback(void (*function)(Game *, void *), void *args)
 int Game::selectedShapeIndex() const
 {
     return m->selectedShapeIndex;
+}
+
+void Game::setSelectedShapeIndex(int index)
+{
+    m->selectedShapeIndex = index;
 }
 
 void Game::runFor(int timeMillis, bool pauseAfter)

@@ -381,6 +381,12 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 
                         ImGui::Checkbox("Static", &shape.isStatic);
                         ImGui::Checkbox("Disable shape matching", &shape.disableShapeMatching);
+
+                        if (ImGui::Button("Snap to grid"))
+                        {
+                            Shapes::snapToGrid(space, selectedShapeIndex);
+                        }
+
                         if (ImGui::Button("Reset to original"))
                         {
                             Shapes::resetShape(space, selectedShapeIndex);
@@ -406,13 +412,16 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 
     if (ImGui::BeginPopup(contextMenu))
     {
+        PhysicsSpace &space = game.physicsSpace();
+        int prevShapesSize = space.shapes.size();
+
         if (ImGui::BeginMenu("Static shapes"))
         {
             ImVec2 pos = ImGui::GetMousePos();
             PhysicsSpace &space = game.physicsSpace();
             Vector2 addPos = (Vector2(pos.x, pos.y) - game.offset()) / game.scale();
             float defaultMass = 4.0f;
-            float size = 50.0f;
+            float size = gridSize;
 
             if (ImGui::MenuItem("Quad"))
             {
@@ -439,14 +448,13 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
         }
 
         ImVec2 pos = ImGui::GetMousePos();
-        PhysicsSpace &space = game.physicsSpace();
         Vector2 addPos = (Vector2(pos.x, pos.y) - game.offset()) / game.scale();
 
         if (ImGui::BeginMenu("Shapes"))
         {
 
             float defaultMass = 2.0f;
-            float size = 50.0f;
+            float size = gridSize;
 
             if (ImGui::MenuItem("Quad"))
             {
@@ -490,6 +498,12 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
             Vector2 newPos = (Vector2(popupPos.x, popupPos.y) - game.offset()) / game.scale();
 
             Shapes::addPointToShape(space, selectedShapeIndex, newPos.x, newPos.y);
+        }
+
+        if (space.shapes.size() != prevShapesSize)
+        {
+            game.updateBoundingBoxes();
+            game.setSelectedShapeIndex(space.shapes.size() - 1);
         }
 
         ImGui::EndPopup();

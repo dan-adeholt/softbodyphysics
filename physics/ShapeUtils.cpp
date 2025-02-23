@@ -1,5 +1,6 @@
 #include "ShapeUtils.h"
 #include "./Physics.h"
+#include "../utils/Console.h"
 
 Vector2 ShapeUtils::getAverageShapeVelocity(PointMassesRange points, const Shape &shape)
 {
@@ -54,7 +55,7 @@ ShapeUtils::getShapeProperties(PointMassesRange points, const Shape &shape)
 Vector2 ShapeUtils::getShapePos(const PointMassesRange &points, const Shape &shape, int j, const ShapeProperties &averages, const ShapeMatchDragData &dragData)
 {
     Vector2 p0 = (points.shapeOriginalPos[j] - averages.origCenter).rotate(averages.diffAngle);
-    if (dragData.dragShapeIndex == shape.index)
+    if (dragData.dragShapeIndex == shape.index && shape.index != -1)
     {
         p0 += dragData.center;
     }

@@ -10,6 +10,7 @@ PhysicsSpace::PhysicsSpace() : gravityEnabled(true), collisionsEnabled(true), sh
     shapes.reserve(NUM_SHAPES);
     points.reserve(NUM_POINTS);
     staticJoints.reserve(NUM_POINTS / 2);
+    shapeJoints.reserve(NUM_SHAPES / 2);
     springs.reserve(NUM_POINTS / 2);
     mouseJoint.pointIndex = -1;
     mouseJoint.position = Vector2::zero();
@@ -21,7 +22,7 @@ void PhysicsSpace::assign(PhysicsSpace &other)
     points.replace(other.points);
     springs.replace(other.springs);
     staticJoints.replace(other.staticJoints);
-    pointJoints.replace(other.pointJoints);
+    shapeJoints.replace(other.shapeJoints);
 }
 
 void PhysicsSpace::initFromEntries(const Array<ShapeEntry> &entries)
@@ -75,7 +76,6 @@ void PhysicsSpace::clear()
     shapes.clear();
     points.clear();
     springs.clear();
-    pointJoints.clear();
     staticJoints.clear();
     mouseJoint.pointIndex = -1;
     gravityEnabled = true;
@@ -103,6 +103,29 @@ void PhysicsSpace::removeShapeWithoutPoints(int shapeIndex)
         else if (spring.shapeIndex >= shapeIndex)
         {
             spring.shapeIndex--;
+        }
+    }
+
+    for (int i = 0; i < shapeJoints.size(); i++)
+    {
+        ShapeJoint &shapeJoint = shapeJoints[i];
+
+        if (shapeJoint.shapeIndex1 == shapeIndex || shapeJoint.shapeIndex2 == shapeIndex)
+        {
+            shapeJoints.remove(i);
+            i--;
+        }
+        else
+        {
+            if (shapeJoint.shapeIndex1 >= shapeIndex)
+            {
+                shapeJoint.shapeIndex1--;
+            }
+
+            if (shapeJoint.shapeIndex2 >= shapeIndex)
+            {
+                shapeJoint.shapeIndex2--;
+            }
         }
     }
 }
@@ -163,24 +186,6 @@ void PhysicsSpace::removeShape(int shapeIndex)
             joint.pointIndex -= shapeSize;
         }
     }
-    for (int i = 0; i < pointJoints.size(); i++)
-    {
-        PointJoint &joint = pointJoints[i];
-        if ((joint.pointIndex >= shapeSpan.start && joint.pointIndex < shapeSpan.end) ||
-            (joint.otherPointIndex >= shapeSpan.start && joint.otherPointIndex < shapeSpan.end))
-        {
-            staticJoints.remove(i);
-            i--;
-        }
-        else if (joint.pointIndex >= shapeSpan.end)
-        {
-            joint.pointIndex -= shapeSize;
-        }
-        else if (joint.otherPointIndex >= shapeSpan.end)
-        {
-            joint.otherPointIndex -= shapeSize;
-        }
-    }
 
     for (int i = 0; i < shapes.size(); i++)
     {
@@ -206,4 +211,127 @@ void PhysicsSpace::removeShape(int shapeIndex)
             spring.pointB -= shapeSize;
         }
     }
+
+    for (int i = 0; i < shapeJoints.size(); i++)
+    {
+        ShapeJoint &joint = shapeJoints[i];
+
+        for (int i = 0; i < 4; i++)
+        {
+            if (joint.shape1Points[i] >= shapeStart)
+            {
+                joint.shape1Points[i] -= shapeSize;
+            }
+        }
+
+        for (int i = 0; i < 4; i++)
+        {
+            if (joint.shape2Points[i] >= shapeStart)
+            {
+                joint.shape2Points[i] -= shapeSize;
+            }
+        }
+    }
+}
+
+void PhysicsSpace::pasteShape(int copyIndex)
+{
+    const Shape &copyShape = shapes[copyIndex];
+
+    int shapeSize = copyShape.end - copyShape.start;
+    int newShapeStart = points.size();
+    int newShapeEnd = newShapeStart + shapeSize;
+
+    for (int i = copyShape.start; i < copyShape.end; i++)
+    {
+        points.mass.push(points.mass[i]);
+        points.pos.push(points.pos[i]);
+        points.velocity.push(points.velocity[i]);
+        points.shapeOriginalPos.push(points.shapeOriginalPos[i]);
+    }
+
+    if (copyShape.parentId != -1)
+    {
+        int newParentId = nextParentId();
+        int oldShapesSize = shapes.size();
+
+        for (int i = 0; i < oldShapesSize; i++)
+        {
+            Shape sCopy = shapes[i];
+
+            if (sCopy.parentId != copyShape.parentId)
+            {
+                continue;
+            }
+            int subIndex = sCopy.index;
+            sCopy.parentId = newParentId;
+            sCopy.start = newShapeStart;
+            sCopy.end = newShapeEnd;
+            sCopy.index = shapes.size();
+            shapes.push(sCopy);
+            int oldSpringsSize = springs.size();
+            for (int j = 0; j < oldSpringsSize; j++)
+            {
+                Spring &spring = springs[j];
+                if (spring.shapeIndex == subIndex)
+                {
+                    Spring springCopy = spring;
+                    springCopy.shapeIndex = sCopy.index;
+                    springCopy.pointA = springCopy.pointA - copyShape.start + newShapeStart;
+                    springCopy.pointB = springCopy.pointB - copyShape.start + newShapeStart;
+                    springs.push(springCopy);
+                }
+            }
+        }
+    }
+    else
+    {
+        Shape sCopy = copyShape;
+        sCopy.start = newShapeStart;
+        sCopy.end = newShapeEnd;
+        sCopy.index = shapes.size();
+        shapes.push(sCopy);
+        int oldSpringsSize = springs.size();
+
+        for (int i = 0; i < oldSpringsSize; i++)
+        {
+            Spring &spring = springs[i];
+            if (spring.shapeIndex == copyIndex)
+            {
+                Spring springCopy = spring;
+                springCopy.shapeIndex = sCopy.index;
+                springCopy.pointA = springCopy.pointA - copyShape.start + newShapeStart;
+                springCopy.pointB = springCopy.pointB - copyShape.start + newShapeStart;
+                springs.push(springCopy);
+            }
+        }
+    }
+}
+
+int PhysicsSpace::closestPointIndex(float x, float y, int shapeIndex) const
+{
+    if (shapeIndex == -1)
+    {
+        return -1;
+    }
+
+    const Shape &shape = shapes[shapeIndex];
+    float minDistance = __FLT_MAX__;
+    int closestIndex = -1;
+
+    ShapeIndexedRange range(shape);
+
+    for (int i = 0; i < range.size(); i++)
+    {
+        Vector2 pos = points.pos[range[i]];
+        float distance = Vector2::vec2distance(x, y, pos.x, pos.y);
+
+        if (distance < minDistance)
+        {
+            minDistance = distance;
+            closestIndex = range[i];
+        }
+    }
+
+    return closestIndex;
 }

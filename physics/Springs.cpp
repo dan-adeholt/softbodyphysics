@@ -19,6 +19,32 @@ struct SpringJobData
     ShapeMatchDragData dragData;
 };
 
+void applySpringCalculation(const Spring &spring, const PointMassesRange &points, Range<PointDerivative> &derivatives, float springFactor, float offsetLength, Vector2 &direction)
+{
+    float delta = (offsetLength - spring.length);
+
+    float springDamping = spring.damping;
+    float springStiffness = spring.stiffness;
+
+    float springForce = delta * springStiffness;
+    Vector2 directionNormalized = direction / offsetLength;
+
+    Vector2 dv(points.velocity[spring.pointB] - points.velocity[spring.pointA]);
+    float dampForce = directionNormalized.dot(dv * springDamping);
+    float combinedForce = (springForce + dampForce) * springFactor;
+
+    Vector2 force(directionNormalized * combinedForce);
+
+    float p1Mass = points.mass[spring.pointA];
+    float p2Mass = points.mass[spring.pointB];
+
+    PointDerivative &derivative1 = derivatives[spring.pointA];
+    PointDerivative &derivative2 = derivatives[spring.pointB];
+
+    derivative1.acceleration += force / p1Mass;
+    derivative2.acceleration -= force / p2Mass;
+}
+
 void applySpringDerivatives(
     Range<Shape> &shapes,
     Range<ShapeProperties> &shapeProperties,
@@ -41,39 +67,14 @@ void applySpringDerivatives(
         const ShapeProperties &averages = shapeProperties[spring.shapeIndex];
         const Shape &shape = shapes[spring.shapeIndex];
 
-        // These don't work well since multiple springs are connected to the same point,
-        // and the point has different meanings in each substructure
-
         Vector2 origPointA = ShapeUtils::getShapePos(points, shape, spring.pointA, averages, dragData);
         Vector2 origPointB = ShapeUtils::getShapePos(points, shape, spring.pointB, averages, dragData);
 
         float dot = (p1 - p0).dot(origPointB - origPointA);
-        // dot = 1.0f;
 
         if (offsetLength > 0.001f && dot > 0)
         {
-            float delta = (offsetLength - spring.length);
-
-            float springDamping = spring.damping;
-            float springStiffness = spring.stiffness;
-
-            float springForce = delta * springStiffness;
-            Vector2 directionNormalized = direction / offsetLength;
-
-            Vector2 dv(points.velocity[spring.pointB] - points.velocity[spring.pointA]);
-            float dampForce = directionNormalized.dot(dv * springDamping);
-            float combinedForce = (springForce + dampForce) * springFactor;
-
-            Vector2 force(directionNormalized * combinedForce);
-
-            float p1Mass = points.mass[spring.pointA];
-            float p2Mass = points.mass[spring.pointB];
-
-            PointDerivative &derivative1 = derivatives[spring.pointA];
-            PointDerivative &derivative2 = derivatives[spring.pointB];
-
-            derivative1.acceleration += force / p1Mass;
-            derivative2.acceleration -= force / p2Mass;
+            applySpringCalculation(spring, points, derivatives, springFactor, offsetLength, direction);
         }
     }
 

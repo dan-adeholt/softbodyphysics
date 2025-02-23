@@ -236,6 +236,9 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
     SDL_Event event;
 
+    int mouseX = -1;
+    int mouseY = -1;
+
     char cwd[512];
     bool cwdResult = getcwd(cwd, sizeof(cwd));
     assert(cwdResult);
@@ -375,19 +378,20 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
             case SDL_MOUSEBUTTONDOWN:
                 if (processInput)
                 {
-                    game->mouseButtonDown(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
+                    game->onMouseDown(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
                 }
                 break;
             case SDL_MOUSEBUTTONUP:
-                if (processInput)
-                {
-                    game->mouseButtonUp(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
-                }
+                // Always need to reset state on mouse up even if we are not processing input
+                game->onMouseUp(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
                 break;
             case SDL_MOUSEMOTION:
+                mouseX = event.motion.x;
+                mouseY = event.motion.y;
+
                 if (processInput)
                 {
-                    game->mouseMove(event.motion.x, event.motion.y, event.motion.xrel, event.motion.yrel);
+                    game->onMouseMove(event.motion.x, event.motion.y, event.motion.xrel, event.motion.yrel);
                 }
                 break;
             }
@@ -439,6 +443,13 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
                 profileInfo.totalPhysicsTimeMillis = totalPhysicsTimer.elapsedMillis();
             }
         }
+        else
+        {
+            if (game->renderSettings().clearDebugGeometryWhenPaused)
+            {
+                Console::clearFrame();
+            }
+        }
 
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
@@ -447,8 +458,7 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
         Timer renderTimer;
 
         SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
-
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 255);
         SDL_RenderClear(renderer);
 
         gameRenderer.renderGame(renderer, *game, profileInfo);

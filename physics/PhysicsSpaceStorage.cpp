@@ -1,5 +1,6 @@
 #include "PhysicsSpaceStorage.h"
 #include "PhysicsSpace.h"
+#include "ShapeUtils.h"
 #include <stdio.h>
 #include <assert.h>
 #include "../utils/Console.h"
@@ -235,6 +236,65 @@ void PhysicsSpaceStorage::loadFromFile(PhysicsSpace &space, const char *filename
     fclose(file);
 }
 
+void PhysicsSpaceStorage::appendFromFile(PhysicsSpace &space, const char *filename, const Vector2 &posOffset)
+{
+    PhysicsSpace tempSpace;
+    loadFromFile(tempSpace, filename);
+
+    int pointStart = space.points.size();
+    space.points.append(tempSpace.points);
+
+    for (int i = pointStart; i < space.points.size(); i++)
+    {
+        space.points.pos[i] += posOffset;
+    }
+
+    int shapeStart = space.shapes.size();
+    space.shapes.append(tempSpace.shapes);
+
+    for (int i = shapeStart; i < space.shapes.size(); i++)
+    {
+        Shape &shape = space.shapes[i];
+        shape.start += pointStart;
+        shape.end += pointStart;
+    }
+
+    int springsStart = space.springs.size();
+    space.springs.append(tempSpace.springs);
+    for (int i = springsStart; i < space.springs.size(); i++)
+    {
+        Spring &spring = space.springs[i];
+        spring.shapeIndex += shapeStart;
+        spring.pointA += pointStart;
+        spring.pointB += pointStart;
+    }
+
+    int staticJointsStart = space.staticJoints.size();
+    space.staticJoints.append(tempSpace.staticJoints);
+
+    for (int i = staticJointsStart; i < space.staticJoints.size(); i++)
+    {
+        StaticJoint &joint = space.staticJoints[i];
+        joint.pointIndex += pointStart;
+    }
+
+    int shapeJointsStart = space.shapeJoints.size();
+    space.shapeJoints.append(tempSpace.shapeJoints);
+
+    for (int i = shapeJointsStart; i < space.shapeJoints.size(); i++)
+    {
+        ShapeJoint &joint = space.shapeJoints[i];
+        joint.shapeIndex1 += shapeStart;
+        joint.shapeIndex2 += shapeStart;
+
+        for (int j = 0; j < 4; j++)
+        {
+            joint.shape1Points[j] += pointStart;
+            joint.shape2Points[j] += pointStart;
+        }
+    }
+}
+
 void PhysicsSpaceStorage::dumpToFile(PhysicsSpace &space, const char *filename)
 {
     FILE *file = fopen(filename, "w");
@@ -281,6 +341,111 @@ int getHighestFileNumber(const char *directory, const char *format)
 
     closedir(dir);
     return max_number;
+}
+
+void PhysicsSpaceStorage::dumpToPrefab(PhysicsSpace &space, int selectedShapeIndex)
+{
+    int saveNumber = getHighestFileNumber("scenedefs", "prefab_%d.txt") + 1;
+    StringBuffer<256> filename;
+    filename.append("scenedefs/prefab_%d.txt", saveNumber);
+
+    PhysicsSpace tempSpace;
+
+    Shape &selectedShape = space.shapes[selectedShapeIndex];
+
+    if (selectedShapeIndex == -1)
+    {
+        Console::log("No shape selected");
+    }
+    else if (selectedShape.parentId != -1 || selectedShape.hasIndices())
+    {
+        Console::log("Multi-shapes not supported for prefabs");
+        return;
+    }
+
+    const Shape &shape = space.shapes[selectedShapeIndex];
+    ShapeProperties averages = ShapeUtils::getShapeProperties(space.points.range(), shape);
+
+    for (int i = shape.start; i < shape.end; i++)
+    {
+        tempSpace.points.pos.push(space.points.pos[i] - averages.center);
+        tempSpace.points.velocity.push(Vector2());
+        tempSpace.points.mass.push(space.points.mass[i]);
+        tempSpace.points.shapeOriginalPos.push(space.points.pos[i] - averages.center);
+    }
+
+    Shape newShape(shape);
+    newShape.isStatic = false;
+    newShape.start = 0;
+    newShape.end = shape.end - shape.start;
+    tempSpace.shapes.push(newShape);
+
+    for (int i = 0; i < space.springs.size(); i++)
+    {
+        const Spring &spring = space.springs[i];
+        if (spring.shapeIndex == selectedShapeIndex)
+        {
+            Spring newSpring = spring;
+            newSpring.pointA -= shape.start;
+            newSpring.pointB -= shape.start;
+            tempSpace.springs.push(newSpring);
+        }
+    }
+
+    dumpToFile(tempSpace, filename.data);
+
+    const char *tempFileName = "/tmp/physics_space_copy.txt";
+
+    FILE *f = fopen(tempFileName, "w");
+
+    fprintf(f, "    {\"New Prefab %d\", [](Game *game)\n", saveNumber);
+    fprintf(f, "      {\n");
+    fprintf(f, "         PhysicsSpace &space = game->physicsSpace();\n");
+    fprintf(f, "         PhysicsSpaceStorage::loadFromFile(space, \"%s\");\n", filename.data);
+    fprintf(f, "         game->setPaused();\n");
+    fprintf(f, "    }},\n");
+    fclose(f);
+    fflush(f);
+
+    // Open the file
+    FILE *file = fopen(tempFileName, "r");
+    if (!file)
+    {
+        fprintf(stderr, "Failed to open file: %s\n", tempFileName);
+        return;
+    }
+
+    // Determine the file size
+    fseek(file, 0, SEEK_END);
+    size_t fileSize = (size_t)ftell(file);
+    rewind(file);
+
+    // Allocate memory to read the file contents
+    char *buffer = (char *)malloc(fileSize + 1);
+    if (!buffer)
+    {
+        fprintf(stderr, "Failed to allocate memory for file contents.\n");
+        fclose(file);
+        return;
+    }
+
+    // Read the file contents
+    size_t bytesRead = fread(buffer, 1, fileSize, file);
+    buffer[bytesRead] = '\0'; // Null-terminate the string
+    fclose(file);
+
+    // Set the clipboard text using SDL
+    if (SDL_SetClipboardText(buffer) != 0)
+    {
+        fprintf(stderr, "Failed to set clipboard text: %s\n", SDL_GetError());
+    }
+    else
+    {
+        printf("Clipboard updated successfully!\n");
+    }
+
+    // Free the buffer
+    free(buffer);
 }
 
 void PhysicsSpaceStorage::dumpToUnitTest(PhysicsSpace &space, float scale, const Vector2 &offset)

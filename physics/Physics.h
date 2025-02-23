@@ -4,9 +4,12 @@
 #include "../containers/Span.h"
 #include "../containers/Array.h"
 #include "../math/Vector2.h"
+#include "../utils/Console.h"
 #include <stdint.h>
 
+extern const float gridSize;
 extern const float physicsStep;
+extern const float minPointSnapDist;
 
 struct PointMassesRange
 {
@@ -19,6 +22,14 @@ struct PointMassesRange
     Range<Vector2> shapeOriginalPos;
     Range<float> mass;
     Range<Vector2> velocity;
+};
+
+struct Vertex
+{
+    Vector2 pos;
+    Vector2 originalPos;
+    float mass = 1.0f;
+    Vector2 velocity;
 };
 
 struct PointMasses
@@ -87,20 +98,36 @@ struct PointMasses
         shapeOriginalPos.replace(other.shapeOriginalPos);
     }
 
-    void insert(int index, float x, float y, float mass)
+    void insert(int index, Vertex vertex)
+    {
+        pos.insert(index, vertex.pos);
+        shapeOriginalPos.insert(index, vertex.originalPos);
+        mass.insert(index, vertex.mass);
+        velocity.insert(index, vertex.velocity);
+    }
+
+    void insert(int index, float x, float y, float origX, float origY, float mass)
     {
         pos.insert(index, {x, y});
-        shapeOriginalPos.insert(index, {x, y});
+        shapeOriginalPos.insert(index, {origX, origY});
         this->mass.insert(index, mass);
         velocity.insert(index, {0.0f, 0.0f});
     }
 
-    void push(float x, float y, float mass = 1.0f, float velocityX = 0.0f, float velocityY = 0.0f)
+    void push(Vertex vertex)
+    {
+        pos.push(vertex.pos);
+        shapeOriginalPos.push(vertex.originalPos);
+        mass.push(vertex.mass);
+        velocity.push(vertex.velocity);
+    }
+
+    void push(float x, float y, float mass = 1.0f)
     {
         this->pos.push({x, y});
         this->shapeOriginalPos.push({x, y});
         this->mass.push(mass);
-        this->velocity.push({velocityX, velocityY});
+        this->velocity.push({0.0f, 0.0f});
     }
 
     int size()
@@ -153,10 +180,15 @@ struct PointDerivative
     Vector2 acceleration;
 };
 
-struct PointJoint
+struct ShapeJoint
 {
-    int pointIndex;
-    int otherPointIndex;
+    int shapeIndex1;
+    int shape1Points[4] = {-1, -1, -1, -1};
+    float shape1Weights[4] = {0.25f, 0.25f, 0.25f, 0.25f};
+    int shapeIndex2;
+    int shape2Points[4] = {-1, -1, -1, -1};
+    float shape2Weights[4] = {0.25f, 0.25f, 0.25f, 0.25f};
+    Vector2 offset;
 };
 
 struct StaticJoint
@@ -181,7 +213,6 @@ struct Spring
     float damping;
     int shapeIndex;
 };
-
 struct Shape
 {
     Shape() : start(0), end(0), volume(0.0f), isStatic(false), disableShapeMatching(false), index(-1), parentId(-1) {}
@@ -199,6 +230,19 @@ struct Shape
     uint16_t indices[4] = {UINT16_MAX, UINT16_MAX, UINT16_MAX, UINT16_MAX};
     bool interiorEdges[4] = {false, false, false, false};
 
+    int numIndices() const
+    {
+        int count = 0;
+        for (int i = 0; i < 4; i++)
+        {
+            if (indices[i] != UINT16_MAX)
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
     bool allInteriorEdges() const
     {
         return interiorEdges[0] && interiorEdges[1] && interiorEdges[2] && interiorEdges[3];
@@ -211,7 +255,7 @@ struct Shape
 
     int size() const
     {
-        return hasIndices() ? 4 : end - start;
+        return hasIndices() ? numIndices() : end - start;
     }
 
     int commonEdge(const Shape &other) const
@@ -227,7 +271,7 @@ struct Shape
             {
                 for (int j = 0; j < 4; j++)
                 {
-                    if (indices[i] == other.indices[j])
+                    if (indices[i] == other.indices[j] && indices[i] != UINT16_MAX)
                     {
                         {
                             // Check if the prev index starts the edge
@@ -259,6 +303,31 @@ struct ShapeProperties
     float diffAngle;
 };
 
+enum AddSubshapeShape
+{
+    SUBSHAPE_RECT = 0,
+    SUBSHAPE_TRIANGLE_1,
+    SUBSHAPE_TRIANGLE_2,
+    SUBSHAPE_TRIANGLE_3,
+    SUBSHAPE_TRIANGLE_4,
+    NUM_SUBSHAPES
+};
+
+struct AddSubShapeData
+{
+    bool active = false;
+    bool mouseDown = false;
+
+    AddSubshapeShape shape = AddSubshapeShape::SUBSHAPE_RECT;
+    int repeatX = 0;
+    int repeatY = 0;
+
+    Vector2 sourcePos;
+    int numPoints = 4;
+    Vector2 points[4] = {
+        Vector2(0, 0), Vector2(gridSize, 0.0f), Vector2(gridSize, gridSize), Vector2(0, gridSize)};
+};
+
 struct ShapeMatchDragData
 {
     ShapeMatchDragData()
@@ -282,24 +351,34 @@ struct ShapeIterator
 {
     int cur = 0;
     int end = 0;
-    int indices[4];
+    int indices[4] = {-1, -1, -1, -1};
+    bool interiorEdges[4] = {false, false, false, false};
     bool indexed = false;
 
     ShapeIterator(const Shape &shape)
     {
         indexed = shape.hasIndices();
         cur = indexed ? 0 : shape.start;
-        end = indexed ? 4 : shape.end;
+        end = indexed ? shape.numIndices() : shape.end;
 
-        for (int i = 0; i < 4; i++)
+        if (indexed)
         {
-            indices[i] = shape.start + shape.indices[i];
+            for (int i = 0; i < 4; i++)
+            {
+                indices[i] = shape.start + shape.indices[i];
+                interiorEdges[i] = shape.interiorEdges[i];
+            }
         }
     }
 
     bool isValid() const
     {
         return cur < end;
+    }
+
+    bool isInteriorEdge() const
+    {
+        return indexed ? interiorEdges[cur] : false;
     }
 
     int index()
@@ -319,7 +398,7 @@ struct ShapeIndexedRange
     {
         indexed = shape.hasIndices();
         start = indexed ? 0 : shape.start;
-        end = indexed ? 4 : shape.end;
+        end = indexed ? shape.numIndices() : shape.end;
 
         if (indexed)
         {

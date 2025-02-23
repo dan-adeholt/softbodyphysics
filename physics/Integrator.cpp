@@ -121,17 +121,6 @@ void Integrator::performIntegration(PhysicsSpace &space, const ShapeMatchDragDat
         space.points.velocity[joint.pointIndex] = Vector2();
     }
 
-    for (int i = 0; i < space.pointJoints.size(); i++)
-    {
-        PointJoint &joint = space.pointJoints[i];
-        Vector2 midPoint = (space.points.pos[joint.pointIndex] + space.points.pos[joint.otherPointIndex]) / 2.0f;
-        space.points.pos[joint.pointIndex] = midPoint;
-        space.points.pos[joint.otherPointIndex] = midPoint;
-        Vector2 midVelocity = (space.points.velocity[joint.pointIndex] + space.points.velocity[joint.otherPointIndex]) / 2.0f;
-        space.points.velocity[joint.pointIndex] = midVelocity;
-        space.points.velocity[joint.otherPointIndex] = midVelocity;
-    }
-
     if (space.mouseJoint.pointIndex != -1)
     {
         space.points.pos[space.mouseJoint.pointIndex] = space.mouseJoint.position;

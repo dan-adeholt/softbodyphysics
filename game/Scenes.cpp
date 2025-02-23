@@ -61,6 +61,15 @@ SceneDefinition deformedScenes[] = {
 };
 
 SceneDefinition collisionScenes[] = {
+    {"New Unit Test 32", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_32.txt");
+         game->scale() = 0.85f;
+         game->offset() = Vector2(91.30f, 722.68f);
+         game->setPaused();
+     }},
+
     {"New Unit Test 29", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();
@@ -503,6 +512,15 @@ SceneDefinition collisionScenes[] = {
      }}};
 
 SceneDefinition shapeScenes[] = {
+    {"Bridge loose", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_31.txt");
+         game->scale() = 1.00f;
+         game->offset() = Vector2(-109.00f, 69.00f);
+         game->setPaused();
+     }},
+
     {"Mesh", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();
@@ -715,6 +733,30 @@ SceneDefinition gameScenes[] = {
              space.points.mass[range[i]] = 10000000.0f;
          }
      }},
+    {"Car", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_33.txt");
+         Shapes::createCar(space, 400.0f, 440.0f);
+
+         GameRenderSettings renderSettings;
+         renderSettings.renderPointIndices = true;
+        //  renderSettings.renderShapeMatching = false;
+         renderSettings.clearDebugGeometryWhenPaused = true;
+         game->setRenderSettings(renderSettings);
+
+         PhysicsSpaceStorage::appendFromFile(space, "scenedefs/prefab_3.txt", Vector2(400.0f, 140.0f));
+         game->scale() = 1.00f;
+         game->offset() = Vector2(270.00f, 47.00f);
+         game->setPaused();
+     }},
+    {"New Prefab 1", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/prefab_1.txt");
+         game->setPaused();
+     }},
+
     {"Crusher", [](Game *game)
      {
          float size = 170.0f;

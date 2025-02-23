@@ -7,6 +7,7 @@ struct ConsoleProfileInfo;
 struct ShapeBoundingBox;
 class Vector2;
 struct ShapeMatchDragData;
+struct AddSubShapeData;
 
 enum class GameKeyCode : int;
 
@@ -24,6 +25,7 @@ struct GameRenderSettings
     bool renderVelocityVectors = false;
     bool renderShapeMatching = true;
     bool renderPointIndices = false;
+    bool clearDebugGeometryWhenPaused = false;
 };
 
 class Game
@@ -42,9 +44,9 @@ public:
     void rewindHistory();
     void forwardHistory();
 
-    void mouseButtonDown(int button, int x, int y, bool shiftDown);
-    void mouseButtonUp(int button, int x, int y, bool shiftDown);
-    void mouseMove(int x, int y, int relativeX, int relativeY);
+    void onMouseDown(int button, int x, int y, bool shiftDown);
+    void onMouseUp(int button, int x, int y, bool shiftDown);
+    void onMouseMove(int x, int y, int relativeX, int relativeY);
     void mouseWheel(int x, int y);
 
     void keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profileInfo);
@@ -69,7 +71,10 @@ public:
     void setPaused(bool paused = true);
     void togglePaused();
 
-    const char *currentSceneName();
+    int pendingSpringSourceIndex() const;
+
+    const char *
+    currentSceneName();
 
     Vector2 &offset();
     float &scale();
@@ -78,6 +83,7 @@ public:
     void scheduleFrameCallback(void (*function)(Game *, void *), void *args);
 
     int selectedShapeIndex() const;
+    void setSelectedShapeIndex(int index);
 
     void runFor(int timeMillis, bool pauseAfter = false);
 
@@ -87,6 +93,10 @@ public:
     void setRenderSettings(const GameRenderSettings &settings);
 
     const char *title() const;
+
+    const AddSubShapeData &addSubShapeData() const;
+
+    const Vector2 &mousePos() const;
 
 private:
     void updateAfterRewindOrForward();

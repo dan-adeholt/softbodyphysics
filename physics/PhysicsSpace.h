@@ -30,11 +30,15 @@ struct PhysicsSpace
 
     void removeShape(int shapeIndex);
 
+    void pasteShape(int copyIndex);
+
+    int closestPointIndex(float x, float y, int shapeIndex) const;
+
     Array<Shape> shapes;
     PointMasses points;
     Array<Spring> springs;
-    Array<PointJoint> pointJoints;
     Array<StaticJoint> staticJoints;
+    Array<ShapeJoint> shapeJoints;
 
     StaticJoint mouseJoint;
     bool gravityEnabled;
