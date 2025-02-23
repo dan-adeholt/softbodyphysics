@@ -741,7 +741,7 @@ SceneDefinition gameScenes[] = {
 
          GameRenderSettings renderSettings;
          renderSettings.renderPointIndices = true;
-        //  renderSettings.renderShapeMatching = false;
+         renderSettings.renderShapeMatching = false;
          renderSettings.clearDebugGeometryWhenPaused = true;
          game->setRenderSettings(renderSettings);
 

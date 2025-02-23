@@ -194,8 +194,30 @@ namespace Shapes
         }
     }
 
+    void addInteriorSpringsToQuad(PhysicsSpace &space, Shape &quad, float stiffness, float damping)
+    {
+
+        // Quad, add interior springs
+        int ip0 = quad.start + quad.indices[0];
+        int ip1 = quad.start + quad.indices[1];
+        int ip2 = quad.start + quad.indices[2];
+        int ip3 = quad.start + quad.indices[3];
+
+        Vector2 p0 = space.points.pos[ip0];
+        Vector2 p1 = space.points.pos[ip1];
+        Vector2 p2 = space.points.pos[ip2];
+        Vector2 p3 = space.points.pos[ip3];
+
+        float diagonalLength = (p2 - p0).length();
+        space.springs.push(Spring(ip0, ip2, diagonalLength, stiffness, damping, quad.index));
+        space.springs.push(Spring(ip1, ip3, diagonalLength, stiffness, damping, quad.index));
+    }
+
     void addSubshapeToShape(PhysicsSpace &space, const Vector2 &pos, const Range<Vector2> &pointsRange)
     {
+        float stiffness = 4.5f;
+        float damping = 180.9f;
+
         if (pointsRange.size > 4)
         {
             Console::log("Subshape must have at most 4 points");
@@ -283,12 +305,33 @@ namespace Shapes
                 newShape.indices[i] = (uint16_t)i;
             }
 
+            newShape.index = space.shapes.size();
+
             newShape.selfIntersecting = true;
+
             space.shapes.push(newShape);
+
+            for (int i = 0; i < pointsRange.size; i++)
+            {
+                int pointA = newShape.indices[i] + newShape.start;
+                int pointB = newShape.indices[(i + 1) % pointsRange.size] + newShape.start;
+                Vector2 p0 = space.points.pos[pointA];
+                Vector2 p1 = space.points.pos[pointB];
+                float length = (p1 - p0).length();
+                space.springs.push(Spring(pointA, pointB, length, stiffness, damping, newShape.index));
+            }
+
+            if (pointsRange.size == 4)
+            {
+                addInteriorSpringsToQuad(space, newShape, stiffness, damping);
+            }
+
             recalculateOriginalPos(space, newShape);
 
             return;
         }
+
+        bool allConnectedPointsOtherShape[4] = {false, false, false, false};
 
         for (int s = 0; s < space.shapes.size(); s++)
         {
@@ -319,6 +362,16 @@ namespace Shapes
                     otherShape.interiorEdges[i] = true;
                 }
             }
+
+            for (int i = 0; i < 4; i++)
+            {
+                allConnectedPointsOtherShape[i] = allConnectedPointsOtherShape[i] || connectedPointsOtherShape[i];
+            }
+        }
+
+        for (int i = 0; i < 4; i++)
+        {
+            Console::log("Connected points: %d", allConnectedPointsOtherShape[i]);
         }
 
         Shape &referenceShape = space.shapes[referenceShapeIndex];
@@ -365,6 +418,24 @@ namespace Shapes
 
                 subShape.indices[i] = (uint16_t)(newPointIndex - referenceShape.start);
                 handlePointInserted(space, referenceShape.start, newPointIndex);
+            }
+        }
+
+        if (pointsRange.size == 4)
+        {
+            addInteriorSpringsToQuad(space, subShape, stiffness, damping);
+        }
+
+        for (int i = 0; i < pointsRange.size; i++)
+        {
+            if (!allConnectedPointsOtherShape[i] || !allConnectedPointsOtherShape[(i + 1) % pointsRange.size])
+            {
+                int pointA = subShape.indices[i] + subShape.start;
+                int pointB = subShape.indices[(i + 1) % pointsRange.size] + subShape.start;
+                Vector2 p0 = space.points.pos[pointA];
+                Vector2 p1 = space.points.pos[pointB];
+                float length = (p1 - p0).length();
+                space.springs.push(Spring(pointA, pointB, length, stiffness, damping, subShape.index));
             }
         }
 
