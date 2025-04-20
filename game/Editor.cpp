@@ -470,11 +470,6 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
                 Shapes::createCircle(space, addPos.x, addPos.y, size, defaultMass * 50.0f);
             }
 
-            if (ImGui::MenuItem("Loose circle"))
-            {
-                Shapes::createLooseCircle(space, addPos.x, addPos.y, size, defaultMass);
-            }
-
             if (ImGui::MenuItem("Triangle"))
             {
                 Shapes::createTriangle(space, false, addPos.x, addPos.y, addPos.x + size, addPos.y, addPos.x + size, addPos.y + size, defaultMass);

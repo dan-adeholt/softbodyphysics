@@ -3,5 +3,4 @@
 0
 0
 shapes=0
-springs=0
 staticjoints=0

@@ -165,31 +165,6 @@ void dumpPointMasses(FILE *file, PointMasses &points)
     dumpVector2Array(file, &points.shapeOriginalPos[0], points.size());
 }
 
-void readSprings(FILE *file, Array<Spring> &springs)
-{
-    int size = 0;
-    fscanf(file, "springs=%d\n", &size);
-    springs.reserve(size);
-    springs.clear();
-
-    for (int i = 0; i < size; ++i)
-    {
-        Spring spring;
-        fscanf(file, "%d %d %f %f %f %d\n", &spring.pointA, &spring.pointB, &spring.length, &spring.stiffness, &spring.damping, &spring.shapeIndex);
-        springs.push(spring);
-    }
-}
-
-void dumpSprings(FILE *file, Array<Spring> &springs)
-{
-    fprintf(file, "springs=%d\n", springs.size());
-
-    for (int i = 0; i < springs.size(); ++i)
-    {
-        fprintf(file, "%d %d %f %f %f %d\n", springs[i].pointA, springs[i].pointB, springs[i].length, springs[i].stiffness, springs[i].damping, springs[i].shapeIndex);
-    }
-}
-
 void readStaticJoints(FILE *file, Array<StaticJoint> &joints)
 {
     int size = 0;
@@ -228,7 +203,6 @@ void PhysicsSpaceStorage::loadFromFile(PhysicsSpace &space, const char *filename
 
     readPointMasses(file, space.points);
     readShapeArray(file, space.shapes);
-    readSprings(file, space.springs);
     readStaticJoints(file, space.staticJoints);
 
     fclose(file);
@@ -304,7 +278,6 @@ void PhysicsSpaceStorage::dumpToFile(PhysicsSpace &space, const char *filename)
 
     dumpPointMasses(file, space.points);
     dumpShapeArray(file, &space.shapes[0], space.shapes.size());
-    dumpSprings(file, space.springs);
     dumpStaticJoints(file, space.staticJoints);
 
     fflush(file);

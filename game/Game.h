@@ -23,7 +23,7 @@ struct GameRenderSettings
     bool renderPoints = true;
     bool renderShapeLines = true;
     bool renderVelocityVectors = false;
-    bool renderShapeMatching = true;
+    bool renderShapeMatching = false;
     bool renderPointIndices = false;
     bool clearDebugGeometryWhenPaused = false;
 };

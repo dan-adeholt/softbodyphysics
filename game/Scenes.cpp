@@ -543,17 +543,6 @@ SceneDefinition shapeScenes[] = {
          Shapes::createStaticQuad(space, 149.0f, 40.0f, 1000.0f, 50.0f, 1.0f);
          space.gravityEnabled = false;
      }},
-    {"Loose circle", [](Game *game)
-     {
-         PhysicsSpace &space = game->physicsSpace();
-         Shapes::createLooseCircle(space, 600.0f, 350.0f, 110.0f, 0.2f);
-
-         Shapes::createStaticQuad(space, 149.0f, 91.0f, 50.0f, 598.0f, 1.0f);
-         Shapes::createStaticQuad(space, 1099.0f, 91.0f, 50.0f, 598.0f, 1.0f);
-         Shapes::createStaticQuad(space, 149.0f, 690.0f, 1000.0f, 50.0f, 1.0f);
-         Shapes::createStaticQuad(space, 149.0f, 40.0f, 1000.0f, 50.0f, 1.0f);
-         space.gravityEnabled = false;
-     }},
     {"Rounded rect", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();
