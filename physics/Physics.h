@@ -303,6 +303,13 @@ struct ShapeProperties
     float diffAngle;
 };
 
+struct ShapeVelocities
+{
+    Vector2 centerOfMassVelocity;
+    Vector2 centerOfMass;
+    float angularVelocity;
+};
+
 enum AddSubshapeShape
 {
     SUBSHAPE_RECT = 0,

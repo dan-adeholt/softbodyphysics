@@ -2,19 +2,55 @@
 #include "./Physics.h"
 #include "../utils/Console.h"
 
-Vector2 ShapeUtils::getAverageShapeVelocity(PointMassesRange points, const Shape &shape)
+ShapeVelocities ShapeUtils::getAverageShapeVelocity(PointMassesRange points, const Shape &shape)
 {
-    Vector2 velocity;
+    Vector2 centerOfMassVelocity;
+    Vector2 centerOfMass;
     for (int j = shape.start; j < shape.end; j++)
     {
-        velocity += points.velocity[j];
+        centerOfMassVelocity += points.velocity[j];
+        centerOfMass += points.pos[j];
     }
 
     int numPoints = shape.end - shape.start;
 
-    velocity /= numPoints;
+    centerOfMassVelocity /= numPoints;
+    centerOfMass /= numPoints;
 
-    return velocity;
+    // compute proper angular velocity = (sum r×v) / (sum |r|^2)
+
+    float numerator = 0.0f;
+    float denom = 0.0f;
+
+    /*
+     * We now build up two quantities to extract the shape’s scalar angular velocity ω:
+     *
+     *   • numerator   = Σ_i (r_i × v_i)
+     *       - r_i      is the vector from the center of mass to point i
+     *       - v_i      is the velocity of point i relative to the center of mass velocity
+     *       - (r_i × v_i) in 2D is a scalar giving that point’s angular momentum about the COM
+     *
+     *   • denom       = Σ_i |r_i|^2
+     *       - |r_i|^2  is the squared distance (moment arm) of point i from the COM
+     *       - summing these gives the moment of inertia for unit masses
+     *
+     * Finally, ω = (total angular momentum) / (moment of inertia)
+     *           = numerator / denom
+     */
+    for (int j = shape.start; j < shape.end; j++)
+    {
+        Vector2 rel = points.pos[j] - centerOfMass;
+        Vector2 relVel = points.velocity[j] - centerOfMassVelocity;
+
+        numerator += rel.cross(relVel);
+        denom += rel.dot(rel); // |r|^2
+    }
+
+    float angularVelocity = (denom > 0.0f)
+                                ? numerator / denom
+                                : 0.0f;
+
+    return {centerOfMassVelocity, centerOfMass, angularVelocity};
 }
 
 ShapeProperties

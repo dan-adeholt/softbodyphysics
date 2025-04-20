@@ -9,7 +9,7 @@ struct PointMassesRange;
 
 namespace ShapeUtils
 {
-    Vector2 getAverageShapeVelocity(PointMassesRange points, const Shape &shape);
+    ShapeVelocities getAverageShapeVelocity(PointMassesRange points, const Shape &shape);
     ShapeProperties getShapeProperties(PointMassesRange points, const Shape &shape);
     Vector2 getShapePos(const PointMassesRange &points, const Shape &shape, int j, const ShapeProperties &averages, const ShapeMatchDragData &dragData);
 }

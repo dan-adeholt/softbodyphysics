@@ -95,6 +95,8 @@ void applySpringDerivatives(
             continue;
         }
 
+        ShapeVelocities averageVelocity = ShapeUtils::getAverageShapeVelocity(points, shape);
+
         for (ShapeIterator s(shape); s.isValid(); s.next())
         {
             int j = s.index();
@@ -104,28 +106,35 @@ void applySpringDerivatives(
 
             Vector2 p0 = ShapeUtils::getShapePos(points, shape, j, averages, dragData);
             Vector2 p1(points.pos[j]);
+
+            Vector2 relPos = points.pos[j] - averageVelocity.centerOfMass;
+            Vector2 rotationVelocity = Vector2(-relPos.y, relPos.x) * averageVelocity.angularVelocity;
+            Vector2 targetVelocity = averageVelocity.centerOfMassVelocity + rotationVelocity;
             Vector2 direction = p0 - p1;
+
             float offsetLength = direction.length();
-            float scale = 0.0025f;
-            float damping = -0.015f;
+            float standardScale = 0.0025f;
+            float standardDamping = 0.03f;
+
+            float scale = shape.index == dragData.dragShapeIndex ? 0.0025f : standardScale;
+            float damping = shape.index == dragData.dragShapeIndex ? -0.015f : standardDamping;
 
             if (offsetLength > 0.001f)
             {
                 Vector2 directionNormalized = direction.normalized();
-                Vector2 averageVelocity = ShapeUtils::getAverageShapeVelocity(points, shape);
-                Vector2 velocityAlongSpringAxis = directionNormalized * (points.velocity[j] - averageVelocity).dot(directionNormalized);
-                Vector2 force = (p0 - p1) * scale;
-                Vector2 acceleration = force;
+                Vector2 velocityAlongSpringAxis = directionNormalized * (points.velocity[j] - averageVelocity.centerOfMassVelocity).dot(directionNormalized);
+
+                Vector2 force = direction * scale;
 
                 derivative.acceleration += force;
-                derivative.acceleration += (velocityAlongSpringAxis * damping) / points.mass[j];
+                Vector2 velocityDifference = targetVelocity - points.velocity[j];
+
+                derivative.acceleration += velocityDifference * damping;
 
                 if (shape.index == dragData.dragShapeIndex)
                 {
                     derivative.acceleration -= points.velocity[j] * 0.025f;
                 }
-
-                derivative.acceleration += (velocityAlongSpringAxis * damping) / points.mass[j];
             }
         }
     }
