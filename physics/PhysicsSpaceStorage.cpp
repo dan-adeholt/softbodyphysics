@@ -93,14 +93,12 @@ void readShapeArray(FILE *file, Array<Shape> &array)
     {
         Shape shape;
         int isStatic = 0;
-        int disableShapeMatching = 0;
         int interiorEdges[4] = {0, 0, 0, 0};
         int selfIntersecting = 0;
 
-        fscanf(file, "start=%d end=%d volume=%f isStatic=%d selfIntersecting=%d parentId=%d disableShapeMatching=%d indices=%hu,%hu,%hu,%hu interiorEdges=%d,%d,%d,%d\n", &shape.start, &shape.end, &shape.volume, &isStatic, &selfIntersecting, &shape.parentId, &disableShapeMatching, &shape.indices[0], &shape.indices[1], &shape.indices[2], &shape.indices[3], &interiorEdges[0], &interiorEdges[1], &interiorEdges[2], &interiorEdges[3]);
+        fscanf(file, "start=%d end=%d volume=%f isStatic=%d selfIntersecting=%d parentId=%d indices=%hu,%hu,%hu,%hu interiorEdges=%d,%d,%d,%d\n", &shape.start, &shape.end, &shape.volume, &isStatic, &selfIntersecting, &shape.parentId, &shape.indices[0], &shape.indices[1], &shape.indices[2], &shape.indices[3], &interiorEdges[0], &interiorEdges[1], &interiorEdges[2], &interiorEdges[3]);
         shape.isStatic = isStatic != 0;
         shape.selfIntersecting = selfIntersecting != 0;
-        shape.disableShapeMatching = disableShapeMatching != 0;
         shape.interiorEdges[0] = interiorEdges[0] != 0;
         shape.interiorEdges[1] = interiorEdges[1] != 0;
         shape.interiorEdges[2] = interiorEdges[2] != 0;
@@ -147,7 +145,7 @@ void dumpShapeArray(FILE *file, Shape *array, int size)
     for (int i = 0; i < size; ++i)
     {
         const Shape &shape = array[i];
-        fprintf(file, "start=%d end=%d volume=%f isStatic=%d selfIntersecting=%d parentId=%d disableShapeMatching=%d indices=%hu,%hu,%hu,%hu interiorEdges=%d,%d,%d,%d\n", shape.start, shape.end, shape.volume, shape.isStatic ? 1 : 0, shape.selfIntersecting ? 1 : 0, shape.parentId, shape.disableShapeMatching ? 1 : 0, shape.indices[0], shape.indices[1], shape.indices[2], shape.indices[3], shape.interiorEdges[0] ? 1 : 0, shape.interiorEdges[1] ? 1 : 0, shape.interiorEdges[2] ? 1 : 0, shape.interiorEdges[3] ? 1 : 0);
+        fprintf(file, "start=%d end=%d volume=%f isStatic=%d selfIntersecting=%d parentId=%d indices=%hu,%hu,%hu,%hu interiorEdges=%d,%d,%d,%d\n", shape.start, shape.end, shape.volume, shape.isStatic ? 1 : 0, shape.selfIntersecting ? 1 : 0, shape.parentId, shape.indices[0], shape.indices[1], shape.indices[2], shape.indices[3], shape.interiorEdges[0] ? 1 : 0, shape.interiorEdges[1] ? 1 : 0, shape.interiorEdges[2] ? 1 : 0, shape.interiorEdges[3] ? 1 : 0);
     }
 }
 

@@ -27,7 +27,7 @@
 1111.000000 467.000000
 1041.000000 467.000000
 shapes=2
-start=0 end=6 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=0 disableShapeMatching=0 indices=0,1,4,5 interiorEdges=0,1,0,0
-start=0 end=6 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=0 disableShapeMatching=0 indices=1,2,3,4 interiorEdges=0,0,0,1
+start=0 end=6 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=0 indices=0,1,4,5 interiorEdges=0,1,0,0
+start=0 end=6 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=0 indices=1,2,3,4 interiorEdges=0,0,0,1
 springs=0
 staticjoints=0

@@ -23,6 +23,6 @@
 -46.399994 40.199997
 -109.399994 23.199997
 shapes=1
-start=0 end=5 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=0 end=5 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
 springs=0
 staticjoints=0

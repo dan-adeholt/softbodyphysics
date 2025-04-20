@@ -83,11 +83,11 @@
 608.500000 40.000000
 -608.500000 40.000000
 shapes=5
-start=0 end=4 volume=0.000000 isStatic=0 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=4 end=8 volume=0.000000 isStatic=0 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=8 end=12 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=12 end=16 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=16 end=20 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=0 end=4 volume=0.000000 isStatic=0 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=4 end=8 volume=0.000000 isStatic=0 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=8 end=12 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=12 end=16 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=16 end=20 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
 springs=12
 0 1 30.000000 5.000000 7.225000 0
 1 2 30.000000 5.000000 7.225000 0

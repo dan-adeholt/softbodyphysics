@@ -97,22 +97,6 @@ void Integrator::performIntegration(PhysicsSpace &space, const ShapeMatchDragDat
     space.updateIndices();
     rk4Integrator.performRK4Integration(space, dragData, profileInfo);
 
-    for (int i = 0; i < space.springs.size(); i++)
-    {
-        Spring &spring = space.springs[i];
-        const Shape &shapeA = space.shapes[spring.shapeIndex];
-
-        if (shapeA.isStatic || shapeA.disableShapeMatching)
-        {
-            continue;
-        }
-
-        if (spring.shapeIndex == -1)
-        {
-            continue;
-        }
-    }
-
     for (int i = 0; i < space.staticJoints.size(); i++)
     {
         StaticJoint &joint = space.staticJoints[i];
@@ -125,16 +109,6 @@ void Integrator::performIntegration(PhysicsSpace &space, const ShapeMatchDragDat
     {
         space.points.pos[space.mouseJoint.pointIndex] = space.mouseJoint.position;
         space.points.velocity[space.mouseJoint.pointIndex] = Vector2();
-    }
-
-    for (int i = 0; i < space.shapes.size(); i++)
-    {
-        Shape &shape = space.shapes[i];
-
-        if (shape.isStatic || shape.disableShapeMatching)
-        {
-            continue;
-        }
     }
 }
 
@@ -247,7 +221,7 @@ void RK4Integrator::performRK4Integration(PhysicsSpace &space, const ShapeMatchD
     // {
     //     Shape &shape = space.shapes[i];
 
-    //     if (shape.isStatic || shape.disableShapeMatching)
+    //     if (shape.isStatic)
     //     {
     //         continue;
     //     }

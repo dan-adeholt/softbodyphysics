@@ -380,7 +380,6 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
                         ImGui::Text("Selected shape: %d [%d]", selectedShapeIndex, shape.parentId);
 
                         ImGui::Checkbox("Static", &shape.isStatic);
-                        ImGui::Checkbox("Disable shape matching", &shape.disableShapeMatching);
 
                         if (ImGui::Button("Snap to grid"))
                         {

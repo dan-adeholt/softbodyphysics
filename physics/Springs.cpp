@@ -54,30 +54,6 @@ void applySpringDerivatives(
     bool enableShapeMatching,
     const ShapeMatchDragData &dragData)
 {
-    for (int i = 0; i < springs.size; i++)
-    {
-        const Spring &spring = springs[i];
-
-        Vector2 p0(points.pos[spring.pointA]);
-        Vector2 p1(points.pos[spring.pointB]);
-
-        Vector2 direction(p1 - p0);
-        float offsetLength = direction.length();
-
-        const ShapeProperties &averages = shapeProperties[spring.shapeIndex];
-        const Shape &shape = shapes[spring.shapeIndex];
-
-        Vector2 origPointA = ShapeUtils::getShapePos(points, shape, spring.pointA, averages, dragData);
-        Vector2 origPointB = ShapeUtils::getShapePos(points, shape, spring.pointB, averages, dragData);
-
-        float dot = (p1 - p0).dot(origPointB - origPointA);
-
-        if (offsetLength > 0.001f && dot > 0)
-        {
-            applySpringCalculation(spring, points, derivatives, springFactor, offsetLength, direction);
-        }
-    }
-
     if (!enableShapeMatching)
     {
         return;
@@ -90,7 +66,7 @@ void applySpringDerivatives(
         const ShapeProperties averages = ShapeUtils::getShapeProperties(points, shape);
 
         // Shape is being dragged == enable shape matching in order to drag the shape
-        if ((shape.disableShapeMatching) || shape.isStatic)
+        if (shape.isStatic)
         {
             continue;
         }
@@ -114,7 +90,7 @@ void applySpringDerivatives(
 
             float offsetLength = direction.length();
             float standardScale = 0.0025f;
-            float standardDamping = 0.03f;
+            float standardDamping = 0.025f;
 
             float scale = shape.index == dragData.dragShapeIndex ? 0.0025f : standardScale;
             float damping = shape.index == dragData.dragShapeIndex ? -0.015f : standardDamping;

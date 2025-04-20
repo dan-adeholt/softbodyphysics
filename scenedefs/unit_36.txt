@@ -235,13 +235,13 @@
 50.000000 0.000000
 50.000000 50.000000
 shapes=7
-start=0 end=11 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=11 end=27 volume=300.000000 isStatic=0 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=27 end=43 volume=300.000000 isStatic=0 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=43 end=47 volume=0.000000 isStatic=0 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=47 end=52 volume=0.000000 isStatic=0 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=52 end=58 volume=0.000000 isStatic=0 selfIntersecting=0 parentId=0 disableShapeMatching=0 indices=0,1,2,3 interiorEdges=0,0,0,0
-start=52 end=58 volume=0.000000 isStatic=0 selfIntersecting=0 parentId=0 disableShapeMatching=0 indices=1,4,5,2 interiorEdges=0,0,0,0
+start=0 end=11 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=11 end=27 volume=300.000000 isStatic=0 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=27 end=43 volume=300.000000 isStatic=0 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=43 end=47 volume=0.000000 isStatic=0 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=47 end=52 volume=0.000000 isStatic=0 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=52 end=58 volume=0.000000 isStatic=0 selfIntersecting=0 parentId=0 indices=0,1,2,3 interiorEdges=0,0,0,0
+start=52 end=58 volume=0.000000 isStatic=0 selfIntersecting=0 parentId=0 indices=1,4,5,2 interiorEdges=0,0,0,0
 springs=70
 11 14 27.778513 0.312500 136.250000 1
 16 11 41.573471 0.312500 136.250000 1

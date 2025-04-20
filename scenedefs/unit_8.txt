@@ -311,15 +311,15 @@
 -245.000000 35.000000
 -315.000000 35.000000
 shapes=9
-start=0 end=5 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=5 end=21 volume=300.000000 isStatic=1 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=21 end=25 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=25 end=29 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=29 end=45 volume=300.000000 isStatic=0 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=45 end=49 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=49 end=53 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=53 end=57 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=57 end=77 volume=0.000000 isStatic=0 selfIntersecting=0 parentId=-1 disableShapeMatching=0 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=0 end=5 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=5 end=21 volume=300.000000 isStatic=1 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=21 end=25 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=25 end=29 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=29 end=45 volume=300.000000 isStatic=0 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=45 end=49 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=49 end=53 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=53 end=57 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=57 end=77 volume=0.000000 isStatic=0 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
 springs=78
 29 32 55.557026 10.000000 1090.000000 4
 34 29 83.146942 10.000000 1090.000000 4
