@@ -23,7 +23,7 @@ void PhysicsSpace::assign(PhysicsSpace &other)
     points.replace(other.points);
     staticJoints.replace(other.staticJoints);
     shapeJoints.replace(other.shapeJoints);
-    triangulate();
+    triangleIndices.replace(other.triangleIndices);
 }
 
 void PhysicsSpace::initFromEntries(const Array<ShapeEntry> &entries)
@@ -327,7 +327,6 @@ void reverseWindingOrder(Array<int> &indices)
 
 void PhysicsSpace::triangulate()
 {
-
     triangleIndices.clear();
 
     static Array<int> curIndices;
