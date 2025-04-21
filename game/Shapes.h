@@ -21,7 +21,7 @@ namespace Shapes
 
     int createMesh(PhysicsSpace &space, float x, float y, float width, float height, int numSegments, float mass, float stiffnessFactor = 1.0f);
     Shape createCircle(PhysicsSpace &space, float x, float y, float radius, float mass, float stiffnessFactor = 1.0f);
-    int createBridge(PhysicsSpace &space, float x, float y, float mass, int numSegments);
+    int createBridge(PhysicsSpace &space, float x, float y, float mass, int numSegments, float segmentWidth = 70.0f, float segmentHeight = 70.0f);
     Shape createLine(PhysicsSpace &space, float x0, float y0, float x1, float y1, float mass);
     Shape createQuad(PhysicsSpace &space, float x, float y, float width, float height, float mass, float stiffnessFactor = 1.0f);
     Shape createRoundedQuad(PhysicsSpace &space, float x, float y, float width, float height, float mass, float stiffnessFactor = 1.0f);

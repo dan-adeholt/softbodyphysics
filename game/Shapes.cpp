@@ -450,32 +450,30 @@ namespace Shapes
         return circle;
     }
 
-    int createBridge(PhysicsSpace &space, float x, float y, float mass, int numSegments)
+    int createBridge(PhysicsSpace &space, float x, float y, float mass, int numSegments, float segmentWidth, float segmentHeight)
     {
+        int numEdges = numSegments + 1;
         int startIndex = space.points.size();
         int curIndex = startIndex;
         float curX = x;
-        float width = 70.0f;
-        float height = 70.0f;
-        float diagonal = sqrt(width * width + height * height);
         float stiffness = 3.5f;
         float damping = 0.75f;
 
-        for (int i = 0; i < numSegments; i++)
+        for (int i = 0; i < numEdges; i++)
         {
             space.points.push(curX, y, mass);
 
-            curX += width;
+            curX += segmentWidth;
             curIndex++;
         }
 
-        curX -= width;
+        curX -= segmentWidth;
 
-        for (int i = 0; i < numSegments; i++)
+        for (int i = 0; i < numEdges; i++)
         {
-            space.points.push(curX, y + height, mass);
+            space.points.push(curX, y + segmentHeight, mass);
 
-            curX -= width;
+            curX -= segmentWidth;
             curIndex++;
         }
 
@@ -484,10 +482,10 @@ namespace Shapes
         int parentId = space.nextParentId();
         int subShapeIndex = space.nextShapeIndex();
 
-        for (int i = 0; i < numSegments; i++)
+        for (int i = 0; i < numEdges; i++)
         {
             int topIndex = startIndex + i;
-            int bottomIndex = startIndex + numSegments * 2 - i - 1;
+            int bottomIndex = startIndex + (numEdges) * 2 - i - 1;
 
             if (i > 0)
             {
@@ -504,7 +502,7 @@ namespace Shapes
                 subBridge.indices[2] = (uint16_t)(bottomIndex - bridgeStart);
                 subBridge.indices[3] = (uint16_t)(bottomIndex + 1 - bridgeStart);
 
-                subBridge.interiorEdges[1] = i < numSegments - 1;
+                subBridge.interiorEdges[1] = i < numEdges - 1;
                 subBridge.interiorEdges[3] = i > 1;
 
                 subBridge.stiffness = stiffness;
@@ -518,7 +516,7 @@ namespace Shapes
             }
         }
 
-        curX -= width;
+        curX -= segmentWidth;
         return parentId;
     }
 

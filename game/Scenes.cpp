@@ -280,7 +280,7 @@ SceneDefinition collisionScenes[] = {
                                {15.000000f, 15.000000f},
                                {-15.000000f, 15.000000f},
                            }),
-           };
+         };
          ShapeEntry shape1 = {
              .isStatic = false,
              .points = PointMasses()
@@ -308,7 +308,7 @@ SceneDefinition collisionScenes[] = {
                                {15.000000f, 15.000000f},
                                {-15.000000f, 15.000000f},
                            }),
-             };
+         };
          Array<ShapeEntry> shapes = {
              shape0,
              shape1,
@@ -676,24 +676,22 @@ SceneDefinition gameScenes[] = {
          float x = 200.0f;
          float y = 340.0f;
          PhysicsSpace &space = game->physicsSpace();
-         Shapes::createBridge(space, x, y, 1.0f, numSegments);
+         float segmentWidth = 70.0f;
+         float segmentHeight = 80.0f;
+         Shapes::createBridge(space, x, y, 1.0f, numSegments, segmentWidth, segmentHeight);
          space.staticJoints.push({0, Vector2(x, y)});
-         space.staticJoints.push({numSegments - 1, Vector2(x + 70.0f * numSegments, y)});
-         space.staticJoints.push({numSegments, Vector2(x + 70.0f * numSegments, y + 70.0f)});
-         space.staticJoints.push({numSegments * 2 - 1, Vector2(x, y + 70.0f)});
+         space.staticJoints.push({numSegments, Vector2(x + segmentWidth * (numSegments), y)});
+         space.staticJoints.push({numSegments + 1, Vector2(x + segmentWidth * (numSegments), y + segmentHeight)});
+         space.staticJoints.push({numSegments * 2 + 1, Vector2(x, y + segmentHeight)});
 
          Shapes::createStaticQuad(space, 149.0f, 90.0f, 50.0f, 600.0f, 1.0f);
-         Shapes::createStaticQuad(space, 1111.0f, 90.0f, 50.0f, 600.0f, 1.0f);
+         Shapes::createStaticQuad(space, x + (numSegments)*segmentWidth + 1, 90.0f, 50.0f, 600.0f, 1.0f);
 
          for (int i = 0; i < 10; i++)
          {
              Shape s = Shapes::createCircle(space, 440.0f + i * 55.0f, 50.0f, 40.0f, 1.0f);
          }
 
-         //  game->scale() = 4.5f;
-         //  game->offset() = Vector2(-2150.0f, -1200.0f);
-         //  game->setPaused();
-         //  Shapes::createQuad(space.points, space.springs, 600.0f, 190.0f, 100.0f, 100.0f, 1.0f);
          game->setPaused();
      }},
     {"Falling box with shelf", [](Game *game)
