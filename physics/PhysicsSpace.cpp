@@ -1,6 +1,7 @@
 #include "PhysicsSpace.h"
 #include "../utils/Console.h"
 #include "../utils/MinMax.h"
+#include "stdio.h"
 
 #define NUM_SHAPES 40
 #define NUM_POINTS 1024
@@ -13,6 +14,7 @@ PhysicsSpace::PhysicsSpace() : gravityEnabled(true), collisionsEnabled(true), sh
     shapeJoints.reserve(NUM_SHAPES / 2);
     mouseJoint.pointIndex = -1;
     mouseJoint.position = Vector2::zero();
+    triangleIndices.reserve(NUM_POINTS * 3);
 }
 
 void PhysicsSpace::assign(PhysicsSpace &other)
@@ -21,6 +23,7 @@ void PhysicsSpace::assign(PhysicsSpace &other)
     points.replace(other.points);
     staticJoints.replace(other.staticJoints);
     shapeJoints.replace(other.shapeJoints);
+    triangulate();
 }
 
 void PhysicsSpace::initFromEntries(const Array<ShapeEntry> &entries)
@@ -34,6 +37,8 @@ void PhysicsSpace::initFromEntries(const Array<ShapeEntry> &entries)
         points.append(entry.points);
         int shapeId = shapes.size() - 1;
     }
+
+    triangulate();
 }
 
 int PhysicsSpace::nextShapeIndex() const
@@ -67,6 +72,7 @@ void PhysicsSpace::clear()
     shapes.clear();
     points.clear();
     staticJoints.clear();
+    triangleIndices.clear();
     mouseJoint.pointIndex = -1;
     gravityEnabled = true;
 }
@@ -103,6 +109,8 @@ void PhysicsSpace::removeShapeWithoutPoints(int shapeIndex)
             }
         }
     }
+
+    triangulate();
 }
 
 void PhysicsSpace::removeShape(int shapeIndex)
@@ -192,6 +200,8 @@ void PhysicsSpace::removeShape(int shapeIndex)
             }
         }
     }
+
+    triangulate();
 }
 
 void PhysicsSpace::pasteShape(int copyIndex)
@@ -239,6 +249,8 @@ void PhysicsSpace::pasteShape(int copyIndex)
         sCopy.index = shapes.size();
         shapes.push(sCopy);
     }
+
+    triangulate();
 }
 
 int PhysicsSpace::closestPointIndex(float x, float y, int shapeIndex) const
@@ -267,4 +279,140 @@ int PhysicsSpace::closestPointIndex(float x, float y, int shapeIndex) const
     }
 
     return closestIndex;
+}
+
+// Compute signed area of triangle (a→b→c):
+//   >0 means a→b→c is CCW (left turn)
+//   <0 means CW  (right turn)
+float signedArea(const Vector2 &a, const Vector2 &b, const Vector2 &c)
+{
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+// Check if point p is inside triangle abc (including on edge)
+bool pointInTriangle(const Vector2 &a, const Vector2 &b, const Vector2 &c, const Vector2 &p)
+{
+    float s1 = signedArea(p, a, b);
+    float s2 = signedArea(p, b, c);
+    float s3 = signedArea(p, c, a);
+    bool hasNeg = (s1 < 0) || (s2 < 0) || (s3 < 0);
+    bool hasPos = (s1 > 0) || (s2 > 0) || (s3 > 0);
+    return !(hasNeg && hasPos);
+}
+float calculatePolygonSignedArea(const Array<int> &indices, const Array<Vector2> &positions)
+{
+    float area = 0.0f;
+    int size = indices.size();
+
+    for (int i = 0; i < size; i++)
+    {
+        int j = (i + 1) % size;
+        const Vector2 &p1 = positions[indices[i]];
+        const Vector2 &p2 = positions[indices[j]];
+        area += (p1.x * p2.y - p2.x * p1.y);
+    }
+
+    return area / 2.0f;
+}
+
+// Reverse the winding order of the indices
+void reverseWindingOrder(Array<int> &indices)
+{
+    int size = indices.size();
+    for (int i = 0; i < size / 2; i++)
+    {
+        swap(indices[i], indices[size - 1 - i]);
+    }
+}
+
+void PhysicsSpace::triangulate()
+{
+
+    triangleIndices.clear();
+
+    static Array<int> curIndices;
+
+    for (int shapeIdx = 0; shapeIdx < shapes.size(); shapeIdx++) // Changed i to shapeIdx
+    {
+        Shape &shape = shapes[shapeIdx];
+
+        ShapeIndexedRange range(shape);
+        curIndices.clear();
+        for (int j = 0; j < range.size(); j++)
+        {
+            curIndices.push(range[j]);
+        }
+
+        // Clip ears until only one triangle remains
+        while (curIndices.size() > 3)
+        {
+            bool clipped = false;
+            int m = curIndices.size();
+
+            for (int i = 0; i < m; i++) // Now i only exists in this scope
+            {
+                int iPrev = (i + m - 1) % m;
+                int iNext = (i + 1) % m;
+
+                int idxA = curIndices[iPrev];
+                int idxB = curIndices[i];
+                int idxC = curIndices[iNext];
+
+                const Vector2 &A = points.shapeOriginalPos[idxA];
+                const Vector2 &B = points.shapeOriginalPos[idxB];
+                const Vector2 &C = points.shapeOriginalPos[idxC];
+
+                // For CW polygons, we require a right turn (signedArea > 0)
+                float signedAreaValue = signedArea(A, B, C);
+                if (signedAreaValue < 0)
+                {
+                    continue;
+                }
+
+                // Check no other vertex lies inside triangle ABC
+                bool anyInside = false;
+                for (int j = 0; j < m; ++j)
+                {
+                    if (j == iPrev || j == i || j == iNext)
+                        continue;
+                    if (pointInTriangle(A, B, C, points.shapeOriginalPos[curIndices[j]]))
+                    {
+                        anyInside = true;
+                        break;
+                    }
+                }
+                if (anyInside)
+                    continue;
+
+                // Found an ear: record its indices and remove B
+                triangleIndices.push(idxA);
+                triangleIndices.push(idxB);
+                triangleIndices.push(idxC);
+                curIndices.remove(i);
+                clipped = true;
+                break;
+            }
+
+            // If no ear was clipped, polygon is likely degenerate
+            if (!clipped)
+            {
+                Console::log("Degenerate polygon detected, triangulation failed.");
+                break;
+            }
+        }
+
+        // Add the final triangle (moved outside of the while loop)
+        if (curIndices.size() == 3)
+        {
+            triangleIndices.push(curIndices[0]);
+            triangleIndices.push(curIndices[1]);
+            triangleIndices.push(curIndices[2]);
+        }
+    }
+}
+
+void PhysicsSpace::addShape(const Shape &shape)
+{
+    shapes.push(shape);
+    triangulate();
 }

@@ -221,7 +221,7 @@ namespace Shapes
             newShape.stiffness = stiffness;
             newShape.damping = damping;
 
-            space.shapes.push(newShape);
+            space.addShape(newShape);
             recalculateOriginalPos(space, newShape);
 
             return;
@@ -322,8 +322,20 @@ namespace Shapes
         subShape.stiffness = referenceShape.stiffness;
         subShape.damping = referenceShape.damping;
 
-        space.shapes.push(subShape);
+        space.addShape(subShape);
         Console::log("Num matching vertices: %d", numMatchingVertices);
+    }
+
+    void updateOriginalPos(PhysicsSpace &space, int shapeIndex)
+    {
+        Shape &shape = space.shapes[shapeIndex];
+
+        ShapeProperties averages = ShapeUtils::getShapeProperties(space.points.range(), shape);
+
+        for (int i = shape.start; i < shape.end; i++)
+        {
+            space.points.shapeOriginalPos[i] = space.points.pos[i] - averages.center;
+        }
     }
 
     void resetShape(PhysicsSpace &space, int shapeIndex)
@@ -403,7 +415,7 @@ namespace Shapes
                     subMesh.stiffness = stiffness;
                     subMesh.damping = damping;
 
-                    space.shapes.push(subMesh);
+                    space.addShape(subMesh);
 
                     subShapeIndex = space.nextShapeIndex();
                 }
@@ -445,7 +457,7 @@ namespace Shapes
         circle.stiffness = stiffness;
         circle.damping = damping;
 
-        space.shapes.push(circle);
+        space.addShape(circle);
         circle.index = shapeIndex;
         return circle;
     }
@@ -511,7 +523,7 @@ namespace Shapes
                 // ShapeQuad quad = {{topIndex - 1, topIndex, bottomIndex, bottomIndex + 1}, {topLeft, topRight, bottomLeft, bottomRight}, {topLeft, topRight, bottomLeft, bottomRight}, 4};
                 // space.partialShapes.push(quad);
 
-                space.shapes.push(subBridge);
+                space.addShape(subBridge);
                 subShapeIndex = space.nextShapeIndex();
             }
         }
@@ -531,7 +543,7 @@ namespace Shapes
         const Span span(space.points.size() - 4, space.points.size());
         Shape quad = Shape(span.start, span.end);
         quad.isStatic = true;
-        space.shapes.push(quad);
+        space.addShape(quad);
         quad.index = shapeIndex;
 
         return quad;
@@ -557,7 +569,7 @@ namespace Shapes
 
         const Span span(space.points.size() - 8, space.points.size());
         Shape quad = Shape(span.start, span.end);
-        space.shapes.push(quad);
+        space.addShape(quad);
         quad.stiffness = stiffness;
         quad.damping = damping;
 
@@ -587,7 +599,7 @@ namespace Shapes
         quad.stiffness = stiffness;
         quad.damping = damping;
 
-        space.shapes.push(quad);
+        space.addShape(quad);
         quad.index = shapeIndex;
         return quad;
     }
@@ -601,7 +613,7 @@ namespace Shapes
         space.points.push(x + sideOffset, y + height, mass);
 
         Shape parallelogram = Shape(space.points.size() - 4, space.points.size());
-        space.shapes.push(parallelogram);
+        space.addShape(parallelogram);
         parallelogram.index = shapeIndex;
         return parallelogram;
     }
@@ -618,7 +630,7 @@ namespace Shapes
         Shape triangle = Shape(span.start, span.end);
         triangle.isStatic = isStatic;
         triangle.isStatic = isStatic;
-        space.shapes.push(triangle);
+        space.addShape(triangle);
         triangle.index = shapeIndex;
         return triangle;
     }
@@ -632,7 +644,7 @@ namespace Shapes
         const Span span(space.points.size() - 2, space.points.size());
         float lineLength = Vector2::vec2distance(x0, y0, x1, y1);
         Shape line = Shape(span.start, span.end);
-        space.shapes.push(line);
+        space.addShape(line);
         line.index = shapeIndex;
         return line;
     }

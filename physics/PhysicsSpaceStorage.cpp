@@ -206,6 +206,7 @@ void PhysicsSpaceStorage::loadFromFile(PhysicsSpace &space, const char *filename
     readShapeArray(file, space.shapes);
     readStaticJoints(file, space.staticJoints);
 
+    space.triangulate();
     fclose(file);
 }
 

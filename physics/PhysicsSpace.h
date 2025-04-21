@@ -33,10 +33,15 @@ struct PhysicsSpace
 
     int closestPointIndex(float x, float y, int shapeIndex) const;
 
+    void triangulate();
+
+    void addShape(const Shape &shape);
     Array<Shape> shapes;
     PointMasses points;
     Array<StaticJoint> staticJoints;
     Array<ShapeJoint> shapeJoints;
+
+    Array<int> triangleIndices;
 
     StaticJoint mouseJoint;
     bool gravityEnabled;

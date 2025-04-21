@@ -130,9 +130,9 @@ void addCircle(Array<GameVertex> &vertices, float x, float y, float scale, SDL_C
                    circle.topLeft});
 }
 
-void addLine(Array<GameVertex> &vertices, float p0x, float p0y, float p1x, float p1y, float scale, SDL_Color color)
+void addLine(Array<GameVertex> &vertices, float p0x, float p0y, float p1x, float p1y, float scale, SDL_Color color, float baseLineWidth = 2.0f)
 {
-    float lineWidth = 2.0f / scale;
+    float lineWidth = baseLineWidth / scale;
     float dx = p1x - p0x;
     float dy = p1y - p0y;
     float length = Vector2::vec2length(dx, dy);
@@ -191,6 +191,24 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
     if (renderSettings.renderShapeLines)
     {
         renderShapes(renderer, game.selectedShapeIndex(), physicsSpace.shapes.range(), points, physicsSpace, renderSettings.renderVelocityVectors, renderSettings.renderShapeMatching, renderSettings.renderPointIndices, scaleForGeometry, game.shapeMatchDragData());
+    }
+
+    if (renderSettings.renderTriangles)
+    {
+        for (int i = 0; i < physicsSpace.triangleIndices.size(); i += 3)
+        {
+            int p0 = physicsSpace.triangleIndices[i];
+            int p1 = physicsSpace.triangleIndices[i + 1];
+            int p2 = physicsSpace.triangleIndices[i + 2];
+
+            Vector2 p0Pos = points.pos[p0];
+            Vector2 p1Pos = points.pos[p1];
+            Vector2 p2Pos = points.pos[p2];
+
+            addLine(m->vertices, p0Pos.x, p0Pos.y, p1Pos.x, p1Pos.y, scaleForGeometry, {0, 0, 0, 255}, 1.0f);
+            addLine(m->vertices, p1Pos.x, p1Pos.y, p2Pos.x, p2Pos.y, scaleForGeometry, {0, 0, 0, 255}, 1.0f);
+            addLine(m->vertices, p2Pos.x, p2Pos.y, p0Pos.x, p0Pos.y, scaleForGeometry, {0, 0, 0, 255}, 1.0f);
+        }
     }
 
     if (renderSettings.renderSprings)

@@ -17,6 +17,14 @@
 #define ARRAYSIZE(_ARR) ((int)(sizeof(_ARR) / sizeof(*(_ARR)))) // Size of a static C-style array. Don't use on pointers!
 
 SceneDefinition deformedScenes[] = {
+    {"Failed triangulation", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_44.txt");
+         game->scale() = 1.00f;
+         game->offset() = Vector2(166.00f, 80.00f);
+         game->setPaused();
+     }},
     {"Deformed circle 1", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();

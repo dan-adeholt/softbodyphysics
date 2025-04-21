@@ -385,9 +385,9 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
                             Shapes::snapToGrid(space, selectedShapeIndex);
                         }
 
-                        if (ImGui::Button("Reset to original"))
+                        if (ImGui::Button("Update original position"))
                         {
-                            Shapes::resetShape(space, selectedShapeIndex);
+                            Shapes::updateOriginalPos(space, selectedShapeIndex);
                         }
                     }
                 }

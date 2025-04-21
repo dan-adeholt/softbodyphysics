@@ -22,6 +22,7 @@ struct GameRenderSettings
     bool renderSprings = true;
     bool renderPoints = false;
     bool renderShapeLines = true;
+    bool renderTriangles = true;
     bool renderVelocityVectors = false;
     bool renderShapeMatching = false;
     bool renderPointIndices = false;

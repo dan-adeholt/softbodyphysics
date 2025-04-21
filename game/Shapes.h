@@ -17,6 +17,7 @@ namespace Shapes
 
     void addSubshapeToShape(PhysicsSpace &space, const Vector2 &position, const Range<Vector2> &points);
 
+    void updateOriginalPos(PhysicsSpace &space, int shapeIndex);
     void resetShape(PhysicsSpace &space, int shapeIndex);
 
     int createMesh(PhysicsSpace &space, float x, float y, float width, float height, int numSegments, float mass, float stiffnessFactor = 1.0f);
