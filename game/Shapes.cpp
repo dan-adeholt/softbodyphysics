@@ -124,8 +124,8 @@ namespace Shapes
 
     void addSubshapeToShape(PhysicsSpace &space, const Vector2 &pos, const Range<Vector2> &pointsRange)
     {
-        float stiffness = 4.5f;
-        float damping = 180.9f;
+        float stiffness = 1.0f;
+        float damping = 1.0f;
 
         if (pointsRange.size > 4)
         {
@@ -217,6 +217,9 @@ namespace Shapes
             newShape.index = space.shapes.size();
 
             newShape.selfIntersecting = true;
+
+            newShape.stiffness = stiffness;
+            newShape.damping = damping;
 
             space.shapes.push(newShape);
             recalculateOriginalPos(space, newShape);
@@ -316,6 +319,9 @@ namespace Shapes
 
         recalculateOriginalPos(space, referenceShape);
 
+        subShape.stiffness = referenceShape.stiffness;
+        subShape.damping = referenceShape.damping;
+
         space.shapes.push(subShape);
         Console::log("Num matching vertices: %d", numMatchingVertices);
     }
@@ -343,8 +349,8 @@ namespace Shapes
         float height = meshHeight / numSegments;
 
         float diagonal = sqrt(width * width + height * height);
-        float stiffness = 4.5f;
-        float damping = 1280.9f;
+        float stiffness = 1.2f;
+        float damping = 1.0f / 3.0f;
         Console::log("Mesh size: %f %f %d", meshWidth, meshHeight, numSegments);
         Console::log("Width: %f", width);
         Console::log("Height: %f", height);
@@ -394,6 +400,9 @@ namespace Shapes
                     subMesh.interiorEdges[2] = row < numSegments - 2;
                     subMesh.interiorEdges[3] = i > 1;
 
+                    subMesh.stiffness = stiffness;
+                    subMesh.damping = damping;
+
                     space.shapes.push(subMesh);
 
                     subShapeIndex = space.nextShapeIndex();
@@ -410,7 +419,7 @@ namespace Shapes
     {
         int shapeIndex = space.nextShapeIndex();
         float stiffness = mass * stiffnessFactor;
-        float damping = 545.0f * mass;
+        float damping = 1.0f;
 
         int numSegments = 16;
         float segmentAngle = 2 * PI_F / numSegments;
@@ -433,6 +442,9 @@ namespace Shapes
         Vector2 pNext = space.points.pos[startIndex + 1];
 
         Shape circle = Shape(startIndex, curIndex, 300.0f);
+        circle.stiffness = stiffness;
+        circle.damping = damping;
+
         space.shapes.push(circle);
         circle.index = shapeIndex;
         return circle;
@@ -446,8 +458,8 @@ namespace Shapes
         float width = 70.0f;
         float height = 70.0f;
         float diagonal = sqrt(width * width + height * height);
-        float stiffness = 4.5f;
-        float damping = 180.9f;
+        float stiffness = 3.5f;
+        float damping = 0.75f;
 
         for (int i = 0; i < numSegments; i++)
         {
@@ -495,6 +507,9 @@ namespace Shapes
                 subBridge.interiorEdges[1] = i < numSegments - 1;
                 subBridge.interiorEdges[3] = i > 1;
 
+                subBridge.stiffness = stiffness;
+                subBridge.damping = damping;
+
                 // ShapeQuad quad = {{topIndex - 1, topIndex, bottomIndex, bottomIndex + 1}, {topLeft, topRight, bottomLeft, bottomRight}, {topLeft, topRight, bottomLeft, bottomRight}, 4};
                 // space.partialShapes.push(quad);
 
@@ -530,6 +545,9 @@ namespace Shapes
 
         float cornerSize = width / 8.0f;
 
+        float stiffness = stiffnessFactor * mass;
+        float damping = 1.0f;
+
         space.points.push(x, y + cornerSize, mass);
         space.points.push(x + cornerSize, y, mass);
         space.points.push(x + width - cornerSize, y, mass);
@@ -542,12 +560,18 @@ namespace Shapes
         const Span span(space.points.size() - 8, space.points.size());
         Shape quad = Shape(span.start, span.end);
         space.shapes.push(quad);
+        quad.stiffness = stiffness;
+        quad.damping = damping;
+
         quad.index = shapeIndex;
         return quad;
     }
 
     Shape createQuad(PhysicsSpace &space, float x, float y, float width, float height, float mass, float stiffnessFactor)
     {
+        float stiffness = stiffnessFactor * mass;
+        float damping = 1.0f;
+
         int shapeIndex = space.nextShapeIndex();
         space.points.push(x, y, mass);
         space.points.push(x + width, y, mass);
@@ -561,11 +585,15 @@ namespace Shapes
         Vector2 p1 = space.points.pos[span.start + 1];
         Vector2 p2 = space.points.pos[span.start + 2];
         Vector2 p3 = space.points.pos[span.start + 3];
-    
+
+        quad.stiffness = stiffness;
+        quad.damping = damping;
+
         space.shapes.push(quad);
         quad.index = shapeIndex;
         return quad;
     }
+
     Shape createParallelogram(PhysicsSpace &space, float x, float y, float width, float height, float sideOffset, float mass)
     {
         int shapeIndex = space.shapes.size();

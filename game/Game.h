@@ -20,7 +20,7 @@ class Array;
 struct GameRenderSettings
 {
     bool renderSprings = true;
-    bool renderPoints = true;
+    bool renderPoints = false;
     bool renderShapeLines = true;
     bool renderVelocityVectors = false;
     bool renderShapeMatching = false;

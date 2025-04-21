@@ -611,7 +611,7 @@ SceneDefinition collectionScenes[] = {
          {
              for (int x = 0; x < 30; x++)
              {
-                 Shapes::createRoundedQuad(space, spacing + x * spacing + y * 2.0f, spacing + y * spacing + x * 0.01f - 900.0f, size, size, 5.5f, 30.0f);
+                 Shapes::createRoundedQuad(space, spacing + x * spacing + y * 2.0f, spacing + y * spacing + x * 0.01f - 900.0f, size, size, 1.0f);
              }
          }
 
@@ -631,7 +631,7 @@ SceneDefinition collectionScenes[] = {
          {
              for (int x = 0; x < 30; x++)
              {
-                 Shapes::createQuad(space, spacing + x * spacing + y * 2.0f, spacing + y * spacing + x * 0.01f - 900.0f, size, size, 5.5f, 30.0f);
+                 Shapes::createQuad(space, spacing + x * spacing + y * 2.0f, spacing + y * spacing + x * 0.01f - 900.0f, size, size, 1.0f);
              }
          }
 
@@ -654,7 +654,7 @@ SceneDefinition collectionScenes[] = {
          {
              for (int x = 0; x < 25; x++)
              {
-                 Shapes::createCircle(space, spacing + x * spacing + y * 2.0f, spacing + y * spacing + x * 0.01f - 500.0f, size, 30.0f);
+                 Shapes::createCircle(space, spacing + x * spacing + y * 2.0f, spacing + y * spacing + x * 0.01f - 500.0f, size, 1.0f);
              }
          }
 
@@ -701,7 +701,7 @@ SceneDefinition gameScenes[] = {
 
          for (int i = 0; i < 10; i++)
          {
-             Shape s = Shapes::createCircle(space, 440.0f + i * 55.0f, 50.0f, 40.0f, 0.25f, 4.0f);
+             Shape s = Shapes::createCircle(space, 440.0f + i * 55.0f, 50.0f, 40.0f, 1.0f);
          }
 
          //  game->scale() = 4.5f;

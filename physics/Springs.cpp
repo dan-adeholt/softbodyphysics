@@ -77,8 +77,6 @@ void applySpringDerivatives(
         {
             int j = s.index();
             PointDerivative &derivative = derivatives[j];
-            float springStiffness = 0.1250f;
-            float springDamping = 800.9f;
 
             Vector2 p0 = ShapeUtils::getShapePos(points, shape, j, averages, dragData);
             Vector2 p1(points.pos[j]);
@@ -89,18 +87,19 @@ void applySpringDerivatives(
             Vector2 direction = p0 - p1;
 
             float offsetLength = direction.length();
-            float standardScale = 0.0025f;
-            float standardDamping = 0.025f;
 
-            float scale = shape.index == dragData.dragShapeIndex ? 0.0025f : standardScale;
-            float damping = shape.index == dragData.dragShapeIndex ? -0.015f : standardDamping;
+            float shapeStiffness = shape.stiffness * baseStiffness;
+            float shapeDamping = shape.damping * baseDamping;
+
+            float stiffness = shape.index == dragData.dragShapeIndex ? 0.0025f : shapeStiffness;
+            float damping = shape.index == dragData.dragShapeIndex ? 0.015f : shapeDamping;
 
             if (offsetLength > 0.001f)
             {
                 Vector2 directionNormalized = direction.normalized();
                 Vector2 velocityAlongSpringAxis = directionNormalized * (points.velocity[j] - averageVelocity.centerOfMassVelocity).dot(directionNormalized);
 
-                Vector2 force = direction * scale;
+                Vector2 force = direction * stiffness;
 
                 derivative.acceleration += force;
                 Vector2 velocityDifference = targetVelocity - points.velocity[j];

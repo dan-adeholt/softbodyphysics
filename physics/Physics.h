@@ -7,6 +7,9 @@
 #include "../utils/Console.h"
 #include <stdint.h>
 
+extern const float baseStiffness;
+extern const float baseDamping;
+
 extern const float gridSize;
 extern const float physicsStep;
 extern const float minPointSnapDist;
@@ -225,6 +228,8 @@ struct Shape
     int index;
     int parentId;
     bool selfIntersecting = false;
+    float stiffness = 1.0f;
+    float damping = 1.0f;
 
     uint16_t indices[4] = {UINT16_MAX, UINT16_MAX, UINT16_MAX, UINT16_MAX};
     bool interiorEdges[4] = {false, false, false, false};

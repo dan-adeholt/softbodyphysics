@@ -131,6 +131,6 @@
 10.606598 -10.606628
 13.858185 -5.740234
 shapes=2
-start=0 end=16 volume=300.000000 isStatic=0 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=16 end=32 volume=300.000000 isStatic=0 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=0 end=16 stiffness=1.000000 damping=1.000000 volume=300.000000 isStatic=0 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=16 end=32 stiffness=1.000000 damping=1.000000 volume=300.000000 isStatic=0 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
 diffs=0

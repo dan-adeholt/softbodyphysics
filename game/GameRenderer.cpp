@@ -132,7 +132,7 @@ void addCircle(Array<GameVertex> &vertices, float x, float y, float scale, SDL_C
 
 void addLine(Array<GameVertex> &vertices, float p0x, float p0y, float p1x, float p1y, float scale, SDL_Color color)
 {
-    float lineWidth = 1.0f / scale;
+    float lineWidth = 2.0f / scale;
     float dx = p1x - p0x;
     float dy = p1y - p0y;
     float length = Vector2::vec2length(dx, dy);
@@ -318,7 +318,7 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, 
 
         if (i == selectedShapeIndex)
         {
-            color = {0, 255, 0, 255};
+            color = {50, 200, 50, 255};
         }
 
         SDL_Color colorInterior = {0, 0, 255, 255};
