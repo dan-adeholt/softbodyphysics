@@ -195,7 +195,7 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
 
     if (renderSettings.renderSprings)
     {
-        renderSprings(renderer, physicsSpace.springs.range(), points, scaleForGeometry);
+        // TODO: Render shape matching springs
     }
 
     if (renderSettings.renderPoints)
@@ -218,14 +218,7 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
 
             if (i >= selectedShapeStart && i < selectedShapeEnd)
             {
-                if (i == game.pendingSpringSourceIndex())
-                {
-                    addCircle(m->vertices, pos.x, pos.y, scale, {255, 0, 0, 255});
-                }
-                else
-                {
-                    addCircle(m->vertices, pos.x, pos.y, scale, {0, 64, 255, 255});
-                }
+                addCircle(m->vertices, pos.x, pos.y, scale, {0, 64, 255, 255});
             }
             else
             {
@@ -431,27 +424,6 @@ inline void addSpring(Array<GameVertex> &vertices, float p0x, float p0y, float p
     vertices.push({color,
                    {p0x + normalX, p0y + normalY},
                    springDataMod.topRight});
-}
-
-void GameRenderer::renderSprings(SDL_Renderer *renderer, Range<Spring> springs, const PointMassesRange &points, float scale)
-{
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-
-    for (int i = 0; i < springs.size; i++)
-    {
-        const Spring &spring = springs.data[i];
-        Vector2 p0 = points.pos[spring.pointA];
-        Vector2 p1 = points.pos[spring.pointB];
-
-        // To prevent SDL taking extremely long to render degenerate lines
-        if (p0.x > MIN_LINE_POS && p0.x < MAX_LINE_POS &&
-            p0.y > MIN_LINE_POS && p0.y < MAX_LINE_POS &&
-            p1.x > MIN_LINE_POS && p1.x < MAX_LINE_POS &&
-            p1.y > MIN_LINE_POS && p1.y < MAX_LINE_POS)
-        {
-            addSpring(m->vertices, p0.x, p0.y, p1.x, p1.y, spring.length, scale);
-        }
-    }
 }
 
 void GameRenderer::renderGrid(SDL_Renderer *renderer, Game &game, float scale)

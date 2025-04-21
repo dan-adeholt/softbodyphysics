@@ -280,14 +280,7 @@ SceneDefinition collisionScenes[] = {
                                {15.000000f, 15.000000f},
                                {-15.000000f, 15.000000f},
                            }),
-             .springs = Array<Spring>({
-                 Spring(0, 1, 30.000000f, 5.000000f, 7.225000f, 0),
-                 Spring(1, 2, 30.000000f, 5.000000f, 7.225000f, 0),
-                 Spring(2, 3, 30.000000f, 5.000000f, 7.225000f, 0),
-                 Spring(3, 0, 30.000000f, 5.000000f, 7.225000f, 0),
-                 Spring(0, 2, 42.426407f, 5.000000f, 7.225000f, 0),
-                 Spring(1, 3, 42.426407f, 5.000000f, 7.225000f, 0),
-             })};
+           };
          ShapeEntry shape1 = {
              .isStatic = false,
              .points = PointMasses()
@@ -315,14 +308,7 @@ SceneDefinition collisionScenes[] = {
                                {15.000000f, 15.000000f},
                                {-15.000000f, 15.000000f},
                            }),
-             .springs = Array<Spring>({
-                 Spring(4, 5, 30.000000f, 5.000000f, 7.225000f, 1),
-                 Spring(5, 6, 30.000000f, 5.000000f, 7.225000f, 1),
-                 Spring(6, 7, 30.000000f, 5.000000f, 7.225000f, 1),
-                 Spring(7, 4, 30.000000f, 5.000000f, 7.225000f, 1),
-                 Spring(4, 6, 42.426407f, 5.000000f, 7.225000f, 1),
-                 Spring(5, 7, 42.426407f, 5.000000f, 7.225000f, 1),
-             })};
+             };
          Array<ShapeEntry> shapes = {
              shape0,
              shape1,

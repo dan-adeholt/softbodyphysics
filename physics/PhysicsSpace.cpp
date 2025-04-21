@@ -11,7 +11,6 @@ PhysicsSpace::PhysicsSpace() : gravityEnabled(true), collisionsEnabled(true), sh
     points.reserve(NUM_POINTS);
     staticJoints.reserve(NUM_POINTS / 2);
     shapeJoints.reserve(NUM_SHAPES / 2);
-    springs.reserve(NUM_POINTS / 2);
     mouseJoint.pointIndex = -1;
     mouseJoint.position = Vector2::zero();
 }
@@ -20,7 +19,6 @@ void PhysicsSpace::assign(PhysicsSpace &other)
 {
     shapes.replace(other.shapes);
     points.replace(other.points);
-    springs.replace(other.springs);
     staticJoints.replace(other.staticJoints);
     shapeJoints.replace(other.shapeJoints);
 }
@@ -35,13 +33,6 @@ void PhysicsSpace::initFromEntries(const Array<ShapeEntry> &entries)
         shapes.push(shape);
         points.append(entry.points);
         int shapeId = shapes.size() - 1;
-
-        for (int j = 0; j < entry.springs.size(); j++)
-        {
-            Spring spring = entry.springs[j];
-            spring.shapeIndex = shapeId;
-            springs.push(spring);
-        }
     }
 }
 
@@ -75,7 +66,6 @@ void PhysicsSpace::clear()
 {
     shapes.clear();
     points.clear();
-    springs.clear();
     staticJoints.clear();
     mouseJoint.pointIndex = -1;
     gravityEnabled = true;
@@ -90,21 +80,6 @@ void PhysicsSpace::removeShapeWithoutPoints(int shapeIndex)
 
     Shape &shape = shapes[shapeIndex];
     shapes.remove(shapeIndex);
-
-    for (int i = 0; i < springs.size(); i++)
-    {
-        Spring &spring = springs[i];
-
-        if (spring.shapeIndex == shapeIndex)
-        {
-            springs.remove(i);
-            i--;
-        }
-        else if (spring.shapeIndex >= shapeIndex)
-        {
-            spring.shapeIndex--;
-        }
-    }
 
     for (int i = 0; i < shapeJoints.size(); i++)
     {
@@ -197,21 +172,6 @@ void PhysicsSpace::removeShape(int shapeIndex)
         }
     }
 
-    for (int i = 0; i < springs.size(); i++)
-    {
-        Spring &spring = springs[i];
-
-        if (spring.pointA >= shapeStart)
-        {
-            spring.pointA -= shapeSize;
-        }
-
-        if (spring.pointB >= shapeStart)
-        {
-            spring.pointB -= shapeSize;
-        }
-    }
-
     for (int i = 0; i < shapeJoints.size(); i++)
     {
         ShapeJoint &joint = shapeJoints[i];
@@ -269,19 +229,6 @@ void PhysicsSpace::pasteShape(int copyIndex)
             sCopy.end = newShapeEnd;
             sCopy.index = shapes.size();
             shapes.push(sCopy);
-            int oldSpringsSize = springs.size();
-            for (int j = 0; j < oldSpringsSize; j++)
-            {
-                Spring &spring = springs[j];
-                if (spring.shapeIndex == subIndex)
-                {
-                    Spring springCopy = spring;
-                    springCopy.shapeIndex = sCopy.index;
-                    springCopy.pointA = springCopy.pointA - copyShape.start + newShapeStart;
-                    springCopy.pointB = springCopy.pointB - copyShape.start + newShapeStart;
-                    springs.push(springCopy);
-                }
-            }
         }
     }
     else
@@ -291,20 +238,6 @@ void PhysicsSpace::pasteShape(int copyIndex)
         sCopy.end = newShapeEnd;
         sCopy.index = shapes.size();
         shapes.push(sCopy);
-        int oldSpringsSize = springs.size();
-
-        for (int i = 0; i < oldSpringsSize; i++)
-        {
-            Spring &spring = springs[i];
-            if (spring.shapeIndex == copyIndex)
-            {
-                Spring springCopy = spring;
-                springCopy.shapeIndex = sCopy.index;
-                springCopy.pointA = springCopy.pointA - copyShape.start + newShapeStart;
-                springCopy.pointB = springCopy.pointB - copyShape.start + newShapeStart;
-                springs.push(springCopy);
-            }
-        }
     }
 }
 

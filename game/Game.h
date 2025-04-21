@@ -71,8 +71,6 @@ public:
     void setPaused(bool paused = true);
     void togglePaused();
 
-    int pendingSpringSourceIndex() const;
-
     const char *
     currentSceneName();
 

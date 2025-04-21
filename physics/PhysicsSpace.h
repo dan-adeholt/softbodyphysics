@@ -9,7 +9,6 @@ struct ShapeEntry
 {
     bool isStatic;
     PointMasses points;
-    Array<Spring> springs;
 };
 
 struct PhysicsSpace
@@ -36,7 +35,6 @@ struct PhysicsSpace
 
     Array<Shape> shapes;
     PointMasses points;
-    Array<Spring> springs;
     Array<StaticJoint> staticJoints;
     Array<ShapeJoint> shapeJoints;
 

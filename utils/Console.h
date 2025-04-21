@@ -19,8 +19,6 @@ struct ConsoleProfileInfo
     int numBbboxChecks;
     int numBboxOverlaps;
     int numCollisions;
-
-    int numSprings;
 };
 
 class Vector2;

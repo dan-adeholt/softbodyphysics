@@ -14,7 +14,6 @@ struct Springs
         Range<Shape> shapeRange,
         Range<ShapeProperties> shapeProperties,
         PointMassesRange points,
-        Range<Spring> springs,
         Range<PointDerivative> derivatives,
         bool enableShapeMatching,
         const ShapeMatchDragData &dragData,

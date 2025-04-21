@@ -232,16 +232,6 @@ void PhysicsSpaceStorage::appendFromFile(PhysicsSpace &space, const char *filena
         shape.end += pointStart;
     }
 
-    int springsStart = space.springs.size();
-    space.springs.append(tempSpace.springs);
-    for (int i = springsStart; i < space.springs.size(); i++)
-    {
-        Spring &spring = space.springs[i];
-        spring.shapeIndex += shapeStart;
-        spring.pointA += pointStart;
-        spring.pointB += pointStart;
-    }
-
     int staticJointsStart = space.staticJoints.size();
     space.staticJoints.append(tempSpace.staticJoints);
 
@@ -351,18 +341,6 @@ void PhysicsSpaceStorage::dumpToPrefab(PhysicsSpace &space, int selectedShapeInd
     newShape.start = 0;
     newShape.end = shape.end - shape.start;
     tempSpace.shapes.push(newShape);
-
-    for (int i = 0; i < space.springs.size(); i++)
-    {
-        const Spring &spring = space.springs[i];
-        if (spring.shapeIndex == selectedShapeIndex)
-        {
-            Spring newSpring = spring;
-            newSpring.pointA -= shape.start;
-            newSpring.pointB -= shape.start;
-            tempSpace.springs.push(newSpring);
-        }
-    }
 
     dumpToFile(tempSpace, filename.data);
 

@@ -76,7 +76,7 @@ void RK4Integrator::updateRK4Springs(PhysicsSpace &space, Array<PointDerivative>
         return;
     }
 
-    Springs::performThreadedSpringDerivatives(space.shapes.range(), m->shapeProperties.range(), pointsRange, space.springs.range(), derivativeRange, space.shapeMatchingEnabled, dragData, profileInfo);
+    Springs::performThreadedSpringDerivatives(space.shapes.range(), m->shapeProperties.range(), pointsRange, derivativeRange, space.shapeMatchingEnabled, dragData, profileInfo);
 
     if (dragData.dragShapeIndex != -1)
     {
@@ -179,68 +179,6 @@ void RK4Integrator::performRK4Integration(PhysicsSpace &space, const ShapeMatchD
     {
         m->shapeProperties.push(ShapeUtils::getShapeProperties(space.points.range(), space.shapes[i]));
     }
-
-    for (int i = 0; i < space.springs.size(); i++)
-    {
-        const Spring &spring = space.springs[i];
-        const Vector2 pointA = space.points.pos[spring.pointA];
-        const Vector2 pointB = space.points.pos[spring.pointB];
-        const ShapeProperties &averages = m->shapeProperties[spring.shapeIndex];
-        const Shape &shape = space.shapes[spring.shapeIndex];
-
-        // These don't work well since multiple springs are connected to the same point,
-        // and the point has different meanings in each substructure
-
-        Vector2 origPointA = ShapeUtils::getShapePos(space.points.range(), space.shapes[spring.shapeIndex], spring.pointA, averages, dragData);
-        Vector2 origPointB = ShapeUtils::getShapePos(space.points.range(), space.shapes[spring.shapeIndex], spring.pointB, averages, dragData);
-
-        float dot = (pointB - pointA).dot(origPointB - origPointA);
-
-        // if (dot < 0)
-        // {
-        //     Console::log("Flipping spring %d => %d %d", i, spring.pointA, spring.pointB);
-        //     if (shape.hasIndices())
-        //     {
-        //         space.points.pos[spring.pointB] = origPointB;
-        //         space.points.pos[spring.pointA] = origPointA;
-        //         space.points.velocity[spring.pointA] *= 0.5f;
-        //         space.points.velocity[spring.pointB] *= 0.5f;
-        //     }
-        //     else
-        //     {
-        //         space.points.pos[spring.pointB] = pointA;
-        //         space.points.pos[spring.pointA] = pointB;
-        //         Vector2 velocityA = space.points.velocity[spring.pointA];
-        //         space.points.velocity[spring.pointA] = space.points.velocity[spring.pointB] * 0.5f;
-        //         space.points.velocity[spring.pointB] = velocityA * 0.5f;
-        //     }
-        // }
-    }
-
-    // for (int i = 0; i < space.shapes.size(); i++)
-    // {
-    //     Shape &shape = space.shapes[i];
-
-    //     if (shape.isStatic)
-    //     {
-    //         continue;
-    //     }
-
-    //     ShapeProperties &averages = m->shapeProperties[i];
-
-    //     for (ShapeIterator s(shape); s.isValid(); s.next())
-    //     {
-    //         int j = s.index();
-    //         Vector2 shapePos = ShapeUtils::getShapePos(space.points.range(), shape, j, averages, dragData);
-
-    //         Vector2 delta = space.points.pos[j] - shapePos;
-
-    //         if (delta.length() > maxDistFromCenter)
-    //         {
-    //             space.points.pos[j] = shapePos + delta.normalized() * maxDistFromCenter;
-    //         }
-    //     }
-    // }
 }
 
 void RK4Integrator::testRK4Performance(int iterations, PhysicsSpace &space)
@@ -279,6 +217,6 @@ void RK4Integrator::testSpringPerformance(int iterations, PhysicsSpace &space)
     auto derivativeRange = m->rk1.range();
     for (int i = 0; i < iterations; i++)
     {
-        Springs::performThreadedSpringDerivatives(space.shapes.range(), shapeProperties.range(), space.points.range(), space.springs.range(), derivativeRange, space.shapeMatchingEnabled, dragData, profileInfo);
+        Springs::performThreadedSpringDerivatives(space.shapes.range(), shapeProperties.range(), space.points.range(), derivativeRange, space.shapeMatchingEnabled, dragData, profileInfo);
     }
 }

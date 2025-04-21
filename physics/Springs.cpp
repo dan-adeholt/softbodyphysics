@@ -12,44 +12,16 @@ struct SpringJobData
 {
     Range<Shape> shapes;
     Range<ShapeProperties> shapeProperties;
-    Range<Spring> springs;
     PointMassesRange points;
     Range<PointDerivative> derivatives;
     bool enableShapeMatching;
     ShapeMatchDragData dragData;
 };
 
-void applySpringCalculation(const Spring &spring, const PointMassesRange &points, Range<PointDerivative> &derivatives, float springFactor, float offsetLength, Vector2 &direction)
-{
-    float delta = (offsetLength - spring.length);
-
-    float springDamping = spring.damping;
-    float springStiffness = spring.stiffness;
-
-    float springForce = delta * springStiffness;
-    Vector2 directionNormalized = direction / offsetLength;
-
-    Vector2 dv(points.velocity[spring.pointB] - points.velocity[spring.pointA]);
-    float dampForce = directionNormalized.dot(dv * springDamping);
-    float combinedForce = (springForce + dampForce) * springFactor;
-
-    Vector2 force(directionNormalized * combinedForce);
-
-    float p1Mass = points.mass[spring.pointA];
-    float p2Mass = points.mass[spring.pointB];
-
-    PointDerivative &derivative1 = derivatives[spring.pointA];
-    PointDerivative &derivative2 = derivatives[spring.pointB];
-
-    derivative1.acceleration += force / p1Mass;
-    derivative2.acceleration -= force / p2Mass;
-}
-
 void applySpringDerivatives(
     Range<Shape> &shapes,
     Range<ShapeProperties> &shapeProperties,
     PointMassesRange &points,
-    Range<Spring> &springs,
     Range<PointDerivative> derivatives,
     bool enableShapeMatching,
     const ShapeMatchDragData &dragData)
@@ -118,13 +90,12 @@ void applySpringDerivatives(
 void springJob(void *data)
 {
     SpringJobData *jobData = (SpringJobData *)data;
-    applySpringDerivatives(jobData->shapes, jobData->shapeProperties, jobData->points, jobData->springs, jobData->derivatives, jobData->enableShapeMatching, jobData->dragData);
+    applySpringDerivatives(jobData->shapes, jobData->shapeProperties, jobData->points, jobData->derivatives, jobData->enableShapeMatching, jobData->dragData);
 }
 
 void Springs::performThreadedSpringDerivatives(Range<Shape> shapeRange,
                                                Range<ShapeProperties> shapeProperties,
                                                PointMassesRange points,
-                                               Range<Spring> springs,
                                                Range<PointDerivative> derivatives,
                                                bool enableShapeMatching,
                                                const ShapeMatchDragData &dragData,
@@ -136,9 +107,9 @@ void Springs::performThreadedSpringDerivatives(Range<Shape> shapeRange,
     Task tasks[Scheduler::maxNumThreads];
 
     int numTasks = Scheduler::numTasks;
-    int batchSize = springs.size / numTasks;
+    int batchSize = shapeRange.size / numTasks;
 
-    while (batchSize * numTasks < springs.size)
+    while (batchSize * numTasks < shapeRange.size)
     {
         batchSize++;
     }
@@ -150,22 +121,11 @@ void Springs::performThreadedSpringDerivatives(Range<Shape> shapeRange,
     // cause point mass calculations from different threads to interfere with each other
     for (int i = 0; i < numTasks; i++)
     {
-        int curEnd = min(curStart + batchSize, springs.size);
-        int startShapeIndex = i == 0 ? 0 : springs[curStart].shapeIndex;
-        int curShapeparentId = shapeRange[springs[curEnd - 1].shapeIndex].parentId;
-        int curShapeIndex = springs[curEnd - 1].shapeIndex;
-
-        while (curEnd < springs.size && (springs[curEnd].shapeIndex == curShapeIndex || (shapeRange[springs[curEnd].shapeIndex].parentId != -1 && shapeRange[springs[curEnd].shapeIndex].parentId == curShapeparentId)))
-        {
-            curEnd++;
-        }
-
-        int endShapeIndex = curEnd < springs.size ? springs[curEnd].shapeIndex : shapeRange.size;
+        int curEnd = min(curStart + batchSize, shapeRange.size);
 
         springRanges[i] = {
-            shapeRange.slice(startShapeIndex, endShapeIndex),
+            shapeRange.slice(curStart, curEnd),
             shapeProperties,
-            springs.slice(curStart, curEnd),
             points,
             derivatives,
             enableShapeMatching,
@@ -175,7 +135,7 @@ void Springs::performThreadedSpringDerivatives(Range<Shape> shapeRange,
         tasks[i].data = &springRanges[i];
 
         curStart = curEnd;
-        if (curStart == springs.size)
+        if (curStart == shapeRange.size)
         {
             numThreads = i + 1;
             break;

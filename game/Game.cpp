@@ -21,7 +21,6 @@
 #include "GameKeyCode.h"
 
 #define NUM_HISTORICAL_STATES 1000
-
 struct ScheduledCallback
 {
     void (*function)(Game *, void *);
@@ -89,7 +88,6 @@ struct Game::Impl
     ShapeMatchDragData shapeMatchDragData;
     int copyShapeIndex = -1;
     Vector2 mousePos;
-    int pendingSpringSourceIndex = -1;
     AddSubShapeData addSubshapeData;
 };
 
@@ -283,7 +281,6 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
     int nextHistoricalIndex = (m->historicalIndex + 1) % NUM_HISTORICAL_STATES;
 
     profileInfo.numPhysicsSteps = numIterations;
-    profileInfo.numSprings = m->physicsSpace.springs.size();
     profileInfo.physicsTimeMillis = updateTimer.elapsedMillis() / numIterations;
     profileInfo.springsTimeMillis /= numIterations;
 
@@ -320,21 +317,6 @@ void Game::onMouseDown(int button, int x, int y, bool shiftDown)
     }
 
     Vector2 translatedPos = m->translatedMousePos();
-
-    if (m->pendingSpringSourceIndex != -1)
-    {
-        int otherIndex = m->physicsSpace.closestPointIndex(translatedPos.x, translatedPos.y, m->selectedShapeIndex);
-
-        Vector2 p0 = m->physicsSpace.points.pos[m->pendingSpringSourceIndex];
-        Vector2 p1 = m->physicsSpace.points.pos[otherIndex];
-        float distance = Vector2::vec2distance(p0.x, p0.y, p1.x, p1.y);
-
-        float stiffness = 0.1f;
-        float damping = 0.1f;
-        m->physicsSpace.springs.push(Spring(m->pendingSpringSourceIndex, otherIndex, distance, stiffness, damping, m->selectedShapeIndex));
-        m->pendingSpringSourceIndex = -1;
-        return;
-    }
 
     for (int i = 0; i < m->physicsSpace.points.size(); i++)
     {
@@ -646,12 +628,6 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
         }
     }
     break;
-    case GameKeyCode::I:
-    {
-        Vector2 translatedPos = (Vector2((float)m->mousePos.x, (float)m->mousePos.y) - m->offset) / m->scale;
-        m->pendingSpringSourceIndex = m->physicsSpace.closestPointIndex(translatedPos.x, translatedPos.y, m->selectedShapeIndex);
-        break;
-    }
     case GameKeyCode::K:
         if (!m->addSubshapeData.active)
         {
@@ -785,11 +761,6 @@ void Game::setPaused(bool paused)
 void Game::togglePaused()
 {
     setPaused(!m->paused);
-}
-
-int Game::pendingSpringSourceIndex() const
-{
-    return m->pendingSpringSourceIndex;
 }
 
 bool Game::paused()

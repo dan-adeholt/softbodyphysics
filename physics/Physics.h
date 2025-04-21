@@ -200,22 +200,6 @@ struct StaticJoint
     Vector2 position;
 };
 
-struct Spring
-{
-    Spring()
-    {
-    }
-
-    Spring(int pointA, int pointB, float length, float stiffness, float damping, int shapeIndex)
-        : pointA(pointA), pointB(pointB), length(length), stiffness(stiffness), damping(damping), shapeIndex(shapeIndex) {}
-
-    int pointA;
-    int pointB;
-    float length;
-    float stiffness;
-    float damping;
-    int shapeIndex;
-};
 struct Shape
 {
     Shape() : start(0), end(0), volume(0.0f), isStatic(false), index(-1), parentId(-1) {}
@@ -356,7 +340,7 @@ class Array;
 template <typename T>
 struct Range;
 
-void applySpringDerivatives(PointMassesRange &points, Range<Spring> &springs, Range<PointDerivative> derivatives, bool enableShapeMatching);
+void applySpringDerivatives(PointMassesRange &points, Range<PointDerivative> derivatives, bool enableShapeMatching);
 
 struct ShapeIterator
 {
