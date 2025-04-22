@@ -86,14 +86,18 @@ GameRenderer::~GameRenderer()
 
 struct AtlasCoordinate
 {
-    AtlasCoordinate(float x, float y, float width, float height) : x(x), y(y), w(width), h(height)
+    AtlasCoordinate(float x, float y, float width, float height) : x(x), y(y), w(width), h(height), normWidth(width / 512.0f), normHeight(height / 512.0f)
     {
         topLeft = {x / 512.0f, y / 512.0f};
         topRight = {(x + width) / 512.0f, y / 512.0f};
         bottomLeft = {x / 512.0f, (y + height) / 512.0f};
         bottomRight = {(x + width) / 512.0f, (y + height) / 512.0f};
     }
+
     float x, y, w, h;
+    float normWidth;
+    float normHeight;
+
     Vector2 topLeft;
     Vector2 topRight;
     Vector2 bottomLeft;
@@ -103,6 +107,7 @@ struct AtlasCoordinate
 AtlasCoordinate whiteColor(0, 0, 15, 15);
 AtlasCoordinate circle(17, 1, 13, 13);
 AtlasCoordinate springData(50, 0, 3, 512);
+AtlasCoordinate fabricData(64, 0, 128, 128);
 
 void addCircle(Array<GameVertex> &vertices, float x, float y, float scale, SDL_Color color)
 {
@@ -188,11 +193,6 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
 
     GameRenderSettings renderSettings = game.renderSettings();
 
-    if (renderSettings.renderShapeLines)
-    {
-        renderShapes(renderer, game.selectedShapeIndex(), physicsSpace.shapes.range(), points, physicsSpace, renderSettings.renderVelocityVectors, renderSettings.renderShapeMatching, renderSettings.renderPointIndices, scaleForGeometry, game.shapeMatchDragData());
-    }
-
     if (renderSettings.renderTriangles)
     {
         for (int i = 0; i < physicsSpace.triangleIndices.size(); i += 3)
@@ -209,6 +209,48 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
             addLine(m->vertices, p1Pos.x, p1Pos.y, p2Pos.x, p2Pos.y, scaleForGeometry, {0, 0, 0, 255}, 1.0f);
             addLine(m->vertices, p2Pos.x, p2Pos.y, p0Pos.x, p0Pos.y, scaleForGeometry, {0, 0, 0, 255}, 1.0f);
         }
+    }
+    else
+    {
+        for (int i = 0; i < physicsSpace.shapes.size(); i++)
+        {
+            const Shape &shape = physicsSpace.shapes[i];
+            SDL_Color color = {255, 255, 255, 255};
+
+            for (int i = shape.triangleStart; i < shape.triangleEnd; i += 3)
+            {
+                int p0 = physicsSpace.triangleIndices[i];
+                int p1 = physicsSpace.triangleIndices[i + 1];
+                int p2 = physicsSpace.triangleIndices[i + 2];
+
+                Vector2 p0Pos = points.pos[p0];
+                Vector2 p1Pos = points.pos[p1];
+                Vector2 p2Pos = points.pos[p2];
+
+                Vector2 uv0 = physicsSpace.uvCoordinates[i];
+                Vector2 uv1 = physicsSpace.uvCoordinates[i + 1];
+                Vector2 uv2 = physicsSpace.uvCoordinates[i + 2];
+
+                Vector2 luv0(uv0.x * fabricData.normWidth + fabricData.topLeft.x, uv0.y * fabricData.normHeight + fabricData.topLeft.y);
+                Vector2 luv1(uv1.x * fabricData.normWidth + fabricData.topLeft.x, uv1.y * fabricData.normHeight + fabricData.topLeft.y);
+                Vector2 luv2(uv2.x * fabricData.normWidth + fabricData.topLeft.x, uv2.y * fabricData.normHeight + fabricData.topLeft.y);
+
+                m->vertices.push({color,
+                                  {p0Pos.x, p0Pos.y},
+                                  luv0});
+                m->vertices.push({color,
+                                  {p1Pos.x, p1Pos.y},
+                                  luv1});
+                m->vertices.push({color,
+                                  {p2Pos.x, p2Pos.y},
+                                  luv2});
+            }
+        }
+    }
+
+    if (renderSettings.renderShapeLines)
+    {
+        renderShapes(renderer, game.selectedShapeIndex(), physicsSpace.shapes.range(), points, physicsSpace, renderSettings.renderVelocityVectors, renderSettings.renderShapeMatching, renderSettings.renderPointIndices, scaleForGeometry, game.shapeMatchDragData());
     }
 
     if (renderSettings.renderSprings)

@@ -335,12 +335,25 @@ void PhysicsSpace::triangulate()
     {
         Shape &shape = shapes[shapeIdx];
 
+        shape.triangleStart = triangleIndices.size();
+
         ShapeIndexedRange range(shape);
         curIndices.clear();
+
+        Vector2 minPos(__FLT_MAX__, __FLT_MAX__);
+        Vector2 maxPos(__FLT_MIN__, __FLT_MIN__);
+
         for (int j = 0; j < range.size(); j++)
         {
             curIndices.push(range[j]);
+            Vector2 pos = points.shapeOriginalPos[range[j]];
+            minPos.x = min(minPos.x, pos.x);
+            minPos.y = min(minPos.y, pos.y);
+            maxPos.x = max(maxPos.x, pos.x);
+            maxPos.y = max(maxPos.y, pos.y);
         }
+
+        Vector2 size = maxPos - minPos;
 
         // Clip ears until only one triangle remains
         while (curIndices.size() > 3)
@@ -383,6 +396,14 @@ void PhysicsSpace::triangulate()
                 if (anyInside)
                     continue;
 
+                Vector2 uvA = (A - minPos) / size;
+                Vector2 uvB = (B - minPos) / size;
+                Vector2 uvC = (C - minPos) / size;
+
+                uvCoordinates.push(uvA);
+                uvCoordinates.push(uvB);
+                uvCoordinates.push(uvC);
+
                 // Found an ear: record its indices and remove B
                 triangleIndices.push(idxA);
                 triangleIndices.push(idxB);
@@ -403,10 +424,25 @@ void PhysicsSpace::triangulate()
         // Add the final triangle (moved outside of the while loop)
         if (curIndices.size() == 3)
         {
+
+            const Vector2 &A = points.shapeOriginalPos[curIndices[0]];
+            const Vector2 &B = points.shapeOriginalPos[curIndices[1]];
+            const Vector2 &C = points.shapeOriginalPos[curIndices[2]];
+
             triangleIndices.push(curIndices[0]);
             triangleIndices.push(curIndices[1]);
             triangleIndices.push(curIndices[2]);
+
+            Vector2 uvA = (A - minPos) / size;
+            Vector2 uvB = (B - minPos) / size;
+            Vector2 uvC = (C - minPos) / size;
+
+            uvCoordinates.push(uvA);
+            uvCoordinates.push(uvB);
+            uvCoordinates.push(uvC);
         }
+
+        shape.triangleEnd = triangleIndices.size();
     }
 }
 

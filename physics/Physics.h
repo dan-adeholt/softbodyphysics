@@ -215,6 +215,10 @@ struct Shape
     float stiffness = 1.0f;
     float damping = 1.0f;
 
+    // Not serialized (as of now), recalculated on triangulation
+    int triangleStart = -1;
+    int triangleEnd = -1;
+
     uint16_t indices[4] = {UINT16_MAX, UINT16_MAX, UINT16_MAX, UINT16_MAX};
     bool interiorEdges[4] = {false, false, false, false};
 
