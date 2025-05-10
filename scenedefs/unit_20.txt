@@ -115,15 +115,15 @@
 555.000000 323.000000
 485.000000 323.000000
 shapes=11
-start=0 end=4 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=4 end=8 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
-start=8 end=28 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=0,1,18,19 interiorEdges=0,1,0,0
-start=8 end=28 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=1,2,17,18 interiorEdges=0,1,0,1
-start=8 end=28 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=2,3,16,17 interiorEdges=0,1,0,1
-start=8 end=28 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=3,4,15,16 interiorEdges=0,1,0,1
-start=8 end=28 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=4,5,14,15 interiorEdges=0,1,0,1
-start=8 end=28 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=5,6,13,14 interiorEdges=0,1,0,1
-start=8 end=28 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=6,7,12,13 interiorEdges=0,1,0,1
-start=8 end=28 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=7,8,11,12 interiorEdges=0,1,0,1
-start=8 end=28 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=8,9,10,11 interiorEdges=0,0,0,1
+start=0 end=4 texture=0 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=4 end=8 texture=0 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=1 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=8 end=28 texture=0 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=0,1,18,19 interiorEdges=0,1,0,0
+start=8 end=28 texture=0 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=1,2,17,18 interiorEdges=0,1,0,1
+start=8 end=28 texture=0 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=2,3,16,17 interiorEdges=0,1,0,1
+start=8 end=28 texture=0 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=3,4,15,16 interiorEdges=0,1,0,1
+start=8 end=28 texture=0 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=4,5,14,15 interiorEdges=0,1,0,1
+start=8 end=28 texture=0 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=5,6,13,14 interiorEdges=0,1,0,1
+start=8 end=28 texture=0 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=6,7,12,13 interiorEdges=0,1,0,1
+start=8 end=28 texture=0 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=7,8,11,12 interiorEdges=0,1,0,1
+start=8 end=28 texture=0 stiffness=1.000000 damping=1.000000 volume=0.000000 isStatic=0 selfIntersecting=1 parentId=1 indices=8,9,10,11 interiorEdges=0,0,0,1
 staticjoints=0

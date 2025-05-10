@@ -67,7 +67,7 @@
 77.781738 -77.781677
 101.626709 -42.095093
 shapes=1
-start=0 end=16 stiffness=1.000000 damping=1.000000 volume=300.000000 isStatic=0 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
+start=0 end=16 texture=0 stiffness=1.000000 damping=1.000000 volume=300.000000 isStatic=0 selfIntersecting=0 parentId=-1 indices=65535,65535,65535,65535 interiorEdges=0,0,0,0
 staticjoints=0
 0
 1

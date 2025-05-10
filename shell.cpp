@@ -1,4 +1,4 @@
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <stdio.h>
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -11,23 +11,30 @@
 
 int main(int argc, char *argv[])
 {
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0)
+    // ——— Initialize SDL3 ———
+    // SDL_Init now returns bool, and the GAMECONTROLLER flag is replaced by GAMEPAD.
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMEPAD))
     {
-        fprintf(stderr, "SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+        SDL_Log("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
         return 1;
     }
-    SDL_DisplayMode displayMode;
-    if (SDL_GetCurrentDisplayMode(0, &displayMode) != 0)
+
+    // ——— Query current display mode ———
+    // In SDL3 you call SDL_GetCurrentDisplayMode on a display ID,
+    // and it returns a pointer or NULL on failure :contentReference[oaicite:0]{index=0}.
+    SDL_DisplayID primary = SDL_GetPrimaryDisplay();
+    const SDL_DisplayMode *displayMode = SDL_GetCurrentDisplayMode(primary);
+    if (!displayMode)
     {
-        fprintf(stderr, "SDL_GetCurrentDisplayMode failed: %s\n", SDL_GetError());
+        SDL_Log("SDL_GetCurrentDisplayMode failed: %s\n", SDL_GetError());
         return 1;
     }
 
     // Try to read window geometry from file
     int windowPosX = 0;
     int windowPosY = 24;
-    int windowWidth = displayMode.w;
-    int windowHeight = displayMode.h - 112;
+    int windowWidth = displayMode->w;
+    int windowHeight = displayMode->h - 112;
 
     FILE *f = fopen("window_settings.txt", "r");
 
@@ -37,23 +44,43 @@ int main(int argc, char *argv[])
         fclose(f);
     }
 
-    double frameTime = 1000.0 / displayMode.refresh_rate;
-
-    SDL_Window *window = SDL_CreateWindow("SDL2 Window",
-                                          windowPosX,
-                                          windowPosY,
-                                          windowWidth, windowHeight,
-                                          SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE |
-                                              SDL_WINDOW_ALLOW_HIGHDPI);
-
-    if (window == nullptr)
+    double frameTime = 1000.0 / displayMode->refresh_rate;
+    // 1) Create window with width, height and new flags
+    SDL_Window *window = SDL_CreateWindow(
+        "SDL3 Window",
+        windowWidth, windowHeight,
+        SDL_WINDOW_RESIZABLE                /* allow resizing */
+            | SDL_WINDOW_HIGH_PIXEL_DENSITY /* use high‑density back‑buffer if available */
+    );
+    if (!window)
     {
-        fprintf(stderr, "Window could not be created! SDL_Error: %s\n", SDL_GetError());
-        SDL_Quit();
+        SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
         return 1;
     }
 
-    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    // 2) Now set its position explicitly
+    SDL_SetWindowPosition(window, windowPosX, windowPosY);
+    // 1) Build a property group
+    SDL_PropertiesID props = SDL_CreateProperties();
+
+    // 2) Tell it which window to target
+    SDL_SetPointerProperty(props, SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, window);
+
+    // 3) Let SDL pick the driver (NULL name)
+    SDL_SetStringProperty(props, SDL_PROP_RENDERER_CREATE_NAME_STRING, NULL);
+
+    bool vsync = false;
+
+    // 4) Turn on vsync
+    if (vsync)
+    {
+        SDL_SetBooleanProperty(props, SDL_PROP_RENDERER_CREATE_PRESENT_VSYNC_NUMBER, true);
+    }
+
+    // 5) Finally create the renderer
+    SDL_Renderer *renderer = SDL_CreateRendererWithProperties(props);
+    SDL_DestroyProperties(props); // you can drop the props struct once done
+
     if (renderer == nullptr)
     {
         fprintf(stderr, "Renderer could not be created! SDL_Error: %s\n", SDL_GetError());
@@ -62,14 +89,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    bool vsync = false;
 
-    if (vsync)
-    {
-        SDL_RenderSetVSync(renderer, 1);
-    }
-
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+    // SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
 
     SDL_Event event;
     SDL_RaiseWindow(window);

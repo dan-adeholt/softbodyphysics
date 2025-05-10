@@ -1,4 +1,4 @@
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <stdio.h>
 #include "containers/Array.h"
 #include "containers/StringBuffer.h"
@@ -9,8 +9,8 @@
 #include "./physics/PhysicsSpaceStorage.h"
 #include "./game/GameRenderer.h"
 #include "imgui.h"
-#include "imgui_impl_sdl2.h"
-#include "imgui_impl_sdlrenderer2.h"
+#include "imgui_impl_sdl3.h"
+#include "imgui_impl_sdlrenderer3.h"
 #include "utils/Console.h"
 #include "containers/Array.test.h"
 #include "physics/Physics.test.h"
@@ -22,6 +22,7 @@
 #include "utils/DynamicLibrary.h"
 #include "utils/CustomFont.h"
 #include <unistd.h>
+#include <math.h>
 
 void dumpWindowGeometry(int windowPosX, int windowPosY, int windowWidth, int windowHeight)
 {
@@ -37,22 +38,22 @@ int getSdlModState()
 {
     int modState = 0;
 
-    if (SDL_GetModState() & KMOD_ALT)
+    if (SDL_GetModState() & SDL_KMOD_ALT)
     {
         modState |= (int)GameModkey::Alt;
     }
 
-    if (SDL_GetModState() & KMOD_GUI)
+    if (SDL_GetModState() & SDL_KMOD_GUI)
     {
         modState |= (int)GameModkey::Meta;
     }
 
-    if (SDL_GetModState() & KMOD_SHIFT)
+    if (SDL_GetModState() & SDL_KMOD_SHIFT)
     {
         modState |= (int)GameModkey::Shift;
     }
 
-    if (SDL_GetModState() & KMOD_CTRL)
+    if (SDL_GetModState() & SDL_KMOD_CTRL)
     {
         modState |= (int)GameModkey::Ctrl;
     }
@@ -60,7 +61,7 @@ int getSdlModState()
     return modState;
 }
 
-GameKeyCode convertSdlKeycode(SDL_KeyCode code)
+GameKeyCode convertSdlKeycode(SDL_Keycode code)
 {
     switch (code)
     {
@@ -102,57 +103,57 @@ GameKeyCode convertSdlKeycode(SDL_KeyCode code)
         return GameKeyCode::PLUS;
     case SDLK_MINUS:
         return GameKeyCode::MINUS;
-    case SDLK_a:
+    case SDLK_A:
         return GameKeyCode::A;
-    case SDLK_b:
+    case SDLK_B:
         return GameKeyCode::B;
-    case SDLK_c:
+    case SDLK_C:
         return GameKeyCode::C;
-    case SDLK_d:
+    case SDLK_D:
         return GameKeyCode::D;
-    case SDLK_e:
+    case SDLK_E:
         return GameKeyCode::E;
-    case SDLK_f:
+    case SDLK_F:
         return GameKeyCode::F;
-    case SDLK_g:
+    case SDLK_G:
         return GameKeyCode::G;
-    case SDLK_h:
+    case SDLK_H:
         return GameKeyCode::H;
-    case SDLK_i:
+    case SDLK_I:
         return GameKeyCode::I;
-    case SDLK_j:
+    case SDLK_J:
         return GameKeyCode::J;
-    case SDLK_k:
+    case SDLK_K:
         return GameKeyCode::K;
-    case SDLK_l:
+    case SDLK_L:
         return GameKeyCode::L;
-    case SDLK_m:
+    case SDLK_M:
         return GameKeyCode::M;
-    case SDLK_n:
+    case SDLK_N:
         return GameKeyCode::N;
-    case SDLK_o:
+    case SDLK_O:
         return GameKeyCode::O;
-    case SDLK_p:
+    case SDLK_P:
         return GameKeyCode::P;
-    case SDLK_q:
+    case SDLK_Q:
         return GameKeyCode::Q;
-    case SDLK_r:
+    case SDLK_R:
         return GameKeyCode::R;
-    case SDLK_s:
+    case SDLK_S:
         return GameKeyCode::S;
-    case SDLK_t:
+    case SDLK_T:
         return GameKeyCode::T;
-    case SDLK_u:
+    case SDLK_U:
         return GameKeyCode::U;
-    case SDLK_v:
+    case SDLK_V:
         return GameKeyCode::V;
-    case SDLK_w:
+    case SDLK_W:
         return GameKeyCode::W;
-    case SDLK_x:
+    case SDLK_X:
         return GameKeyCode::X;
-    case SDLK_y:
+    case SDLK_Y:
         return GameKeyCode::Y;
-    case SDLK_z:
+    case SDLK_Z:
         return GameKeyCode::Z;
     default:
         return GameKeyCode::NUM_KEY_CODES;
@@ -164,19 +165,14 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
     Scheduler::instance->start();
     Console::setConsoleState(consoleState);
 
-    // Get the number of video displays
-    int num_displays = SDL_GetNumVideoDisplays();
-    if (num_displays < 1)
-    {
-        printf("SDL_GetNumVideoDisplays failed: %s\n", SDL_GetError());
-        SDL_Quit();
-        return 1;
-    }
+    SDL_DisplayID display = SDL_GetPrimaryDisplay();
 
-    float ddpi, hdpi, vdpi;
-    if (SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi) != 0)
+    // 2. Query its content scale
+    float contentScale = SDL_GetDisplayContentScale(display);
+    if (contentScale <= 0.0f)
     {
-        printf("SDL_GetDisplayDPI failed for display 0: %s\n", SDL_GetError());
+        SDL_Log("SDL_GetDisplayContentScale failed for display %d: %s",
+                display, SDL_GetError());
     }
 
     IMGUI_CHECKVERSION();
@@ -188,7 +184,7 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
     ImFontConfig baseFontConfig;
     ImFontConfig iconFontConfig;
 
-    if (ddpi >= 150)
+    if (contentScale >= 2.0f)
     {
         iconFontConfig.RasterizerDensity = 2.0f;
         baseFontConfig.RasterizerDensity = 2.0f;
@@ -205,7 +201,7 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
     io.Fonts->AddFontFromFileTTF("data/fontawesome-webfont.ttf", iconFontSize, &iconFontConfig, icon_ranges);
 
     ImFont *boldFont = io.Fonts->AddFontFromFileTTF("data/JetBrainsMono-ExtraBold.ttf", 15.0f, &baseFontConfig);
-    if (ddpi < 150)
+    if (contentScale < 2.0f)
     {
         CustomFontEntry fonts[] = {
             {.font = font, .path = "data/jetbrains.fnt", .imagePath = "data/jetbrains.png", .fixedYOffset = -2},
@@ -227,8 +223,8 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
     style.Colors[ImGuiCol_WindowBg] = ImVec4(0.98f, 0.98f, 0.98f, 1.0f);
     style.Colors[ImGuiCol_Separator] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
     style.Colors[ImGuiCol_Text] = ImVec4(0.06f, 0.06f, 0.06f, 1.0f);
-    ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
-    ImGui_ImplSDLRenderer2_Init(renderer);
+    ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
+    ImGui_ImplSDLRenderer3_Init(renderer);
     ImGui::GetIO().KeyRepeatDelay = 0.06f;
     ImGui::GetIO().KeyRepeatRate = 0.02f;
 
@@ -236,8 +232,8 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
     SDL_Event event;
 
-    int mouseX = -1;
-    int mouseY = -1;
+    float mouseX = -1;
+    float mouseY = -1;
 
     char cwd[512];
     bool cwdResult = getcwd(cwd, sizeof(cwd));
@@ -282,8 +278,8 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
         }
 
         // Start the Dear ImGui frame
-        ImGui_ImplSDLRenderer2_NewFrame();
-        ImGui_ImplSDL2_NewFrame();
+        ImGui_ImplSDLRenderer3_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
 
         ImGui::NewFrame();
 
@@ -291,11 +287,11 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
         while (SDL_PollEvent(&event))
         {
-            ImGui_ImplSDL2_ProcessEvent(&event);
+            ImGui_ImplSDL3_ProcessEvent(&event);
 
-            switch (event.window.event)
+            switch (event.type)
             {
-            case SDL_WINDOWEVENT_FOCUS_GAINED:
+            case SDL_EVENT_WINDOW_FOCUS_GAINED:
                 Console::log("Focus gained");
                 if (pausedDueToFocus)
                 {
@@ -303,7 +299,7 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
                     pausedDueToFocus = false;
                 }
                 break;
-            case SDL_WINDOWEVENT_FOCUS_LOST:
+            case SDL_EVENT_WINDOW_FOCUS_LOST:
                 Console::log("Focus lost");
                 if (!game->paused())
                 {
@@ -311,88 +307,88 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
                     pausedDueToFocus = true;
                 }
                 break;
-            default:
+                // Window moved or resized are now distinct events
+            case SDL_EVENT_WINDOW_MOVED: // Window has been moved to data1, data2 :contentReference[oaicite:0]{index=0}
+            case SDL_EVENT_WINDOW_RESIZED:
+            { // Window has been resized to data1×data2 :contentReference[oaicite:1]{index=1}
+                int x, y, w, h;
+                SDL_GetWindowPosition(window, &x, &y);
+                SDL_GetWindowSize(window, &w, &h);
+                dumpWindowGeometry(x, y, w, h);
                 break;
             }
 
-            switch (event.type)
-            {
-            case SDL_WINDOWEVENT:
-                if (event.type == SDL_WINDOWEVENT && (event.window.event == SDL_WINDOWEVENT_MOVED || event.window.event == SDL_WINDOWEVENT_RESIZED))
-                {
-                    // Get window position and size
-                    int x, y, width, height;
-                    SDL_GetWindowPosition(window, &x, &y);
-                    SDL_GetWindowSize(window, &width, &height);
-                    dumpWindowGeometry(x, y, width, height);
-                }
-                break;
-            case SDL_QUIT:
+            case SDL_EVENT_QUIT: // formerly SDL_QUIT :contentReference[oaicite:2]{index=2}
                 game->setShouldQuit();
                 break;
 
-            case SDL_KEYDOWN:
-            {
-                if (!processInput)
+            case SDL_EVENT_KEY_DOWN:
+            { // formerly SDL_KEYDOWN :contentReference[oaicite:3]{index=3}
+                if (processInput)
                 {
-                    break;
+                    // ‘keysym’ was removed in SDL3; use event.key.key directly :contentReference[oaicite:4]{index=4}
+                    GameKeyCode keyCode = convertSdlKeycode(event.key.key);
+                    if (keyCode != GameKeyCode::NUM_KEY_CODES)
+                    {
+                        game->keyDown(keyCode, getSdlModState(), profileInfo);
+                    }
                 }
-
-                GameKeyCode keyCode = convertSdlKeycode((SDL_KeyCode)event.key.keysym.sym);
-
-                if (keyCode != GameKeyCode::NUM_KEY_CODES)
-                {
-                    game->keyDown(keyCode, getSdlModState(), profileInfo);
-                }
-
                 break;
             }
-            case SDL_KEYUP:
-            {
-                if (!processInput)
+            case SDL_EVENT_KEY_UP:
+            { // formerly SDL_KEYUP :contentReference[oaicite:5]{index=5}
+                if (processInput)
                 {
-                    break;
+                    GameKeyCode keyCode = convertSdlKeycode(event.key.key);
+                    if (keyCode != GameKeyCode::NUM_KEY_CODES)
+                    {
+                        game->keyUp(keyCode, getSdlModState(), profileInfo);
+                    }
                 }
-
-                GameKeyCode keyCode = convertSdlKeycode((SDL_KeyCode)event.key.keysym.sym);
-
-                if (keyCode != GameKeyCode::NUM_KEY_CODES)
-                {
-                    game->keyUp(keyCode, getSdlModState(), profileInfo);
-                }
-
                 break;
             }
-            case SDL_MOUSEWHEEL:
-                if (!processInput)
-                {
-                    break;
-                }
 
-                if (SDL_GetModState() & KMOD_ALT)
+            case SDL_EVENT_MOUSE_WHEEL: // formerly SDL_MOUSEWHEEL :contentReference[oaicite:6]{index=6}
+                if (processInput && (SDL_GetModState() & SDL_KMOD_ALT))
                 {
+                    // x/y names are unchanged on SDL_MouseWheelEvent in SDL3 :contentReference[oaicite:7]{index=7}
                     game->mouseWheel(event.wheel.x, event.wheel.y);
                 }
-
                 break;
-            case SDL_MOUSEBUTTONDOWN:
+
+            case SDL_EVENT_MOUSE_BUTTON_DOWN: // formerly SDL_MOUSEBUTTONDOWN :contentReference[oaicite:8]{index=8}
                 if (processInput)
                 {
-                    game->onMouseDown(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
+                    game->onMouseDown(
+                        event.button.button,
+                        event.button.x,
+                        event.button.y,
+                        SDL_GetModState() & SDL_KMOD_SHIFT);
                 }
                 break;
-            case SDL_MOUSEBUTTONUP:
-                // Always need to reset state on mouse up even if we are not processing input
-                game->onMouseUp(event.button.button, event.button.x, event.button.y, SDL_GetModState() & KMOD_SHIFT);
+
+            case SDL_EVENT_MOUSE_BUTTON_UP: // formerly SDL_MOUSEBUTTONUP :contentReference[oaicite:9]{index=9}
+                // still always reset state on mouse up
+                game->onMouseUp(
+                    event.button.button,
+                    event.button.x,
+                    event.button.y,
+                    SDL_GetModState() & SDL_KMOD_SHIFT);
                 break;
-            case SDL_MOUSEMOTION:
+
+            case SDL_EVENT_MOUSE_MOTION: // formerly SDL_MOUSEMOTION :contentReference[oaicite:10]{index=10}
                 mouseX = event.motion.x;
                 mouseY = event.motion.y;
-
                 if (processInput)
                 {
-                    game->onMouseMove(event.motion.x, event.motion.y, event.motion.xrel, event.motion.yrel);
+                    game->onMouseMove(
+                        event.motion.x,
+                        event.motion.y,
+                        event.motion.xrel,
+                        event.motion.yrel);
                 }
+                break;
+            default:
                 break;
             }
         }
@@ -457,7 +453,7 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
         Timer renderTimer;
 
-        SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
+        SDL_SetRenderScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
         SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 255);
         SDL_RenderClear(renderer);
 
@@ -469,7 +465,7 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
         ImGui::Render();
         Timer extraDrawTimer;
-        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
+        ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer);
         SDL_RenderPresent(renderer);
         profileInfo.swapTimeMillis = extraDrawTimer.elapsedMillis();
     }
@@ -479,8 +475,8 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
     // Should do nicer cleanup
     delete Scheduler::instance;
 
-    ImGui_ImplSDLRenderer2_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
+    ImGui_ImplSDLRenderer3_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
 
     return libraryReloaded ? 1 : 0;

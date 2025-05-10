@@ -1,4 +1,5 @@
 #include "PhysicsSpace.h"
+#include "../game/Textures.h" // TODO: remove this
 #include "../utils/Console.h"
 #include "../utils/MinMax.h"
 #include "stdio.h"
@@ -15,6 +16,7 @@ PhysicsSpace::PhysicsSpace() : gravityEnabled(true), collisionsEnabled(true), sh
     mouseJoint.pointIndex = -1;
     mouseJoint.position = Vector2::zero();
     triangleIndices.reserve(NUM_POINTS * 3);
+    uvCoordinates.reserve(NUM_POINTS * 3);
 }
 
 void PhysicsSpace::assign(PhysicsSpace &other)
@@ -24,6 +26,7 @@ void PhysicsSpace::assign(PhysicsSpace &other)
     staticJoints.replace(other.staticJoints);
     shapeJoints.replace(other.shapeJoints);
     triangleIndices.replace(other.triangleIndices);
+    uvCoordinates.replace(other.uvCoordinates);
 }
 
 void PhysicsSpace::initFromEntries(const Array<ShapeEntry> &entries)
@@ -73,6 +76,7 @@ void PhysicsSpace::clear()
     points.clear();
     staticJoints.clear();
     triangleIndices.clear();
+    uvCoordinates.clear();
     mouseJoint.pointIndex = -1;
     gravityEnabled = true;
 }
@@ -328,6 +332,7 @@ void reverseWindingOrder(Array<int> &indices)
 void PhysicsSpace::triangulate()
 {
     triangleIndices.clear();
+    uvCoordinates.clear();
 
     static Array<int> curIndices;
 
@@ -341,7 +346,7 @@ void PhysicsSpace::triangulate()
         curIndices.clear();
 
         Vector2 minPos(__FLT_MAX__, __FLT_MAX__);
-        Vector2 maxPos(__FLT_MIN__, __FLT_MIN__);
+        Vector2 maxPos(-__FLT_MAX__, -__FLT_MAX__);
 
         for (int j = 0; j < range.size(); j++)
         {
@@ -353,7 +358,8 @@ void PhysicsSpace::triangulate()
             maxPos.y = max(maxPos.y, pos.y);
         }
 
-        Vector2 size = maxPos - minPos;
+        const TextureData &textureData = textureLookup[shape.texture];
+        Vector2 size = Vector2(textureData.width, textureData.height);
 
         // Clip ears until only one triangle remains
         while (curIndices.size() > 3)
@@ -361,7 +367,7 @@ void PhysicsSpace::triangulate()
             bool clipped = false;
             int m = curIndices.size();
 
-            for (int i = 0; i < m; i++) // Now i only exists in this scope
+            for (int i = 0; i < m; i++)
             {
                 int iPrev = (i + m - 1) % m;
                 int iNext = (i + 1) % m;

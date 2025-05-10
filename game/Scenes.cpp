@@ -699,8 +699,6 @@ SceneDefinition gameScenes[] = {
          {
              Shape s = Shapes::createCircle(space, 440.0f + i * 55.0f, 50.0f, 40.0f, 1.0f);
          }
-
-         game->setPaused();
      }},
     {"Falling box with shelf", [](Game *game)
      {

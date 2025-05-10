@@ -300,9 +300,9 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
     }
 }
 
-void Game::onMouseDown(int button, int x, int y, bool shiftDown)
+void Game::onMouseDown(int button, float x, float y, bool shiftDown)
 {
-    m->mousePos = Vector2((float)x, (float)y);
+    m->mousePos = Vector2(x, y);
     if (button == 2)
     {
         m->panning = true;
@@ -371,7 +371,7 @@ void Game::onMouseDown(int button, int x, int y, bool shiftDown)
     }
 }
 
-void Game::onMouseUp(int button, int x, int y, bool shiftDown)
+void Game::onMouseUp(int button, float x, float y, bool shiftDown)
 {
 
     m->mousePos = Vector2((float)x, (float)y);
@@ -418,9 +418,9 @@ void Game::onMouseUp(int button, int x, int y, bool shiftDown)
     }
 }
 
-void Game::onMouseMove(int x, int y, int relativeX, int relativeY)
+void Game::onMouseMove(float x, float y, float relativeX, float relativeY)
 {
-    m->mousePos = Vector2((float)x, (float)y);
+    m->mousePos = Vector2(x, y);
 
     if (m->panning)
     {
@@ -499,10 +499,10 @@ void Game::onMouseMove(int x, int y, int relativeX, int relativeY)
     }
 }
 
-void Game::mouseWheel(int x, int y)
+void Game::mouseWheel(float x, float y)
 {
     float zoomFactor = y > 0 ? 0.9f : 1.1f;
-    Vector2 mousePos((float)x, (float)y);
+    Vector2 mousePos(x, y);
     Vector2 beforeZoom = (mousePos - m->offset) / m->scale;
     m->scale *= zoomFactor;
     Vector2 afterZoom = (mousePos - m->offset) / m->scale;

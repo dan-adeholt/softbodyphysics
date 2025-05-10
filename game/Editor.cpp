@@ -237,7 +237,7 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
     ImGuiIO &io = ImGui::GetIO();
     ImVec2 displaySize = io.DisplaySize;
 
-    if (ImGui::IsKeyPressed(ImGuiKey_N) && (io.KeyMods & ImGuiModFlags_Ctrl) != 0)
+    if (ImGui::IsKeyPressed(ImGuiKey_N) && (io.KeyMods & ImGuiMod_Ctrl) != 0)
     {
         triggerOpenPopup = true;
     }

@@ -433,7 +433,7 @@ namespace Shapes
         float stiffness = mass * stiffnessFactor;
         float damping = 1.0f;
 
-        int numSegments = 16;
+        int numSegments = 32;
         float segmentAngle = 2 * PI_F / numSegments;
         int startIndex = space.points.size();
         int curIndex = startIndex;

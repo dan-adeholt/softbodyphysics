@@ -4,6 +4,7 @@ project(SoftBodyPhysics LANGUAGES CXX)
 
 include(CTest)   # or enable_testing()
 
+set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -55,7 +56,8 @@ endif()
 set(CMAKE_INSTALL_RPATH "/Library/Frameworks")
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 
-find_package(SDL2 REQUIRED)
+
+find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
 
 # ISPC compilation
 # add_custom_command(
@@ -91,6 +93,7 @@ SET(SOURCE_FILES timer.cpp
     game/Game.cpp
     game/Editor.cpp
     game/Scenes.cpp
+    game/Textures.cpp
     utils/Console.cpp
     utils/UnitTestUtil.cpp
     containers/ContainerPlatform.cpp
@@ -102,8 +105,8 @@ SET(SOURCE_FILES timer.cpp
     imgui/imgui_draw.cpp
     imgui/imgui_widgets.cpp
     imgui/imgui_tables.cpp
-    imgui/imgui_impl_sdlrenderer2.cpp
-    imgui/imgui_impl_sdl2.cpp
+    imgui/imgui_impl_sdlrenderer3.cpp
+    imgui/imgui_impl_sdl3.cpp
     tasks/Scheduler.cpp
     game/GameRenderer.cpp
     game/GameRenderer.h
@@ -131,6 +134,7 @@ SET(SOURCE_FILES timer.cpp
     math/Vector2.cpp
     game/Scenes.h
     game/Editor.h
+    game/Textures.h
     tasks/Scheduler.h
     stb_image/stb_image.cpp
     stb_sprintf/stb_sprintf.cpp
@@ -140,7 +144,7 @@ SET(SOURCE_FILES timer.cpp
     utils/MinMax.h
     utils/DynamicLibrary.h
     utils/CustomFont.h
-
+    
     containers/Array.h
     containers/ContainerPlatform.h
     containers/Range.h
@@ -184,7 +188,6 @@ target_include_directories(SoftBodyPhysics PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
 target_include_directories(PerfTest PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
 target_include_directories(SoftBodyPhysicsTests PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
 
-
 # Link against C standard library
 if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     target_link_libraries(SoftBodyPhysics PRIVATE c)
@@ -193,17 +196,21 @@ if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     target_link_libraries(SoftBodyPhysicsShared PRIVATE c)
 endif()
 
-target_include_directories(SoftBodyPhysicsShared PRIVATE ${SDL2_INCLUDE_DIRS})
-target_link_libraries(SoftBodyPhysicsShared PRIVATE ${SDL2_LIBRARIES})
+target_link_libraries(SoftBodyPhysicsShared PRIVATE SDL3::SDL3)
+target_link_libraries(SoftBodyPhysics PRIVATE SDL3::SDL3)
+target_link_libraries(PerfTest PRIVATE SDL3::SDL3)
+target_link_libraries(SoftBodyPhysicsTests PRIVATE SDL3::SDL3)
 
-target_include_directories(SoftBodyPhysics PRIVATE ${SDL2_INCLUDE_DIRS})
-target_link_libraries(SoftBodyPhysics PRIVATE ${SDL2_LIBRARIES})
 
-target_include_directories(PerfTest PRIVATE ${SDL2_INCLUDE_DIRS})
-target_link_libraries(PerfTest PRIVATE ${SDL2_LIBRARIES})
 
-target_include_directories(SoftBodyPhysicsTests PRIVATE ${SDL2_INCLUDE_DIRS})
-target_link_libraries(SoftBodyPhysicsTests PRIVATE ${SDL2_LIBRARIES})
+
+# message(STATUS "SDL3 Variables:")
+# get_cmake_property(_variableNames VARIABLES)
+# foreach (_variableName ${_variableNames})
+#     if (_variableName MATCHES "^SDL3|^SDL_")
+#         message(STATUS "${_variableName}=${${_variableName}}")
+#     endif()
+# endforeach()
 
 
 

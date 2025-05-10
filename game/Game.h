@@ -45,10 +45,10 @@ public:
     void rewindHistory();
     void forwardHistory();
 
-    void onMouseDown(int button, int x, int y, bool shiftDown);
-    void onMouseUp(int button, int x, int y, bool shiftDown);
-    void onMouseMove(int x, int y, int relativeX, int relativeY);
-    void mouseWheel(int x, int y);
+    void onMouseDown(int button, float x, float y, bool shiftDown);
+    void onMouseUp(int button, float x, float y, bool shiftDown);
+    void onMouseMove(float x, float y, float relativeX, float relativeY);
+    void mouseWheel(float x, float y);
 
     void keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profileInfo);
     void keyUp(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profileInfo);

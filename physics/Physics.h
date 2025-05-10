@@ -205,6 +205,7 @@ struct Shape
     Shape() : start(0), end(0), volume(0.0f), isStatic(false), index(-1), parentId(-1) {}
     Shape(int start, int end, float volume = 0.0f) : start(start), end(end), volume(volume), isStatic(false), index(-1), parentId(-1) {}
 
+    int texture = 0;
     int start;
     int end;
     float volume;
