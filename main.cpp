@@ -24,6 +24,56 @@
 #include <unistd.h>
 #include <math.h>
 
+#define NUM_PROFILE_AVERAGES 10
+ConsoleProfileInfo consoleProfileInfoAverages[NUM_PROFILE_AVERAGES] = {};
+
+ConsoleProfileInfo getConsoleProfileInfoAverage(ConsoleProfileInfo newProfileInfo)
+{
+    // Push the new profile info into the averages
+    for (int i = NUM_PROFILE_AVERAGES - 1; i > 0; i--)
+    {
+        consoleProfileInfoAverages[i] = consoleProfileInfoAverages[i - 1];
+    }
+
+    consoleProfileInfoAverages[0] = newProfileInfo;
+    ConsoleProfileInfo average = {};
+
+    for (int i = 0; i < NUM_PROFILE_AVERAGES; i++)
+    {
+        average.boundingBoxTimeMillis += consoleProfileInfoAverages[i].boundingBoxTimeMillis;
+        average.collisionTimeMillis += consoleProfileInfoAverages[i].collisionTimeMillis;
+        average.elapsedStepTimeMillis += consoleProfileInfoAverages[i].elapsedStepTimeMillis;
+        average.numBbboxChecks += consoleProfileInfoAverages[i].numBbboxChecks;
+        average.numBboxes += consoleProfileInfoAverages[i].numBboxes;
+        average.numBboxOverlaps += consoleProfileInfoAverages[i].numBboxOverlaps;
+        average.numCollisions += consoleProfileInfoAverages[i].numCollisions;
+        average.numPhysicsSteps += consoleProfileInfoAverages[i].numPhysicsSteps;
+        average.physicsTimeMillis += consoleProfileInfoAverages[i].physicsTimeMillis;
+        average.renderTimeMillis += consoleProfileInfoAverages[i].renderTimeMillis;
+        average.slowdownFactor += consoleProfileInfoAverages[i].slowdownFactor;
+        average.springsTimeMillis += consoleProfileInfoAverages[i].springsTimeMillis;
+        average.swapTimeMillis += consoleProfileInfoAverages[i].swapTimeMillis;
+        average.totalPhysicsTimeMillis += consoleProfileInfoAverages[i].totalPhysicsTimeMillis;
+    }
+
+    average.boundingBoxTimeMillis /= NUM_PROFILE_AVERAGES;
+    average.collisionTimeMillis /= NUM_PROFILE_AVERAGES;
+    average.elapsedStepTimeMillis /= NUM_PROFILE_AVERAGES;
+    average.numBbboxChecks /= NUM_PROFILE_AVERAGES;
+    average.numBboxes /= NUM_PROFILE_AVERAGES;
+    average.numBboxOverlaps /= NUM_PROFILE_AVERAGES;
+    average.numCollisions /= NUM_PROFILE_AVERAGES;
+    average.numPhysicsSteps /= NUM_PROFILE_AVERAGES;
+    average.physicsTimeMillis /= NUM_PROFILE_AVERAGES;
+    average.renderTimeMillis /= NUM_PROFILE_AVERAGES;
+    average.slowdownFactor /= NUM_PROFILE_AVERAGES;
+    average.springsTimeMillis /= NUM_PROFILE_AVERAGES;
+    average.swapTimeMillis /= NUM_PROFILE_AVERAGES;
+    average.totalPhysicsTimeMillis /= NUM_PROFILE_AVERAGES;
+
+    return average;    
+}
+
 void dumpWindowGeometry(int windowPosX, int windowPosY, int windowWidth, int windowHeight)
 {
     FILE *f = fopen("window_settings.txt", "w");
@@ -459,8 +509,10 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
 
         gameRenderer.renderGame(renderer, *game, profileInfo);
         profileInfo.renderTimeMillis = renderTimer.elapsedMillis();
+        ConsoleProfileInfo averageProfileInfo = getConsoleProfileInfoAverage(profileInfo);
+
         Console::draw(profileInfo, game->scale(), game->offset(), boldFont);
-        editor.renderUI(*game, profileInfo);
+        editor.renderUI(*game, averageProfileInfo);
         game = editor.getCurrentGame(); // Editor might have changed the game
 
         ImGui::Render();

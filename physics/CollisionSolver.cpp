@@ -1103,7 +1103,7 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &
         }
     }
 
-    profileInfo.collisionTimeMillis = collisionsTimer.elapsedMillis();
+    profileInfo.collisionTimeMillis += collisionsTimer.elapsedMillis();
 }
 
 void CollisionSolver::assign(CollisionSolver &other)

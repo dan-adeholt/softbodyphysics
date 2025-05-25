@@ -340,20 +340,20 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 
             if (ImGui::BeginTabItem("Profiler"))
             {
-                ImGui::Text("Slowdown factor: %.2lf", profileInfo.slowdownFactor);
-                ImGui::Text("Total Physics time: %.2lf ms", profileInfo.totalPhysicsTimeMillis);
-                ImGui::Text("Elapsed step time: %.2lf ms", profileInfo.elapsedStepTimeMillis);
+                ImGui::Text("Slowdown factor: %.1lf", profileInfo.slowdownFactor);
+                ImGui::Text("Total Physics time: %.1lf ms", profileInfo.totalPhysicsTimeMillis);
+                ImGui::Text("Elapsed step time: %.1lf ms", profileInfo.elapsedStepTimeMillis);
                 ImGui::Text("Physics iterations: %d", profileInfo.numPhysicsSteps);
-                ImGui::Text("Physics time: %.2lf ms", profileInfo.physicsTimeMillis);
-                ImGui::Text("Render time: %.2lf ms", profileInfo.renderTimeMillis);
-                ImGui::Text("Swap time: %.2lf ms", profileInfo.swapTimeMillis);
-                ImGui::Text("Springs time: %.2lf ms", profileInfo.springsTimeMillis);
-                ImGui::Text("Bounding box time: %.2lf ms", profileInfo.boundingBoxTimeMillis);
+                ImGui::Text("Physics time: %.1lf ms", profileInfo.physicsTimeMillis);
+                ImGui::Text("Render time: %.1lf ms", profileInfo.renderTimeMillis);
+                ImGui::Text("Swap time: %.1lf ms", profileInfo.swapTimeMillis);
+                ImGui::Text("Springs time: %.1lf ms", profileInfo.springsTimeMillis);
+                ImGui::Text("Bounding box time: %.1lf ms", profileInfo.boundingBoxTimeMillis);
                 ImGui::Text("Num bboxes: %d", profileInfo.numBboxes);
                 ImGui::Text("Num bbox checks: %d", profileInfo.numBbboxChecks);
                 ImGui::Text("Num bbox overlaps: %d", profileInfo.numBboxOverlaps);
                 ImGui::Text("Num collisions: %d", profileInfo.numCollisions);
-                ImGui::Text("Collisions time: %.2lf ms", profileInfo.collisionTimeMillis);
+                ImGui::Text("Collisions time: %.1lf ms", profileInfo.collisionTimeMillis);
                 ImGui::EndTabItem();
             }
 

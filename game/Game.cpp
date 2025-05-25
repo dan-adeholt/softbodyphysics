@@ -218,6 +218,7 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
     double maxDuration = physicsStep * 0.5f;
 
     Timer updateTimer;
+    profileInfo.collisionTimeMillis = 0;
 
     while (m->timeBucket > physicsStep || runSingleStep)
     {
@@ -281,8 +282,7 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
     int nextHistoricalIndex = (m->historicalIndex + 1) % NUM_HISTORICAL_STATES;
 
     profileInfo.numPhysicsSteps = numIterations;
-    profileInfo.physicsTimeMillis = updateTimer.elapsedMillis() / numIterations;
-    profileInfo.springsTimeMillis /= numIterations;
+    profileInfo.physicsTimeMillis = updateTimer.elapsedMillis();
 
     m->history[m->historicalIndex].assign(m->physicsSpace);
     m->historyRewindIndex = m->historicalIndex;
