@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
     // 3) Let SDL pick the driver (NULL name)
     SDL_SetStringProperty(props, SDL_PROP_RENDERER_CREATE_NAME_STRING, NULL);
 
-    bool vsync = false;
+    bool vsync = true;
 
     // 4) Turn on vsync
     if (vsync)
@@ -88,7 +88,6 @@ int main(int argc, char *argv[])
         SDL_Quit();
         return 1;
     }
-
 
     // SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
 
