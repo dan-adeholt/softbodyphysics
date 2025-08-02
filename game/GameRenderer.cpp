@@ -13,6 +13,7 @@
 #include "../physics/Physics.h"
 #include "../physics/PhysicsSpace.h"
 #include "../physics/ShapeUtils.h"
+#include "../physics/CollisionSolver.h"
 #include "Game.h"
 #include <math.h>
 #include "./Textures.h"
@@ -232,6 +233,8 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
     Vector2 &offset = game.offset();
     float &scale = game.scale();
     renderGrid(renderer, game, scale);
+    // renderCollisionGrid(renderer, game, scale);
+
     PhysicsSpace &physicsSpace = game.physicsSpace();
 
     Range<Shape> shapes;
@@ -294,7 +297,33 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
 
     if (renderSettings.renderShapeLines)
     {
-        renderShapes(renderer, game.selectedShapeIndex(), physicsSpace.shapes.range(), points, physicsSpace, renderSettings.renderVelocityVectors, renderSettings.renderShapeMatching, renderSettings.renderPointIndices, scaleForGeometry, game.shapeMatchDragData());
+        renderShapes(renderer,
+                     game.selectedShapeIndex(),
+                     game.collisionCandidates(),
+                     physicsSpace.shapes.range(),
+                     points,
+                     physicsSpace,
+                     renderSettings.renderVelocityVectors,
+                     renderSettings.renderShapeMatching,
+                     renderSettings.renderPointIndices,
+                     scaleForGeometry,
+                     game.shapeMatchDragData());
+    }
+
+    if (renderSettings.renderShapeJoints)
+    {
+        for (int i = 0; i < physicsSpace.shapeJoints.size(); i++)
+        {
+            const ShapeJoint &joint = physicsSpace.shapeJoints[i];
+            const Shape &shapeA = physicsSpace.shapes[joint.shapeIndex1];
+            const Shape &shapeB = physicsSpace.shapes[joint.shapeIndex2];
+
+            Vector2 p0;
+            PositionPair posPair = ShapeUtils::getShapeJointPositions(points, joint);
+
+            SDL_FColor color = {0.0f, 1.0f, 0.0f, 1.0f};
+            addLine(m->foregroundVertices, posPair.p0.x, posPair.p0.y, posPair.p1.x, posPair.p1.y, scaleForGeometry, color);
+        }
     }
 
     if (renderSettings.renderSprings)
@@ -380,7 +409,6 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
         }
     }
 
-    PhysicsSpace &prevPhysicsSpace = game.lastCollisionSpace();
     PointMassesRange lastCollisionPoints = physicsSpace.points.range();
 
     renderVertices(renderer, m->backgroundVertices, offset, scale, m->texture);
@@ -394,7 +422,17 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
     renderVertices(renderer, m->foregroundVertices, offset, scale, m->texture);
 }
 
-void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, Range<Shape> shapes, PointMassesRange &pointMasses, PhysicsSpace &space, bool renderVelocity, bool renderShapeMatching, bool renderPointIndices, float scale, const ShapeMatchDragData &dragData)
+void GameRenderer::renderShapes(SDL_Renderer *renderer,
+                                int selectedShapeIndex,
+                                Range<int> collisionCandidates,
+                                Range<Shape> shapes,
+                                PointMassesRange &pointMasses,
+                                PhysicsSpace &space,
+                                bool renderVelocity,
+                                bool renderShapeMatching,
+                                bool renderPointIndices,
+                                float scale,
+                                const ShapeMatchDragData &dragData)
 {
     for (int i = 0; i < shapes.size; i++)
     {
@@ -408,6 +446,10 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer, int selectedShapeIndex, 
         if (i == selectedShapeIndex)
         {
             color = {0.25f, 0.8f, 0.25f, 1.0f};
+        }
+        else if (collisionCandidates.contains(shape.index))
+        {
+            color = {0.8f, 0.25f, 0.25f, 1.0f};
         }
 
         SDL_FColor colorInterior = {0, 0, 255, 255};
@@ -537,5 +579,59 @@ void GameRenderer::renderGrid(SDL_Renderer *renderer, Game &game, float scale)
     {
         float y = -2000.0f + i * gridSize;
         addLine(m->backgroundVertices, -10000, y, 10000, y, scale, color);
+    }
+}
+
+void GameRenderer::renderCollisionGrid(SDL_Renderer *renderer, Game &game, float scale)
+{
+    float gray = 0.941f;
+    SDL_FColor color = {gray, 0.0f, gray, 1.0f};
+
+    CollisionGridSimple &collisionGrid = game.collisionGrid();
+
+    Array<OrientedBoundingBox> &orientedBoundingBoxes = game.shapeOrientedBoundingBoxes();
+
+    // SDL_FColor obbColor = {0.0f, 0.0f, 1.0f, 1.0f};
+    // for (int i = 0; i < orientedBoundingBoxes.size(); i++)
+    // {
+    //     const OrientedBoundingBox &obb = orientedBoundingBoxes[i];
+    //     Vector2 right = obb.axisX * obb.halfX;
+    //     Vector2 up = obb.axisY * obb.halfY;
+
+    //     Vector2 c0 = obb.center + right + up; // top-right
+    //     Vector2 c1 = obb.center - right + up; // top-left
+    //     Vector2 c2 = obb.center - right - up; // bottom-left
+    //     Vector2 c3 = obb.center + right - up; // bottom-right
+    //     addLine(m->foregroundVertices, c0.x, c0.y, c1.x, c1.y, scale, obbColor);
+    //     addLine(m->foregroundVertices, c1.x, c1.y, c2.x, c2.y, scale, obbColor);
+    //     addLine(m->foregroundVertices, c2.x, c2.y, c3.x, c3.y, scale, obbColor);
+    //     addLine(m->foregroundVertices, c3.x, c3.y, c0.x, c0.y, scale, obbColor);
+    // }
+
+    for (int i = 0; i < collisionGrid.width; i++)
+    {
+        float x = collisionGrid.originX + i * collisionGrid.cellSize;
+        addLine(m->backgroundVertices, x, collisionGrid.originY, x, collisionGrid.originY + collisionGrid.height * collisionGrid.cellSize, scale, color);
+    }
+
+    for (int i = 0; i < collisionGrid.height; i++)
+    {
+        float y = collisionGrid.originY + i * collisionGrid.cellSize;
+        addLine(m->backgroundVertices, collisionGrid.originX, y, collisionGrid.originX + collisionGrid.width * collisionGrid.cellSize, y, scale, color);
+    }
+
+    for (int x = 0; x < collisionGrid.width; x++)
+    {
+        float xp = collisionGrid.originX + x * collisionGrid.cellSize;
+
+        for (int y = 0; y < collisionGrid.height; y++)
+        {
+            float yp = collisionGrid.originY + y * collisionGrid.cellSize;
+            CollisionGridCell &cell = collisionGrid.cells[x + y * collisionGrid.width];
+            if (cell.numIndices > 0)
+            {
+                Console::logFrame(xp + collisionGrid.cellSize * 0.5f, yp + collisionGrid.cellSize * 0.5f, "%d", cell.numIndices);
+            }
+        }
     }
 }

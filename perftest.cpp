@@ -2,6 +2,7 @@
 #include "game/Game.h"
 #include "physics/Physics.h"
 #include "physics/Integrator.h"
+#include "physics/PhysicsSpaceStorage.h"
 #include "tasks/Scheduler.h"
 #include "timer.h"
 #include "containers/Array.h"
@@ -54,11 +55,17 @@ void testTask(void *data)
 
 int main()
 {
-    // cpptest();
-    // return 0;
+
+    Game game("./levels/perftest.txt", nullptr);
+    PhysicsSpaceStorage::loadFromFile(game.physicsSpace(), "./levels/perftest.txt");
+
+    int numIterations = 10000;
+
+    ConsoleProfileInfo profileInfo;
+    game.testCollisionPerformance(profileInfo, numIterations);
+
     Scheduler::instance->start();
 
-    Game game("", nullptr);
     game.init("Circle grid");
     RK4Integrator integrator;
     Timer timer;

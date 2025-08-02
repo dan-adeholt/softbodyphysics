@@ -4,6 +4,7 @@
 #include "../physics/PhysicsSpace.h"
 #include "../physics/ShapeUtils.h"
 #include "../utils/Console.h"
+#include "ShapeResources.h"
 #include <math.h>
 
 int wrapIndex(int index, int size)
@@ -96,6 +97,7 @@ namespace Shapes
         shape.end++;
 
         handlePointInserted(space, shape.start, newPointIndex);
+        space.triangulate();
     }
 
     void handlePointInserted(PhysicsSpace &space, int shapeStart, int newPointIndex)
@@ -649,11 +651,15 @@ namespace Shapes
         return line;
     }
 
-    void createCar(PhysicsSpace &space, float x, float y)
+    void createCar(PhysicsSpace &space, float x, float y, const PhysicsSpace &prefabSpace)
     {
-        Shape wheel1 = createCircle(space, x + 20.0f, y + 20.0f, 25.0f, 0.25f);
-        Shape wheel2 = createCircle(space, x + 100.0f, y + 20.0f, 25.0f, 0.25f);
-        Shape upperBody = createQuad(space, x, y - 42.0f, 120.0f, 30.0f, 1.0f);
+        int nextParentId = space.nextParentId();
+        Shape wheel1 = createCircle(space, x + 20.0f, y + 20.0f, 25.0f, 6.25f);
+        Shape wheel2 = createCircle(space, x + 100.0f, y + 20.0f, 25.0f, 6.25f);
+        Shape upperBody = space.addShapeFromSpace(x + 52.0f, y - 43.0f, prefabSpace, ShapeResource::carOutline);
+        space.shapes[wheel1.index].parentId = nextParentId;
+        space.shapes[wheel2.index].parentId = nextParentId;
+        space.shapes[upperBody.index].parentId = nextParentId;
 
         ShapeJoint wheel1Joint;
 
@@ -665,11 +671,32 @@ namespace Shapes
         wheel1Joint.shape1Points[2] = wheel1.start + wheelSize / 2;
         wheel1Joint.shape1Points[3] = wheel1.start + wheelSize * 3 / 4;
 
-        wheel1Joint.shape2Points[0] = upperBody.start;
-        wheel1Joint.shape2Points[1] = upperBody.start + 1;
-        wheel1Joint.shape2Points[2] = upperBody.start + 2;
-        wheel1Joint.shape2Points[3] = upperBody.start + 3;
-        wheel1Joint.offset = Vector2(0.0f, 50.0f);
+        wheel1Joint.shape2Points[0] = upperBody.end - 2;
+        wheel1Joint.shape2Points[1] = upperBody.end - 3;
+        wheel1Joint.shape2Points[2] = upperBody.end - 4;
+        wheel1Joint.shape2Points[3] = upperBody.end - 5;
         space.shapeJoints.push(wheel1Joint);
+
+        ShapeJoint wheel2Joint;
+
+        wheel2Joint.shapeIndex1 = wheel2.index;
+        wheel2Joint.shapeIndex2 = upperBody.index;
+        wheelSize = wheel2.end - wheel2.start;
+        wheel2Joint.shape1Points[0] = wheel2.start;
+        wheel2Joint.shape1Points[1] = wheel2.start + wheelSize / 4;
+        wheel2Joint.shape1Points[2] = wheel2.start + wheelSize / 2;
+        wheel2Joint.shape1Points[3] = wheel2.start + wheelSize * 3 / 4;
+        int w2Offset = -4;
+        wheel2Joint.shape2Points[0] = upperBody.end - 3 + w2Offset;
+        wheel2Joint.shape2Points[1] = upperBody.end - 4 + w2Offset;
+        wheel2Joint.shape2Points[2] = upperBody.end - 5 + w2Offset;
+        wheel2Joint.shape2Points[3] = upperBody.end - 6 + w2Offset;
+        space.shapeJoints.push(wheel2Joint);
+
+        RadialAccelerator accelerator;
+        accelerator.shapeIndex = wheel1.index;
+        accelerator.enabled = true;
+        accelerator.strength = 0.5f;
+        space.radialAccelerators.push(accelerator);
     }
 }

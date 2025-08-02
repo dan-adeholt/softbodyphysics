@@ -13,11 +13,16 @@ void testCase(Shape &shape1, Shape &shape2, PointMasses &points, int expectedCol
 {
     static Array<Shape> shapes;
     static Array<ShapeBoundingBox> boundingBoxes;
+    static Array<OrientedBoundingBox> orientedBoundingBoxes;
+    static Array<KDOPProjection> kdopProjections;
     shapes.clear();
     boundingBoxes.clear();
+    kdopProjections.clear();
+    orientedBoundingBoxes.clear();
+
     shapes.append({shape1, shape2});
 
-    CollisionSolver::calculateBoundingBoxes(boundingBoxes, shapes, points);
+    CollisionSolver::calculateBoundingBoxes(boundingBoxes, orientedBoundingBoxes, kdopProjections, shapes, points);
 
     PointMassesRange range = points.range();
 

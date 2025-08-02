@@ -14,6 +14,8 @@ extern const float gridSize;
 extern const float physicsStep;
 extern const float minPointSnapDist;
 
+struct BoundingBox;
+
 struct PointMassesRange
 {
     int size() const
@@ -191,7 +193,13 @@ struct ShapeJoint
     int shapeIndex2;
     int shape2Points[4] = {-1, -1, -1, -1};
     float shape2Weights[4] = {0.25f, 0.25f, 0.25f, 0.25f};
-    Vector2 offset;
+};
+
+struct RadialAccelerator
+{
+    int shapeIndex;
+    bool enabled = false;
+    float strength = 1.0f;
 };
 
 struct StaticJoint
@@ -205,6 +213,7 @@ struct Shape
     Shape() : start(0), end(0), volume(0.0f), isStatic(false), index(-1), parentId(-1) {}
     Shape(int start, int end, float volume = 0.0f) : start(start), end(end), volume(volume), isStatic(false), index(-1), parentId(-1) {}
 
+    int resourceId = 0;
     int texture = 0;
     int start;
     int end;
@@ -435,6 +444,30 @@ private:
     int indices[4] = {0, 0, 0, 0};
     bool interiorEdges[4] = {false, false, false, false};
     bool indexed = false;
+};
+
+struct CollisionGridCell
+{
+    static const int maxNumIndices = 128;
+    int indices[maxNumIndices] = {-1, -1, -1, -1, -1, -1, -1, -1,
+                                  -1, -1, -1, -1, -1, -1, -1, -1,
+                                  -1, -1, -1, -1, -1, -1, -1, -1,
+                                  -1, -1, -1, -1, -1, -1, -1, -1};
+    int numIndices = 0;
+};
+
+struct CollisionGridSimple
+{
+    float originX = 0.0f;
+    float originY = 0.0f;
+
+    static const int width = 82;
+    static const int height = 60;
+    int cellSize = 15;
+
+    CollisionGridCell cells[width * height];
+
+    void init(Array<BoundingBox> &boundingBoxes);
 };
 
 #endif

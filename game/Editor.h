@@ -24,6 +24,7 @@ public:
     Game *getCurrentGame();
 
 private:
+    void setCurrentGameIndex(int index);
     struct Impl;
     Impl *m;
 };

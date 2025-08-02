@@ -56,7 +56,7 @@ public:
         return x * x + y * y;
     }
 
-    float dot(const Vector2 &rhs)
+    float dot(const Vector2 &rhs) const
     {
         return x * rhs.x + y * rhs.y;
     }

@@ -170,6 +170,7 @@ add_executable(SoftBodyPhysics MACOSX_BUNDLE
     ${MYGAME_ICON}
 )
 
+
 # Add to make xcode happy
 # target_link_libraries(SoftBodyPhysics PRIVATE SoftBodyPhysicsShared)
 
@@ -188,6 +189,12 @@ target_include_directories(SoftBodyPhysics PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
 target_include_directories(PerfTest PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
 target_include_directories(SoftBodyPhysicsTests PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
 
+target_include_directories(SoftBodyPhysicsShared PRIVATE "${CMAKE_SOURCE_DIR}/external/include")
+target_include_directories(SoftBodyPhysics PRIVATE "${CMAKE_SOURCE_DIR}/external/include")
+target_include_directories(PerfTest PRIVATE "${CMAKE_SOURCE_DIR}/external/include")
+target_include_directories(SoftBodyPhysicsTests PRIVATE "${CMAKE_SOURCE_DIR}/external/include")
+
+
 # Link against C standard library
 if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     target_link_libraries(SoftBodyPhysics PRIVATE c)
@@ -196,12 +203,20 @@ if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     target_link_libraries(SoftBodyPhysicsShared PRIVATE c)
 endif()
 
-target_link_libraries(SoftBodyPhysicsShared PRIVATE SDL3::SDL3)
-target_link_libraries(SoftBodyPhysics PRIVATE SDL3::SDL3)
-target_link_libraries(PerfTest PRIVATE SDL3::SDL3)
-target_link_libraries(SoftBodyPhysicsTests PRIVATE SDL3::SDL3)
+# target_link_libraries(SoftBodyPhysicsShared PRIVATE SDL3::SDL3)
+# target_link_libraries(SoftBodyPhysics PRIVATE SDL3::SDL3)
+# target_link_libraries(PerfTest PRIVATE SDL3::SDL3)
+# target_link_libraries(SoftBodyPhysicsTests PRIVATE SDL3::SDL3)
 
+target_link_options(SoftBodyPhysicsShared PRIVATE "-F/Library/Frameworks")
+target_link_options(SoftBodyPhysics PRIVATE "-F/Library/Frameworks")
+target_link_options(PerfTest PRIVATE "-F/Library/Frameworks")
+target_link_options(SoftBodyPhysicsTests PRIVATE "-F/Library/Frameworks")
 
+target_link_libraries(SoftBodyPhysicsShared PRIVATE "-framework SDL3")
+target_link_libraries(SoftBodyPhysics PRIVATE "-framework SDL3")
+target_link_libraries(PerfTest PRIVATE "-framework SDL3")
+target_link_libraries(SoftBodyPhysicsTests PRIVATE "-framework SDL3")
 
 
 # message(STATUS "SDL3 Variables:")

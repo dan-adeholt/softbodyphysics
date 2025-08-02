@@ -16,6 +16,7 @@
 #include "../physics/PhysicsTests.h"
 #include "../fontawesome/IconsFontAwesome4.h"
 #include "../utils/MinMax.h"
+#include "ShapeResources.h"
 
 const char *contextMenu = "Context menu";
 const char *bridgePopup = "Bridge";
@@ -159,7 +160,7 @@ Editor::Editor(const char *appPath)
         fclose(stateFile);
     }
 
-    m->currentGameIndex = min(m->games.size() - 1, m->currentGameIndex);
+    setCurrentGameIndex(min(m->games.size() - 1, m->currentGameIndex));
     Game &game = *m->games[0];
     game.init(lastSceneName());
 }
@@ -203,6 +204,12 @@ void Editor::readIniValue(const char *section, const char *name, const char *val
 
                     PhysicsSpaceStorage::loadFromFile(newGame->physicsSpace(), fullPath.data);
                     m->games.push(newGame);
+
+                    if (newGame->physicsSpace().isPrefab)
+                    {
+                        newGame->setPaused();
+                    }
+
                     start = end + 1;
                 }
                 end++;
@@ -214,6 +221,12 @@ void Editor::readIniValue(const char *section, const char *name, const char *val
 Game *Editor::getCurrentGame()
 {
     return m->games[m->currentGameIndex];
+}
+
+void Editor::setCurrentGameIndex(int index)
+{
+    m->currentGameIndex = index;
+    Console::clearFrame();
 }
 
 Editor::~Editor()
@@ -323,11 +336,13 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
                             ImGui::TreeNodeEx((void *)(intptr_t)j, node_flags, "%s %s", ICON_FA_FILE_CODE_O, scene.name);
                             if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
                             {
-                                m->currentGameIndex = 0;
+                                setCurrentGameIndex(0);
+                                Console::log("Loading scene: %s", scene.name);
                                 m->lastScene.clear();
                                 m->lastScene.append(scene.name);
                                 m->games[0]->init(scene);
                                 saveState();
+                                Console::clearFrame();
                             }
                         }
                         ImGui::Indent(ImGui::GetTreeNodeToLabelSpacing());
@@ -352,8 +367,12 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
                 ImGui::Text("Num bboxes: %d", profileInfo.numBboxes);
                 ImGui::Text("Num bbox checks: %d", profileInfo.numBbboxChecks);
                 ImGui::Text("Num bbox overlaps: %d", profileInfo.numBboxOverlaps);
+                ImGui::Text("Num circle rejections: %d", profileInfo.numCircleRejections);
+                ImGui::Text("Num intersections: %d", profileInfo.numIntersections);
                 ImGui::Text("Num collisions: %d", profileInfo.numCollisions);
                 ImGui::Text("Collisions time: %.1lf ms", profileInfo.collisionTimeMillis);
+                ImGui::Text("Collision resolve: %.1lf ms", profileInfo.collisionHandlingTimeMillis);
+                ImGui::Text("Collision grid: %.1lf ms", profileInfo.collisionGridUpdateTimeMillis);
                 ImGui::EndTabItem();
             }
 
@@ -380,6 +399,25 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 
                         ImGui::Checkbox("Static", &shape.isStatic);
 
+                        const char *currentResourceName = shapeResourceName(shape.resourceId);
+                        if (ImGui::BeginCombo("ID", currentResourceName))
+                        {
+                            for (int i = 0; i < NUM_SHAPE_RESOURCES; i++)
+                            {
+                                const char *resourceName = shapeResourceName(i);
+                                bool isSelected = (shape.resourceId == i);
+                                if (ImGui::Selectable(resourceName, isSelected))
+                                {
+                                    shape.resourceId = i;
+                                }
+                                if (isSelected)
+                                {
+                                    ImGui::SetItemDefaultFocus();
+                                }
+                            }
+                            ImGui::EndCombo();
+                        }
+
                         if (ImGui::Button("Snap to grid"))
                         {
                             Shapes::snapToGrid(space, selectedShapeIndex);
@@ -388,6 +426,7 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
                         if (ImGui::Button("Update original position"))
                         {
                             Shapes::updateOriginalPos(space, selectedShapeIndex);
+                            space.triangulate();
                         }
                     }
                 }
@@ -519,7 +558,7 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 
                         Game *newGame = new Game(m->appPath, m->lastOpenedFile.data);
                         m->games.push(newGame);
-                        m->currentGameIndex = m->games.size() - 1;
+                        setCurrentGameIndex(m->games.size() - 1);
                         m->openedBuffers.push({m->lastOpenedFile});
                         saveState();
                         StringBuffer<512> fullPath;
@@ -620,7 +659,7 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
                     m->games.push(newGame);
                     m->openedBuffers.push({newFileNameWithExtension});
 
-                    m->currentGameIndex = m->games.size() - 1;
+                    setCurrentGameIndex(m->games.size() - 1);
                     saveState();
                 }
                 ImGui::CloseCurrentPopup();
@@ -648,7 +687,7 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
                 {
                     if (ImGui::IsItemActive() && i != m->currentGameIndex)
                     {
-                        m->currentGameIndex = i;
+                        setCurrentGameIndex(i);
                         saveState();
                     }
 
@@ -692,11 +731,14 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 
         if (m->currentGameIndex >= deleteGameIndex)
         {
-            m->currentGameIndex--;
-            if (m->currentGameIndex < 0)
+            int newGameIndex = m->currentGameIndex - 1;
+
+            if (newGameIndex < 0)
             {
-                m->currentGameIndex = 0;
+                newGameIndex = 0;
             }
+
+            setCurrentGameIndex(newGameIndex);
         }
 
         saveState();

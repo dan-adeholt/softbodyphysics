@@ -7,6 +7,7 @@
 #include "../physics/PhysicsSpace.h"
 #include "../physics/PhysicsSpaceStorage.h"
 #include "../physics/Integrator.h"
+#include "../physics/ShapeUtils.h"
 #include "../physics/CollisionSolver.h"
 #include "../containers/StringBuffer.h"
 #include <stdio.h>
@@ -46,6 +47,7 @@ struct Game::Impl
     {
         physicsSpace.clear();
         collisionSolver.clear();
+        integrator.clear();
     }
 
     Vector2 translatedMousePos()
@@ -54,8 +56,6 @@ struct Game::Impl
     }
 
     PhysicsSpace history[NUM_HISTORICAL_STATES];
-    PhysicsSpace lastCollisionSpace;
-    bool hasLastCollisionSpace = false;
     int historicalIndex = 0;
     int historyRewindIndex = 0;
 
@@ -74,6 +74,7 @@ struct Game::Impl
     bool panning = false;
     Array<ScheduledCallback> scheduledCallbacks;
     Array<FrameCallback> frameCallbacks;
+    Array<int> collisionCandidates;
 
     bool stopPointWhenDragging = true;
     bool quit = false;
@@ -93,7 +94,6 @@ struct Game::Impl
 
 Game::Game(const char *appPath, const char *filePath) : m(new Game::Impl(appPath, filePath))
 {
-    Console::log("Appending file path: %s", filePath);
     m->title.append(filePath);
 }
 
@@ -107,14 +107,16 @@ void Game::init(const SceneDefinition &scene)
     space.gravityEnabled = true;
     space.springsEnabled = true;
     space.shapeMatchingEnabled = true;
+
     m->shapeMatchDragData = ShapeMatchDragData();
-    m->hasLastCollisionSpace = false;
     m->renderSettings = GameRenderSettings();
     m->stopPointWhenDragging = true;
     m->frameCallbacks.clear();
     m->scale = 1.0f;
     m->offset = Vector2(400, 0);
+    m->historicalIndex = 0;
     m->paused = false;
+    m->iterationNumber = 0;
     scene.initFunc(this);
     m->currentSceneName = scene.name;
     m->timeBucket = 0.0;
@@ -153,6 +155,62 @@ const AddSubShapeData &Game::addSubShapeData() const
 const Vector2 &Game::mousePos() const
 {
     return m->mousePos;
+}
+
+CollisionGridSimple &Game::collisionGrid() const
+{
+    return m->collisionSolver.grid();
+}
+
+Range<int> Game::collisionCandidates() const
+{
+
+    return m->collisionCandidates.range();
+}
+
+void Game::testCollisionPerformance(ConsoleProfileInfo &profileInfo, int numIterations) const
+{
+    {
+        Timer timer;
+        int rejects = m->collisionSolver.testBoundingBoxesPerformance(m->physicsSpace, profileInfo, numIterations);
+        printf("** Bbox run time: %.1lf ms\t => %d\n", timer.elapsedMillis(), rejects);
+    }
+
+    {
+        Timer timer;
+        int rejects = m->collisionSolver.testAlignedBoundingBoxesPerformance(m->physicsSpace, profileInfo, numIterations);
+        printf("** OABB boxes run time: %.1lf ms => %d\n", timer.elapsedMillis(), rejects);
+    }
+
+    {
+        Timer timer;
+        int rejects = m->collisionSolver.testKdopPerformance(m->physicsSpace, profileInfo, numIterations);
+        printf("** KDop run time: %.1lf ms => %d\n", timer.elapsedMillis(), rejects);
+    }
+
+    {
+        Timer timer;
+        int rejects = m->collisionSolver.testSimpleOverlapPerformance(m->physicsSpace, profileInfo, numIterations);
+        printf("** Simple overlap run time: %.1lf ms\t=> %d\n", timer.elapsedMillis(), rejects);
+    }
+
+    {
+        Timer timer;
+        int rejects = m->collisionSolver.testOverlapPerformance(m->physicsSpace, profileInfo, numIterations);
+        printf("** Hard overlap run time: %.1lf ms\t=> %d\n", timer.elapsedMillis(), rejects);
+    }
+
+    {
+        Timer timer;
+        m->collisionSolver.testCollisionPerformance(m->physicsSpace, profileInfo, numIterations, false);
+        printf("** Collision run time: %.1lf ms\t\n", timer.elapsedMillis());
+    }
+
+    {
+        Timer timer;
+        m->collisionSolver.testCollisionPerformance(m->physicsSpace, profileInfo, numIterations, true);
+        printf("** Collision midpoint run time: %.1lf ms\t\n", timer.elapsedMillis());
+    }
 }
 
 void Game::updateAfterRewindOrForward()
@@ -215,10 +273,12 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
     }
 
     bool runSingleStep = singleStep;
-    double maxDuration = physicsStep * 0.5f;
+    double maxDuration = physicsStep * 0.75f;
 
     Timer updateTimer;
     profileInfo.collisionTimeMillis = 0;
+    profileInfo.collisionHandlingTimeMillis = 0;
+    profileInfo.collisionGridUpdateTimeMillis = 0;
 
     while (m->timeBucket > physicsStep || runSingleStep)
     {
@@ -229,18 +289,9 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
         m->integrator.performIntegration(m->physicsSpace, m->shapeMatchDragData, profileInfo);
         m->iterationNumber++;
 
-        if (m->physicsSpace.collisionsEnabled)
+        if (m->physicsSpace.collisionsEnabled && m->iterationNumber % 2 == 0)
         {
-            // Console::clearCollisionFrame();
-            if (m->hasLastCollisionSpace)
-            {
-                m->collisionSolver.handleCollisions(m->physicsSpace, profileInfo);
-            }
-
-            m->hasLastCollisionSpace = true;
-            // Console::log("Max length: %f", maxLength);
-
-            m->lastCollisionSpace.assign(m->physicsSpace);
+            m->collisionSolver.handleCollisions(m->physicsSpace, profileInfo);
         }
 
         if (Console::isDebugger())
@@ -277,6 +328,15 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
             runSingleStep = false;
             break;
         }
+    }
+
+    if (m->selectedShapeIndex != -1)
+    {
+        m->collisionSolver.getCollisionCandidates(m->selectedShapeIndex, m->collisionCandidates, m->physicsSpace);
+    }
+    else
+    {
+        m->collisionCandidates.clear();
     }
 
     int nextHistoricalIndex = (m->historicalIndex + 1) % NUM_HISTORICAL_STATES;
@@ -475,6 +535,7 @@ void Game::onMouseMove(float x, float y, float relativeX, float relativeY)
         }
 
         m->physicsSpace.mouseJoint.position = translatedPos;
+        m->physicsSpace.triangulate();
     }
 
     float translatedRelativeX = (float)relativeX / m->scale;
@@ -556,6 +617,9 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
     case GameKeyCode::MINUS:
         m->scale *= 0.9f;
         break;
+    case GameKeyCode::F10:
+        m->collisionSolver.toggleCollisionGrid();
+        break;
     case GameKeyCode::F8:
         update(1000.0 / 120.0, true, profileInfo);
         updateBoundingBoxes();
@@ -601,7 +665,12 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
 
             if (m->copyShapeIndex != -1 && m->copyShapeIndex < space.shapes.size())
             {
-                space.pasteShape(m->copyShapeIndex);
+                const Shape &copyShape = space.shapes[m->copyShapeIndex];
+                ShapeProperties averages = ShapeUtils::getShapeProperties(space.points.range(), copyShape);
+
+                Shape newShape = space.pasteShape(averages.center.x + 30.0f, averages.center.y + 30.0f, m->copyShapeIndex, space);
+                m->copyShapeIndex = newShape.index;
+                m->selectedShapeIndex = newShape.index;
             }
         }
     }
@@ -720,14 +789,14 @@ Array<ShapeBoundingBox> &Game::shapeBoundingBoxes()
     return m->collisionSolver.boundingBoxes();
 }
 
+Array<OrientedBoundingBox> &Game::shapeOrientedBoundingBoxes()
+{
+    return m->collisionSolver.orientedBoundingBoxes();
+}
+
 PhysicsSpace &Game::physicsSpace()
 {
     return m->physicsSpace;
-}
-
-PhysicsSpace &Game::lastCollisionSpace()
-{
-    return m->lastCollisionSpace;
 }
 
 const ShapeMatchDragData &Game::shapeMatchDragData()

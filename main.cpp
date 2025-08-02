@@ -46,6 +46,7 @@ ConsoleProfileInfo getConsoleProfileInfoAverage(ConsoleProfileInfo newProfileInf
         average.numBbboxChecks += consoleProfileInfoAverages[i].numBbboxChecks;
         average.numBboxes += consoleProfileInfoAverages[i].numBboxes;
         average.numBboxOverlaps += consoleProfileInfoAverages[i].numBboxOverlaps;
+        average.numIntersections += consoleProfileInfoAverages[i].numIntersections;
         average.numCollisions += consoleProfileInfoAverages[i].numCollisions;
         average.numPhysicsSteps += consoleProfileInfoAverages[i].numPhysicsSteps;
         average.physicsTimeMillis += consoleProfileInfoAverages[i].physicsTimeMillis;
@@ -54,6 +55,9 @@ ConsoleProfileInfo getConsoleProfileInfoAverage(ConsoleProfileInfo newProfileInf
         average.springsTimeMillis += consoleProfileInfoAverages[i].springsTimeMillis;
         average.swapTimeMillis += consoleProfileInfoAverages[i].swapTimeMillis;
         average.totalPhysicsTimeMillis += consoleProfileInfoAverages[i].totalPhysicsTimeMillis;
+        average.collisionHandlingTimeMillis += consoleProfileInfoAverages[i].collisionHandlingTimeMillis;
+        average.collisionGridUpdateTimeMillis += consoleProfileInfoAverages[i].collisionGridUpdateTimeMillis;
+        average.numCircleRejections += consoleProfileInfoAverages[i].numCircleRejections;
     }
 
     average.boundingBoxTimeMillis /= NUM_PROFILE_AVERAGES;
@@ -62,6 +66,7 @@ ConsoleProfileInfo getConsoleProfileInfoAverage(ConsoleProfileInfo newProfileInf
     average.numBbboxChecks /= NUM_PROFILE_AVERAGES;
     average.numBboxes /= NUM_PROFILE_AVERAGES;
     average.numBboxOverlaps /= NUM_PROFILE_AVERAGES;
+    average.numIntersections /= NUM_PROFILE_AVERAGES;
     average.numCollisions /= NUM_PROFILE_AVERAGES;
     average.numPhysicsSteps /= NUM_PROFILE_AVERAGES;
     average.physicsTimeMillis /= NUM_PROFILE_AVERAGES;
@@ -70,8 +75,11 @@ ConsoleProfileInfo getConsoleProfileInfoAverage(ConsoleProfileInfo newProfileInf
     average.springsTimeMillis /= NUM_PROFILE_AVERAGES;
     average.swapTimeMillis /= NUM_PROFILE_AVERAGES;
     average.totalPhysicsTimeMillis /= NUM_PROFILE_AVERAGES;
+    average.collisionHandlingTimeMillis /= NUM_PROFILE_AVERAGES;
+    average.collisionGridUpdateTimeMillis /= NUM_PROFILE_AVERAGES;
+    average.numCircleRejections /= NUM_PROFILE_AVERAGES;
 
-    return average;    
+    return average;
 }
 
 void dumpWindowGeometry(int windowPosX, int windowPosY, int windowWidth, int windowHeight)

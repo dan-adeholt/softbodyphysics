@@ -24,6 +24,20 @@ RK4Integrator::~RK4Integrator()
     delete m;
 }
 
+void RK4Integrator::clear()
+{
+    m->rkTemp.pos.clear();
+    m->rkTemp.velocity.clear();
+    m->rkTemp.shapeOriginalPos.clear();
+    m->rkTemp.mass.clear();
+    m->rk1.clear();
+    m->rk2.clear();
+    m->rk3.clear();
+    m->rk4.clear();
+    m->rkEmptyDerivatives.clear();
+    m->shapeProperties.clear();
+}
+
 void RK4Integrator::prepareRK4Step(PhysicsSpace &space, float dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, const ShapeMatchDragData &dragData, ConsoleProfileInfo &profileInfo)
 {
     if (m->rkTemp.pos.size() != space.points.size())
@@ -88,6 +102,34 @@ void RK4Integrator::updateRK4Springs(PhysicsSpace &space, Array<PointDerivative>
             derivative.acceleration += space.points.velocity[i] * -0.008f;
         }
     }
+
+    for (int i = 0; i < space.radialAccelerators.size(); i++)
+    {
+        const RadialAccelerator &accelerator = space.radialAccelerators[i];
+        if (!accelerator.enabled)
+        {
+            continue;
+        }
+
+        const Shape &shape = space.shapes[accelerator.shapeIndex];
+        ShapeProperties properties = m->shapeProperties[accelerator.shapeIndex];
+
+        for (ShapeIterator s(shape); s.isValid(); s.next())
+        {
+            int pointIndex = s.index();
+            if (pointIndex < 0 || pointIndex >= space.points.size())
+            {
+                continue;
+            }
+
+            PointDerivative &derivative = outDerivatives[pointIndex];
+            Vector2 pos = space.points.pos[pointIndex];
+            Vector2 direction = pos - properties.center;
+            Vector2 tangent = direction.normalVector();
+
+            derivative.acceleration += tangent * accelerator.strength * 0.00002f;
+        }
+    }
 }
 
 float maxDistFromCenter = 180.0f;
@@ -101,7 +143,6 @@ void Integrator::performIntegration(PhysicsSpace &space, const ShapeMatchDragDat
     {
         StaticJoint &joint = space.staticJoints[i];
         space.points.pos[joint.pointIndex] = joint.position;
-        Console::drawPoint(joint.position, 0xff0000ff);
         space.points.velocity[joint.pointIndex] = Vector2();
     }
 
@@ -173,6 +214,85 @@ void RK4Integrator::performRK4Integration(PhysicsSpace &space, const ShapeMatchD
         space.points.velocity[i] += deltaAcceleration;
     }
 
+    PointMassesRange points = space.points.range();
+    for (int i = 0; i < space.shapeJoints.size(); i++)
+    {
+        const ShapeJoint &joint = space.shapeJoints[i];
+        Vector2 vA, vB;
+
+        for (int i = 0; i < 4; ++i)
+        {
+            if (joint.shape1Points[i] != -1)
+            {
+                vA += points.velocity[joint.shape1Points[i]] * joint.shape1Weights[i];
+            }
+
+            if (joint.shape2Points[i] != -1)
+            {
+                vB += points.velocity[joint.shape2Points[i]] * joint.shape2Weights[i];
+            }
+        }
+
+        Vector2 v_rel = vB - vA;
+
+        float invMassA = 0.0f;
+        float invMassB = 0.0f;
+
+        for (int i = 0; i < 4; ++i)
+        {
+            if (joint.shape1Points[i] != -1)
+            {
+                invMassA += joint.shape1Weights[i] * joint.shape1Weights[i] * (1.0f / (points.mass[joint.shape1Points[i]]));
+            }
+
+            if (joint.shape2Points[i] != -1)
+            {
+                invMassB += joint.shape2Weights[i] * joint.shape2Weights[i] * (1.0f / (points.mass[joint.shape2Points[i]]));
+            }
+        }
+
+        float effectiveMass = 1.0f / (invMassA + invMassB);
+        Vector2 impulse = -v_rel * effectiveMass;
+
+        for (int i = 0; i < 4; ++i)
+        {
+            int idxA = joint.shape1Points[i];
+            if (idxA != -1)
+            {
+                float w = joint.shape1Weights[i];
+                points.velocity[idxA] -= impulse * (w * (1.0f / points.mass[idxA]));
+            }
+
+            int idxB = joint.shape2Points[i];
+            if (idxB != -1)
+            {
+                float w = joint.shape2Weights[i];
+                points.velocity[idxB] += impulse * (w * (1.0f / points.mass[idxB]));
+            }
+        }
+
+        PositionPair posPair = ShapeUtils::getShapeJointPositions(points, joint);
+
+        Vector2 delta = (posPair.p1 - posPair.p0) * 0.5f; // Half the error to each shape
+
+        for (int i = 0; i < 4; i++)
+        {
+            int index0 = joint.shape1Points[i];
+            if (index0 != -1)
+            {
+                float weight = joint.shape1Weights[i];
+                points.pos[index0] += delta * weight; // proportional correction
+            }
+
+            int index1 = joint.shape2Points[i];
+            if (index1 != -1)
+            {
+                float weight = joint.shape2Weights[i];
+                points.pos[index1] -= delta * weight; // opposing correction
+            }
+        }
+    }
+
     m->shapeProperties.clear();
 
     for (int i = 0; i < space.shapes.size(); i++)
@@ -219,4 +339,9 @@ void RK4Integrator::testSpringPerformance(int iterations, PhysicsSpace &space)
     {
         Springs::performThreadedSpringDerivatives(space.shapes.range(), shapeProperties.range(), space.points.range(), derivativeRange, space.shapeMatchingEnabled, dragData, profileInfo);
     }
+}
+
+void Integrator::clear()
+{
+    rk4Integrator.clear();
 }

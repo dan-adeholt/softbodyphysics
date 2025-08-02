@@ -38,6 +38,18 @@ struct Range
     {
         return Range{&data[start], end - start};
     }
+
+    bool contains(const T &element) const
+    {
+        for (int i = 0; i < size; i++)
+        {
+            if (data[i] == element)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 #endif

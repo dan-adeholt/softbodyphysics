@@ -1,6 +1,7 @@
 #include "PhysicsSpace.h"
 #include "../game/Textures.h" // TODO: remove this
 #include "../utils/Console.h"
+#include "ShapeUtils.h"
 #include "../utils/MinMax.h"
 #include "stdio.h"
 
@@ -13,6 +14,7 @@ PhysicsSpace::PhysicsSpace() : gravityEnabled(true), collisionsEnabled(true), sh
     points.reserve(NUM_POINTS);
     staticJoints.reserve(NUM_POINTS / 2);
     shapeJoints.reserve(NUM_SHAPES / 2);
+    radialAccelerators.reserve(NUM_SHAPES / 2);
     mouseJoint.pointIndex = -1;
     mouseJoint.position = Vector2::zero();
     triangleIndices.reserve(NUM_POINTS * 3);
@@ -27,6 +29,7 @@ void PhysicsSpace::assign(PhysicsSpace &other)
     shapeJoints.replace(other.shapeJoints);
     triangleIndices.replace(other.triangleIndices);
     uvCoordinates.replace(other.uvCoordinates);
+    radialAccelerators.replace(other.radialAccelerators);
 }
 
 void PhysicsSpace::initFromEntries(const Array<ShapeEntry> &entries)
@@ -79,6 +82,8 @@ void PhysicsSpace::clear()
     uvCoordinates.clear();
     mouseJoint.pointIndex = -1;
     gravityEnabled = true;
+    shapeJoints.clear();
+    radialAccelerators.clear();
 }
 
 void PhysicsSpace::removeShapeWithoutPoints(int shapeIndex)
@@ -90,6 +95,22 @@ void PhysicsSpace::removeShapeWithoutPoints(int shapeIndex)
 
     Shape &shape = shapes[shapeIndex];
     shapes.remove(shapeIndex);
+
+    for (int i = 0; i < radialAccelerators.size(); i++)
+    {
+        RadialAccelerator &radialAccelerator = radialAccelerators[i];
+
+        if (radialAccelerator.shapeIndex == shapeIndex)
+        {
+            radialAccelerators.remove(i);
+            i--;
+        }
+        else if (radialAccelerator.shapeIndex > shapeIndex)
+        {
+
+            radialAccelerator.shapeIndex--;
+        }
+    }
 
     for (int i = 0; i < shapeJoints.size(); i++)
     {
@@ -208,30 +229,60 @@ void PhysicsSpace::removeShape(int shapeIndex)
     triangulate();
 }
 
-void PhysicsSpace::pasteShape(int copyIndex)
+Shape PhysicsSpace::addShapeFromSpace(float x, float y, const PhysicsSpace &other, int resourceId)
 {
-    const Shape &copyShape = shapes[copyIndex];
+    // Start by finding the shape with the corresponding resourceId
+    int copyShapeIndex = -1;
+    for (int shapeIndex = 0; shapeIndex < other.shapes.size(); shapeIndex++)
+    {
+        const Shape &shape = other.shapes[shapeIndex];
+        Console::log("Checking shape with resourceId %d at index %d", shape.resourceId, shapeIndex);
+        if (shape.resourceId == resourceId)
+        {
+            copyShapeIndex = shapeIndex;
+            break;
+        }
+    }
+
+    if (copyShapeIndex == -1)
+    {
+        Console::log("No shape found with resourceId %d", resourceId);
+        return Shape();
+    }
+
+    // Now we can paste the shape from the other space
+    return pasteShape(x, y, copyShapeIndex, other);
+}
+
+Shape PhysicsSpace::pasteShape(float x, float y, int copyIndex, const PhysicsSpace &sourceSpace)
+{
+    const Shape &copyShape = sourceSpace.shapes[copyIndex];
 
     int shapeSize = copyShape.end - copyShape.start;
     int newShapeStart = points.size();
     int newShapeEnd = newShapeStart + shapeSize;
 
+    ShapeProperties averages = ShapeUtils::getShapeProperties(sourceSpace.points.range(), copyShape);
+    Vector2 offset = Vector2(x, y) - averages.center;
+
     for (int i = copyShape.start; i < copyShape.end; i++)
     {
-        points.mass.push(points.mass[i]);
-        points.pos.push(points.pos[i]);
-        points.velocity.push(points.velocity[i]);
-        points.shapeOriginalPos.push(points.shapeOriginalPos[i]);
+        points.mass.push(sourceSpace.points.mass[i]);
+        points.pos.push(sourceSpace.points.pos[i] + offset);
+        points.velocity.push(sourceSpace.points.velocity[i]);
+        points.shapeOriginalPos.push(sourceSpace.points.shapeOriginalPos[i]);
     }
+
+    Shape returnedShape = copyShape;
 
     if (copyShape.parentId != -1)
     {
         int newParentId = nextParentId();
-        int oldShapesSize = shapes.size();
+        int oldShapesSize = sourceSpace.shapes.size();
 
         for (int i = 0; i < oldShapesSize; i++)
         {
-            Shape sCopy = shapes[i];
+            Shape sCopy = sourceSpace.shapes[i];
 
             if (sCopy.parentId != copyShape.parentId)
             {
@@ -243,6 +294,7 @@ void PhysicsSpace::pasteShape(int copyIndex)
             sCopy.end = newShapeEnd;
             sCopy.index = shapes.size();
             shapes.push(sCopy);
+            returnedShape = sCopy;
         }
     }
     else
@@ -252,9 +304,11 @@ void PhysicsSpace::pasteShape(int copyIndex)
         sCopy.end = newShapeEnd;
         sCopy.index = shapes.size();
         shapes.push(sCopy);
+        returnedShape = sCopy;
     }
 
     triangulate();
+    return returnedShape;
 }
 
 int PhysicsSpace::closestPointIndex(float x, float y, int shapeIndex) const
@@ -454,6 +508,8 @@ void PhysicsSpace::triangulate()
 
 void PhysicsSpace::addShape(const Shape &shape)
 {
-    shapes.push(shape);
+    Shape copy = shape;
+    copy.index = shapes.size();
+    shapes.push(copy);
     triangulate();
 }

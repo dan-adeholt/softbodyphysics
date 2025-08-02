@@ -9,6 +9,13 @@ struct ShapeMatchDragData;
 
 struct Springs
 {
+    static void applySpringJoint(
+        int pointIndex,
+        const Vector2 &point,
+        const Shape &shape,
+        PointMassesRange &points,
+        Range<PointDerivative> &derivatives,
+        const ShapeMatchDragData &dragData);
 
     static void performThreadedSpringDerivatives(
         Range<Shape> shapeRange,

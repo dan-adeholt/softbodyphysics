@@ -29,9 +29,11 @@ struct PhysicsSpace
 
     void removeShape(int shapeIndex);
 
-    void pasteShape(int copyIndex);
+    Shape pasteShape(float x, float y, int copyIndex, const PhysicsSpace &sourceSpace);
 
     int closestPointIndex(float x, float y, int shapeIndex) const;
+
+    Shape addShapeFromSpace(float x, float y, const PhysicsSpace &other, int resourceId);
 
     void triangulate();
 
@@ -40,6 +42,7 @@ struct PhysicsSpace
     PointMasses points;
     Array<StaticJoint> staticJoints;
     Array<ShapeJoint> shapeJoints;
+    Array<RadialAccelerator> radialAccelerators;
 
     Array<int> triangleIndices;
     Array<Vector2> uvCoordinates;
@@ -49,6 +52,8 @@ struct PhysicsSpace
     bool collisionsEnabled;
     bool shapeMatchingEnabled;
     bool springsEnabled;
+
+    bool isPrefab = false;
 
 private:
     void removeShapeWithoutPoints(int shapeIndex);

@@ -16,6 +16,7 @@ struct RK4Integrator
     ~RK4Integrator();
     RK4Integrator(const RK4Integrator &) = delete;
 
+    void clear();
     void prepareRK4Step(PhysicsSpace &PhysicsSpace, float dt, Array<PointDerivative> &derivatives, Array<PointDerivative> &outDerivatives, const ShapeMatchDragData &dragData, ConsoleProfileInfo &profileInfo);
     void updateRK4Springs(PhysicsSpace &spaces, Array<PointDerivative> &outDerivatives, const ShapeMatchDragData &dragData, ConsoleProfileInfo &profileInfo);
     void performRK4Integration(PhysicsSpace &space, const ShapeMatchDragData &dragData, ConsoleProfileInfo &profileInfo);
@@ -28,6 +29,7 @@ struct RK4Integrator
 struct Integrator
 {
     RK4Integrator rk4Integrator;
+    void clear();
     void performIntegration(PhysicsSpace &space, const ShapeMatchDragData &dragData, ConsoleProfileInfo &profileInfo);
 };
 

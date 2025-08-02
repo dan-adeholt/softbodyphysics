@@ -1,6 +1,7 @@
 #ifndef __GAME_H
 #define __GAME_H
 
+struct CollisionGridSimple;
 struct SceneDefinition;
 struct PhysicsSpace;
 struct ConsoleProfileInfo;
@@ -8,6 +9,7 @@ struct ShapeBoundingBox;
 class Vector2;
 struct ShapeMatchDragData;
 struct AddSubShapeData;
+struct OrientedBoundingBox;
 
 enum class GameKeyCode : int;
 
@@ -20,7 +22,8 @@ class Array;
 struct GameRenderSettings
 {
     bool renderSprings = true;
-    bool renderPoints = false;
+    bool renderShapeJoints = true;
+    bool renderPoints = true;
     bool renderShapeLines = true;
     bool renderTriangles = false;
     bool renderVelocityVectors = false;
@@ -57,8 +60,9 @@ public:
 
     Array<ShapeBoundingBox> &shapeBoundingBoxes();
 
+    Array<OrientedBoundingBox> &shapeOrientedBoundingBoxes();
+
     PhysicsSpace &physicsSpace();
-    PhysicsSpace &lastCollisionSpace();
     const ShapeMatchDragData &shapeMatchDragData();
     int &simulationSpeed();
     bool paused();
@@ -96,6 +100,12 @@ public:
     const AddSubShapeData &addSubShapeData() const;
 
     const Vector2 &mousePos() const;
+
+    CollisionGridSimple &collisionGrid() const;
+
+    Range<int> collisionCandidates() const;
+
+    void testCollisionPerformance(ConsoleProfileInfo &profileInfo, int numIterations) const;
 
 private:
     void updateAfterRewindOrForward();

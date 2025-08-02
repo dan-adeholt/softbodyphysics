@@ -102,3 +102,28 @@ Vector2 ShapeUtils::getShapePos(const PointMassesRange &points, const Shape &sha
 
     return p0;
 }
+
+PositionPair ShapeUtils::getShapeJointPositions(const PointMassesRange &points, const ShapeJoint &joint)
+{
+    Vector2 p0;
+
+    for (int i = 0; i < 4; i++)
+    {
+        if (joint.shape1Points[i] != -1)
+        {
+            p0 += points.pos[joint.shape1Points[i]] * joint.shape1Weights[i];
+        }
+    }
+
+    Vector2 p1;
+
+    for (int i = 0; i < 4; i++)
+    {
+        if (joint.shape2Points[i] != -1)
+        {
+            p1 += points.pos[joint.shape2Points[i]] * joint.shape2Weights[i];
+        }
+    }
+
+    return {p0, p1};
+}

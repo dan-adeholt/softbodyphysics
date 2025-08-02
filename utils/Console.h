@@ -15,9 +15,13 @@ struct ConsoleProfileInfo
     double springsTimeMillis;
     double collisionTimeMillis;
     double boundingBoxTimeMillis;
+    double collisionHandlingTimeMillis;
+    double collisionGridUpdateTimeMillis;
     int numBboxes;
     int numBbboxChecks;
     int numBboxOverlaps;
+    int numCircleRejections;
+    int numIntersections;
     int numCollisions;
 };
 

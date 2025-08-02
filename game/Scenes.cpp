@@ -715,16 +715,18 @@ SceneDefinition gameScenes[] = {
     {"Car", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();
-         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_33.txt");
-         Shapes::createCar(space, 400.0f, 440.0f);
+         PhysicsSpaceStorage::loadFromFile(space, "levels/car_scene.txt");
+
+         PhysicsSpace prefabSpace;
+         PhysicsSpaceStorage::loadFromFile(prefabSpace, "levels/prefab_3.txt");
+         Shapes::createCar(space, 400.0f, 440.0f, prefabSpace);
 
          GameRenderSettings renderSettings;
-         renderSettings.renderPointIndices = true;
+        //  renderSettings.renderPointIndices = true;
          renderSettings.renderShapeMatching = false;
          renderSettings.clearDebugGeometryWhenPaused = true;
          game->setRenderSettings(renderSettings);
 
-         PhysicsSpaceStorage::appendFromFile(space, "scenedefs/prefab_3.txt", Vector2(400.0f, 140.0f));
          game->scale() = 1.00f;
          game->offset() = Vector2(270.00f, 47.00f);
          game->setPaused();

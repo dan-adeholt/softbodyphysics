@@ -280,6 +280,18 @@ public:
         // m_size -= (end - start);
     }
 
+    bool contains(const T &element) const
+    {
+        for (int i = 0; i < m_size; i++)
+        {
+            if (m_data[i] == element)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
 private:
     int m_size;
     int m_capacity;

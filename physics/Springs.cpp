@@ -68,14 +68,10 @@ void applySpringDerivatives(
 
             if (offsetLength > 0.001f)
             {
-                Vector2 directionNormalized = direction.normalized();
-                Vector2 velocityAlongSpringAxis = directionNormalized * (points.velocity[j] - averageVelocity.centerOfMassVelocity).dot(directionNormalized);
-
                 Vector2 force = direction * stiffness;
 
                 derivative.acceleration += force;
                 Vector2 velocityDifference = targetVelocity - points.velocity[j];
-
                 derivative.acceleration += velocityDifference * damping;
 
                 if (shape.index == dragData.dragShapeIndex)
@@ -84,6 +80,38 @@ void applySpringDerivatives(
                 }
             }
         }
+    }
+}
+
+void Springs::applySpringJoint(
+    int pointIndex,
+    const Vector2 &point,
+    const Shape &shape,
+    PointMassesRange &points,
+    Range<PointDerivative> &derivatives,
+    const ShapeMatchDragData &dragData)
+{
+    PointDerivative &derivative = derivatives[pointIndex];
+    Vector2 currentPoint(points.pos[pointIndex]);
+    Vector2 direction = point - currentPoint;
+
+    float offsetLength = direction.length();
+    float shapeStiffness = shape.stiffness * baseStiffness * 0.2f;
+    float stiffness = shape.index == dragData.dragShapeIndex ? 0.0025f : shapeStiffness;
+    float shapeDamping = shape.damping * baseDamping * 0.7f;
+
+    float damping = shape.index == dragData.dragShapeIndex ? 0.015f : shapeDamping;
+    ShapeVelocities averageVelocity = ShapeUtils::getAverageShapeVelocity(points, shape);
+    Vector2 relPos = points.pos[pointIndex] - averageVelocity.centerOfMass;
+
+    Vector2 rotationVelocity = Vector2(-relPos.y, relPos.x) * averageVelocity.angularVelocity;
+    Vector2 targetVelocity = averageVelocity.centerOfMassVelocity + rotationVelocity;
+    // Damping is handled by the shape matching system
+    if (offsetLength > 0.001f)
+    {
+        derivative.acceleration += direction * stiffness;
+        Vector2 velocityDifference = targetVelocity - points.velocity[pointIndex];
+        // derivative.acceleration += velocityDifference * damping;
     }
 }
 
