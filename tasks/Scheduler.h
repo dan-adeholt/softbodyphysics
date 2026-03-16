@@ -47,6 +47,7 @@ public:
     void schedule(Task *tasks, int numTasks);
 
     bool active() const;
+    static bool supportsWorkers();
     static constexpr int maxNumThreads = 64;
     static int numTasks;
 

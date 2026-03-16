@@ -6,3 +6,9 @@ build-release
 build
 window_settings.txt
 editor_state.ini
+build-web-debug
+build-web-release
+.cache
+node_modules
+web/dist
+web/public/generated

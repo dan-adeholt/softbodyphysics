@@ -7,6 +7,7 @@
 #include "../containers/StringBuffer.h"
 #include <SDL3/SDL.h>
 #include <dirent.h>
+#include <stdlib.h>
 
 //  interiorEdges=0,1,0,0
 //  interiorEdges=0,1,0,1

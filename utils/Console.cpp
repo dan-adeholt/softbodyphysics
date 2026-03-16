@@ -90,6 +90,11 @@ ConsoleState *allocConsoleState()
     return new ConsoleState();
 }
 
+void freeConsoleState(ConsoleState *consoleState)
+{
+    delete consoleState;
+}
+
 void Console::setConsoleState(ConsoleState *newState)
 {
     state = newState;

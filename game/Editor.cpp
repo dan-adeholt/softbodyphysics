@@ -17,16 +17,15 @@
 #include "../fontawesome/IconsFontAwesome4.h"
 #include "../utils/MinMax.h"
 #include "ShapeResources.h"
+#include <stdlib.h>
 
 const char *contextMenu = "Context menu";
 const char *bridgePopup = "Bridge";
 
-#ifdef __APPLE__
+#if !defined(_WIN32)
 #include <dirent.h>
 #include <sys/stat.h>
 #include "Editor.h"
-#else
-// TODO: Implement for other platforms
 #endif
 
 const char *levelsDirectory = "levels";
@@ -124,7 +123,7 @@ Editor::Editor(const char *appPath)
     m = new Impl;
     m->appPath = appPath;
 
-#ifdef __APPLE__
+#if !defined(_WIN32)
     DIR *dir = opendir(levelsDirectory);
     if (dir == NULL)
     {
@@ -135,7 +134,21 @@ Editor::Editor(const char *appPath)
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL)
     {
-        if (entry->d_type == DT_REG)
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+        {
+            continue;
+        }
+
+        bool isRegularFile = entry->d_type == DT_REG;
+        if (entry->d_type == DT_UNKNOWN)
+        {
+            StringBuffer<MAX_FILENAME_LENGTH> fullPath;
+            fullPath.append("%s/%s", levelsDirectory, entry->d_name);
+            struct stat fileStat = {};
+            isRegularFile = stat(fullPath.data, &fileStat) == 0 && S_ISREG(fileStat.st_mode);
+        }
+
+        if (isRegularFile)
         {
             FileEntry fileEntry;
             fileEntry.name.append(entry->d_name);
@@ -244,6 +257,8 @@ bool ImGuiBeginTallerMenu(const char *menuName)
 
 void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 {
+    const float editorSidebarWidth = 380.0f;
+    const float sceneWindowOffsetX = editorSidebarWidth - 4.0f;
     bool triggerBridgePopup = false;
     bool triggerOpenPopup = false;
     int deleteGameIndex = -1;
@@ -260,8 +275,8 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4.0f, 9.0f));
 
-    ImGui::SetNextWindowSizeConstraints(ImVec2(250, displaySize.y - 283), ImVec2(250, displaySize.y - 283));
-    ImGui::SetNextWindowPos(ImVec2(250, 22), ImGuiCond_Always, ImVec2(1, 0));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(editorSidebarWidth, displaySize.y - 283), ImVec2(editorSidebarWidth, displaySize.y - 283));
+    ImGui::SetNextWindowPos(ImVec2(editorSidebarWidth, 22), ImGuiCond_Always, ImVec2(1, 0));
 
     if (ImGui::Begin("Editor", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize))
     {
@@ -355,6 +370,22 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 
             if (ImGui::BeginTabItem("Profiler"))
             {
+                ImGui::Text("FPS: %.1lf", profileInfo.displayedFps);
+                ImGui::Text("Raw frame time: %.2lf ms", profileInfo.rawFrameTimeMillis);
+                ImGui::Text("Displayed frame time: %.2lf ms", profileInfo.displayedFrameTimeMillis);
+                if (profileInfo.frameTimeSnappingEnabled)
+                {
+                    ImGui::Text("Tick mode: fixed target");
+                    ImGui::Text("Tick target: %.1lf Hz", profileInfo.targetTickRate);
+                    ImGui::Text("Tick frame time: %.2lf ms", profileInfo.targetFrameTimeMillis);
+                }
+                else
+                {
+                    ImGui::Text("Tick mode: display refresh");
+                    ImGui::Text("Tick target: raw requestAnimationFrame delta");
+                }
+
+                ImGui::Text("Frame snap: %s", profileInfo.frameTimeSnappingEnabled ? "enabled" : "disabled");
                 ImGui::Text("Slowdown factor: %.1lf", profileInfo.slowdownFactor);
                 ImGui::Text("Total Physics time: %.1lf ms", profileInfo.totalPhysicsTimeMillis);
                 ImGui::Text("Elapsed step time: %.1lf ms", profileInfo.elapsedStepTimeMillis);
@@ -625,8 +656,8 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 
-    ImGui::SetNextWindowSizeConstraints(ImVec2(displaySize.x - 246, 29), ImVec2(displaySize.x - 246, 29));
-    ImGui::SetNextWindowPos(ImVec2(246, 23), ImGuiCond_Always, ImVec2(0, 0));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(displaySize.x - sceneWindowOffsetX, 29), ImVec2(displaySize.x - sceneWindowOffsetX, 29));
+    ImGui::SetNextWindowPos(ImVec2(sceneWindowOffsetX, 23), ImGuiCond_Always, ImVec2(0, 0));
 
     if (ImGui::Begin("Scenes window", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoDecoration))
     {

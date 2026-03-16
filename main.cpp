@@ -1,35 +1,69 @@
 #include <SDL3/SDL.h>
+#include <assert.h>
+#include <math.h>
 #include <stdio.h>
+#include <unistd.h>
+
 #include "containers/Array.h"
+#include "containers/Array.test.h"
 #include "containers/StringBuffer.h"
-#include "timer.h"
-#include "game/Game.h"
+#include "fontawesome/IconsFontAwesome4.h"
 #include "game/Editor.h"
-#include "./physics/PhysicsSpace.h"
-#include "./physics/PhysicsSpaceStorage.h"
-#include "./game/GameRenderer.h"
+#include "game/Game.h"
+#include "game/GameKeyCode.h"
+#include "game/GameRenderer.h"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlrenderer3.h"
-#include "utils/Console.h"
-#include "containers/Array.test.h"
-#include "physics/Physics.test.h"
-#include "tasks/Scheduler.h"
-#include "utils/UnitTestUtil.h"
 #include "main.h"
-#include "fontawesome/IconsFontAwesome4.h"
-#include "game/GameKeyCode.h"
-#include "utils/DynamicLibrary.h"
+#include "physics/Physics.test.h"
+#include "physics/PhysicsSpace.h"
+#include "physics/PhysicsSpaceStorage.h"
+#include "tasks/Scheduler.h"
+#include "timer.h"
+#include "utils/Console.h"
 #include "utils/CustomFont.h"
-#include <unistd.h>
-#include <math.h>
+#include "utils/DynamicLibrary.h"
+#include "utils/UnitTestUtil.h"
 
 #define NUM_PROFILE_AVERAGES 10
+
 ConsoleProfileInfo consoleProfileInfoAverages[NUM_PROFILE_AVERAGES] = {};
+
+struct GameApp
+{
+    SDL_Window *window = nullptr;
+    SDL_Renderer *renderer = nullptr;
+    bool vsync = true;
+    double frameTime = 1000.0 / 60.0;
+    bool snapElapsedToFrameTime = true;
+    ConsoleState *consoleState = nullptr;
+    StringBuffer<512> levelsPath;
+    StringBuffer<1024> windowTitle;
+    Editor *editor = nullptr;
+    GameRenderer *gameRenderer = nullptr;
+    ImFont *boldFont = nullptr;
+    uint64_t startNanos = 0;
+    bool pausedDueToFocus = false;
+    bool showDemoWindow = false;
+    bool libraryReloaded = false;
+    double rawFrameTimeMillis = 0.0;
+    double displayedFrameTimeMillis = 0.0;
+    double displayedFps = 0.0;
+    ConsoleProfileInfo profileInfo = {};
+};
+
+static bool shouldUseBackgroundScheduler()
+{
+#ifdef __EMSCRIPTEN__
+    return false;
+#else
+    return Scheduler::supportsWorkers();
+#endif
+}
 
 ConsoleProfileInfo getConsoleProfileInfoAverage(ConsoleProfileInfo newProfileInfo)
 {
-    // Push the new profile info into the averages
     for (int i = NUM_PROFILE_AVERAGES - 1; i > 0; i--)
     {
         consoleProfileInfoAverages[i] = consoleProfileInfoAverages[i - 1];
@@ -82,15 +116,25 @@ ConsoleProfileInfo getConsoleProfileInfoAverage(ConsoleProfileInfo newProfileInf
     return average;
 }
 
-void dumpWindowGeometry(int windowPosX, int windowPosY, int windowWidth, int windowHeight)
+static void dumpWindowGeometry(int windowPosX, int windowPosY, int windowWidth, int windowHeight)
 {
+#ifndef __EMSCRIPTEN__
     FILE *f = fopen("window_settings.txt", "w");
+    if (f == nullptr)
+    {
+        return;
+    }
+
     fprintf(f, "%d %d %d %d\n", windowPosX, windowPosY, windowWidth, windowHeight);
     fclose(f);
     fflush(f);
+#else
+    (void)windowPosX;
+    (void)windowPosY;
+    (void)windowWidth;
+    (void)windowHeight;
+#endif
 }
-
-// #include "physics/PhysicsSIMD.h"
 
 int getSdlModState()
 {
@@ -218,27 +262,23 @@ GameKeyCode convertSdlKeycode(SDL_Keycode code)
     }
 }
 
-extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, double frameTime, ConsoleState *consoleState)
+static float queryDisplayContentScale()
 {
-    Scheduler::instance->start();
-    Console::setConsoleState(consoleState);
-
     SDL_DisplayID display = SDL_GetPrimaryDisplay();
-
-    // 2. Query its content scale
     float contentScale = SDL_GetDisplayContentScale(display);
+
     if (contentScale <= 0.0f)
     {
         SDL_Log("SDL_GetDisplayContentScale failed for display %d: %s",
                 display, SDL_GetError());
+        return 1.0f;
     }
 
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
+    return contentScale;
+}
 
-    /////////////
-
+static void configureFonts(ImGuiIO &io, ImFont *&boldFont, float contentScale)
+{
     ImFontConfig baseFontConfig;
     ImFontConfig iconFontConfig;
 
@@ -251,30 +291,59 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
     ImFont *font = io.Fonts->AddFontFromFileTTF("data/JetBrainsMono-Regular.ttf", 17.0f, &baseFontConfig);
 
     iconFontConfig.MergeMode = true;
-    float baseFontSize = 16.0f;
-    float iconFontSize = baseFontSize;
-
-    iconFontConfig.GlyphMinAdvanceX = 16.0f; // Use if you want to make the icon monospaced
+    iconFontConfig.GlyphMinAdvanceX = 16.0f;
     static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
-    io.Fonts->AddFontFromFileTTF("data/fontawesome-webfont.ttf", iconFontSize, &iconFontConfig, icon_ranges);
+    io.Fonts->AddFontFromFileTTF("data/fontawesome-webfont.ttf", 16.0f, &iconFontConfig, icon_ranges);
 
-    ImFont *boldFont = io.Fonts->AddFontFromFileTTF("data/JetBrainsMono-ExtraBold.ttf", 15.0f, &baseFontConfig);
+    boldFont = io.Fonts->AddFontFromFileTTF("data/JetBrainsMono-ExtraBold.ttf", 15.0f, &baseFontConfig);
     if (contentScale < 2.0f)
     {
-        CustomFontEntry fonts[] = {
-            {.font = font, .path = "data/jetbrains.fnt", .imagePath = "data/jetbrains.png", .fixedYOffset = -2},
-            {.font = boldFont, .path = "data/jetbrainsbold.fnt", .imagePath = "data/jetbrainsbold.png", .fixedYOffset = -2},
-        };
+        CustomFontEntry fonts[2] = {};
+        fonts[0].font = font;
+        fonts[0].path = "data/jetbrains.fnt";
+        fonts[0].imagePath = "data/jetbrains.png";
+        fonts[0].fixedYOffset = -2;
+
+        fonts[1].font = boldFont;
+        fonts[1].path = "data/jetbrainsbold.fnt";
+        fonts[1].imagePath = "data/jetbrainsbold.png";
+        fonts[1].fixedYOffset = -2;
 
         CustomFont::load(fonts);
     }
+}
 
-    ///////////////
+GameApp *createGameApp(SDL_Window *window, SDL_Renderer *renderer, bool vsync, double frameTime, bool snapElapsedToFrameTime, ConsoleState *consoleState)
+{
+    if (Scheduler::instance == nullptr)
+    {
+        Scheduler::instance = new Scheduler();
+    }
 
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
-    // Setup Dear ImGui style
-    // ImGui::StyleColorsDark();
+    if (shouldUseBackgroundScheduler())
+    {
+        Scheduler::instance->start();
+    }
+
+    Console::setConsoleState(consoleState);
+
+    GameApp *app = new GameApp();
+    app->window = window;
+    app->renderer = renderer;
+    app->vsync = vsync;
+    app->frameTime = frameTime;
+    app->snapElapsedToFrameTime = snapElapsedToFrameTime;
+    app->consoleState = consoleState;
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+
+    configureFonts(io, app->boldFont, queryDisplayContentScale());
+
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+
     ImGui::StyleColorsLight();
     ImGuiStyle &style = ImGui::GetStyle();
     style.Colors[ImGuiCol_MenuBarBg] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -283,49 +352,74 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
     style.Colors[ImGuiCol_Text] = ImVec4(0.06f, 0.06f, 0.06f, 1.0f);
     ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer3_Init(renderer);
-    ImGui::GetIO().KeyRepeatDelay = 0.06f;
-    ImGui::GetIO().KeyRepeatRate = 0.02f;
-
-    uint64_t programStartNanos = monotonicTimeNanos();
-
-    SDL_Event event;
-
-    float mouseX = -1;
-    float mouseY = -1;
+    io.KeyRepeatDelay = 0.06f;
+    io.KeyRepeatRate = 0.02f;
 
     char cwd[512];
-    bool cwdResult = getcwd(cwd, sizeof(cwd));
+    bool cwdResult = getcwd(cwd, sizeof(cwd)) != nullptr;
     assert(cwdResult);
-    StringBuffer<512> levelsPath;
-    levelsPath.append("%s/levels", cwd);
-    Editor editor(levelsPath.data);
 
-    const char *lastSceneName = editor.lastSceneName();
-    StringBuffer<1024> title;
-    title.append("Soft body physics - %s", lastSceneName == nullptr ? "No scene" : lastSceneName);
-    SDL_SetWindowTitle(window, title.data);
-    Console::log("Last scene: %s\n", editor.lastSceneName());
-    uint64_t startNanos = monotonicTimeNanos();
-    bool show_demo_window = false;
+    app->levelsPath.append("%s/levels", cwd);
+    app->editor = new Editor(app->levelsPath.data);
 
-    // UnitTestUtil::runTests();
-    ConsoleProfileInfo profileInfo = {};
+    const char *lastSceneName = app->editor->lastSceneName();
+    app->windowTitle.append("Soft body physics - %s", lastSceneName == nullptr ? "No scene" : lastSceneName);
+    SDL_SetWindowTitle(window, app->windowTitle.data);
+    Console::log("Last scene: %s\n", app->editor->lastSceneName());
 
-    GameRenderer gameRenderer(renderer);
-    startNanos = monotonicTimeNanos();
-    bool pausedDueToFocus = false;
+    app->gameRenderer = new GameRenderer(renderer);
+    app->startNanos = monotonicTimeNanos();
+    return app;
+}
 
-    bool libraryReloaded = false;
-
-    while (!libraryReloaded)
+static void updateDisplayedFrameStats(GameApp *app, double rawElapsedMilliseconds)
+{
+    if (rawElapsedMilliseconds <= 0.0)
     {
-        Game *game = editor.getCurrentGame();
+        return;
+    }
 
-        if (game->shouldQuit())
-        {
-            break;
-        }
+    app->rawFrameTimeMillis = rawElapsedMilliseconds;
 
+    if (app->displayedFrameTimeMillis <= 0.0)
+    {
+        app->displayedFrameTimeMillis = rawElapsedMilliseconds;
+    }
+    else
+    {
+        const double smoothingAlpha = 0.15;
+        app->displayedFrameTimeMillis += (rawElapsedMilliseconds - app->displayedFrameTimeMillis) * smoothingAlpha;
+    }
+
+    app->displayedFps = 1000.0 / app->displayedFrameTimeMillis;
+}
+
+static void updateProfileFrameStats(GameApp *app)
+{
+    app->profileInfo.rawFrameTimeMillis = app->rawFrameTimeMillis;
+    app->profileInfo.displayedFrameTimeMillis = app->displayedFrameTimeMillis;
+    app->profileInfo.displayedFps = app->displayedFps;
+    app->profileInfo.targetFrameTimeMillis = app->frameTime;
+    app->profileInfo.targetTickRate = app->frameTime > 0.0 ? 1000.0 / app->frameTime : 0.0;
+    app->profileInfo.frameTimeSnappingEnabled = app->vsync && app->snapElapsedToFrameTime && app->frameTime > 0.0;
+}
+
+bool tickGameApp(GameApp *app)
+{
+    if (app == nullptr)
+    {
+        return false;
+    }
+
+    Game *game = app->editor->getCurrentGame();
+
+    if (game->shouldQuit())
+    {
+        return false;
+    }
+
+    if (shouldUseBackgroundScheduler())
+    {
         if (game->paused() && Scheduler::instance->active())
         {
             Scheduler::instance->stop();
@@ -334,210 +428,235 @@ extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, 
         {
             Scheduler::instance->start();
         }
+    }
 
-        // Start the Dear ImGui frame
-        ImGui_ImplSDLRenderer3_NewFrame();
-        ImGui_ImplSDL3_NewFrame();
+    ImGui_ImplSDLRenderer3_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
+    ImGui::NewFrame();
 
-        ImGui::NewFrame();
+    bool processInput = !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
+    SDL_Event event;
 
-        bool processInput = !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
+    while (SDL_PollEvent(&event))
+    {
+        ImGui_ImplSDL3_ProcessEvent(&event);
 
-        while (SDL_PollEvent(&event))
+        switch (event.type)
         {
-            ImGui_ImplSDL3_ProcessEvent(&event);
-
-            switch (event.type)
+        case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            Console::log("Focus gained");
+            if (app->pausedDueToFocus)
             {
-            case SDL_EVENT_WINDOW_FOCUS_GAINED:
-                Console::log("Focus gained");
-                if (pausedDueToFocus)
-                {
-                    game->togglePaused();
-                    pausedDueToFocus = false;
-                }
-                break;
-            case SDL_EVENT_WINDOW_FOCUS_LOST:
-                Console::log("Focus lost");
-                if (!game->paused())
-                {
-                    game->togglePaused();
-                    pausedDueToFocus = true;
-                }
-                break;
-                // Window moved or resized are now distinct events
-            case SDL_EVENT_WINDOW_MOVED: // Window has been moved to data1, data2 :contentReference[oaicite:0]{index=0}
-            case SDL_EVENT_WINDOW_RESIZED:
-            { // Window has been resized to data1×data2 :contentReference[oaicite:1]{index=1}
-                int x, y, w, h;
-                SDL_GetWindowPosition(window, &x, &y);
-                SDL_GetWindowSize(window, &w, &h);
-                dumpWindowGeometry(x, y, w, h);
-                break;
+                game->togglePaused();
+                app->pausedDueToFocus = false;
             }
-
-            case SDL_EVENT_QUIT: // formerly SDL_QUIT :contentReference[oaicite:2]{index=2}
-                game->setShouldQuit();
-                break;
-
-            case SDL_EVENT_KEY_DOWN:
-            { // formerly SDL_KEYDOWN :contentReference[oaicite:3]{index=3}
-                if (processInput)
-                {
-                    // ‘keysym’ was removed in SDL3; use event.key.key directly :contentReference[oaicite:4]{index=4}
-                    GameKeyCode keyCode = convertSdlKeycode(event.key.key);
-                    if (keyCode != GameKeyCode::NUM_KEY_CODES)
-                    {
-                        game->keyDown(keyCode, getSdlModState(), profileInfo);
-                    }
-                }
-                break;
+            break;
+        case SDL_EVENT_WINDOW_FOCUS_LOST:
+            Console::log("Focus lost");
+            if (!game->paused())
+            {
+                game->togglePaused();
+                app->pausedDueToFocus = true;
             }
-            case SDL_EVENT_KEY_UP:
-            { // formerly SDL_KEYUP :contentReference[oaicite:5]{index=5}
-                if (processInput)
+            break;
+        case SDL_EVENT_WINDOW_MOVED:
+        case SDL_EVENT_WINDOW_RESIZED:
+        {
+            int x = 0;
+            int y = 0;
+            int w = 0;
+            int h = 0;
+            SDL_GetWindowPosition(app->window, &x, &y);
+            SDL_GetWindowSize(app->window, &w, &h);
+            dumpWindowGeometry(x, y, w, h);
+            break;
+        }
+        case SDL_EVENT_QUIT:
+            game->setShouldQuit();
+            break;
+        case SDL_EVENT_KEY_DOWN:
+        {
+            if (processInput)
+            {
+                GameKeyCode keyCode = convertSdlKeycode(event.key.key);
+                if (keyCode != GameKeyCode::NUM_KEY_CODES)
                 {
-                    GameKeyCode keyCode = convertSdlKeycode(event.key.key);
-                    if (keyCode != GameKeyCode::NUM_KEY_CODES)
-                    {
-                        game->keyUp(keyCode, getSdlModState(), profileInfo);
-                    }
+                    game->keyDown(keyCode, getSdlModState(), app->profileInfo);
                 }
-                break;
             }
-
-            case SDL_EVENT_MOUSE_WHEEL: // formerly SDL_MOUSEWHEEL :contentReference[oaicite:6]{index=6}
-                if (processInput && (SDL_GetModState() & SDL_KMOD_ALT))
+            break;
+        }
+        case SDL_EVENT_KEY_UP:
+        {
+            if (processInput)
+            {
+                GameKeyCode keyCode = convertSdlKeycode(event.key.key);
+                if (keyCode != GameKeyCode::NUM_KEY_CODES)
                 {
-                    // x/y names are unchanged on SDL_MouseWheelEvent in SDL3 :contentReference[oaicite:7]{index=7}
-                    game->mouseWheel(event.wheel.x, event.wheel.y);
+                    game->keyUp(keyCode, getSdlModState(), app->profileInfo);
                 }
-                break;
-
-            case SDL_EVENT_MOUSE_BUTTON_DOWN: // formerly SDL_MOUSEBUTTONDOWN :contentReference[oaicite:8]{index=8}
-                if (processInput)
-                {
-                    game->onMouseDown(
-                        event.button.button,
-                        event.button.x,
-                        event.button.y,
-                        SDL_GetModState() & SDL_KMOD_SHIFT);
-                }
-                break;
-
-            case SDL_EVENT_MOUSE_BUTTON_UP: // formerly SDL_MOUSEBUTTONUP :contentReference[oaicite:9]{index=9}
-                // still always reset state on mouse up
-                game->onMouseUp(
+            }
+            break;
+        }
+        case SDL_EVENT_MOUSE_WHEEL:
+            if (processInput && (SDL_GetModState() & SDL_KMOD_ALT))
+            {
+                game->mouseWheel(event.wheel.x, event.wheel.y);
+            }
+            break;
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            if (processInput)
+            {
+                game->onMouseDown(
                     event.button.button,
                     event.button.x,
                     event.button.y,
                     SDL_GetModState() & SDL_KMOD_SHIFT);
-                break;
+            }
+            break;
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+            game->onMouseUp(
+                event.button.button,
+                event.button.x,
+                event.button.y,
+                SDL_GetModState() & SDL_KMOD_SHIFT);
+            break;
+        case SDL_EVENT_MOUSE_MOTION:
+            if (processInput)
+            {
+                game->onMouseMove(
+                    event.motion.x,
+                    event.motion.y,
+                    event.motion.xrel,
+                    event.motion.yrel);
+            }
+            break;
+        default:
+            break;
+        }
+    }
 
-            case SDL_EVENT_MOUSE_MOTION: // formerly SDL_MOUSEMOTION :contentReference[oaicite:10]{index=10}
-                mouseX = event.motion.x;
-                mouseY = event.motion.y;
-                if (processInput)
-                {
-                    game->onMouseMove(
-                        event.motion.x,
-                        event.motion.y,
-                        event.motion.xrel,
-                        event.motion.yrel);
-                }
-                break;
-            default:
+    uint64_t endNanos = monotonicTimeNanos();
+    uint64_t elapsedNanos = endNanos - app->startNanos;
+    double rawElapsedMilliseconds = static_cast<double>(elapsedNanos) / 1000000.0;
+    app->startNanos = endNanos;
+    updateDisplayedFrameStats(app, rawElapsedMilliseconds);
+    updateProfileFrameStats(app);
+
+    double elapsedMilliseconds = rawElapsedMilliseconds;
+
+#ifndef __EMSCRIPTEN__
+    if (DynamicLibrary::hasLibraryChanged())
+    {
+        app->libraryReloaded = true;
+        Console::log("Library changed, reloading");
+        return false;
+    }
+
+    Console::checkLogFile();
+#endif
+
+    if (app->vsync && app->snapElapsedToFrameTime && app->frameTime > 0.0)
+    {
+        for (int elapsedFrameCount = 1; elapsedFrameCount < 5; elapsedFrameCount++)
+        {
+            double lockedElapsedMilliseconds = app->frameTime * elapsedFrameCount;
+            if (fabs(lockedElapsedMilliseconds - elapsedMilliseconds) < app->frameTime * 0.5)
+            {
+                elapsedMilliseconds = lockedElapsedMilliseconds;
                 break;
             }
         }
+    }
 
-        uint64_t endNanos = monotonicTimeNanos();
-        uint64_t elapsedNanos = endNanos - startNanos;
-
-        double elapsedMilliseconds = elapsedNanos / 1000000.0;
-
-        startNanos = endNanos;
-
-        if (DynamicLibrary::hasLibraryChanged())
+    if (!game->paused())
+    {
+        if (app->editor->executingTest())
         {
-            libraryReloaded = true;
-            Console::log("Library changed, reloading");
-        }
-
-        Console::checkLogFile();
-
-        if (vsync)
-        {
-            // We are using vsync, if so, try to match the elapsed milliseconds to
-            // the same rate as the refresh rate.
-            for (int elapsedFrameCount = 1; elapsedFrameCount < 5; elapsedFrameCount++)
-            {
-                double lockedElapsedMilliseconds = frameTime * elapsedFrameCount;
-
-                if (fabs(lockedElapsedMilliseconds - elapsedMilliseconds) < frameTime * 0.5)
-                {
-                    elapsedMilliseconds = lockedElapsedMilliseconds;
-                    break;
-                }
-            }
-        }
-
-        // printf("Elapsed milliseconds: %f\n", elapsedMilliseconds);
-
-        if (!game->paused())
-        {
-            if (editor.executingTest())
-            {
-                editor.stepTest(game, elapsedMilliseconds, profileInfo);
-            }
-            else
-            {
-                Timer totalPhysicsTimer;
-                game->update(elapsedMilliseconds, false, profileInfo);
-                profileInfo.totalPhysicsTimeMillis = totalPhysicsTimer.elapsedMillis();
-            }
+            app->editor->stepTest(game, elapsedMilliseconds, app->profileInfo);
         }
         else
         {
-            if (game->renderSettings().clearDebugGeometryWhenPaused)
-            {
-                Console::clearFrame();
-            }
+            Timer totalPhysicsTimer;
+            game->update(elapsedMilliseconds, false, app->profileInfo);
+            app->profileInfo.totalPhysicsTimeMillis = totalPhysicsTimer.elapsedMillis();
         }
-
-        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-        if (show_demo_window)
-            ImGui::ShowDemoWindow(&show_demo_window);
-
-        Timer renderTimer;
-
-        SDL_SetRenderScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
-        SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 255);
-        SDL_RenderClear(renderer);
-
-        gameRenderer.renderGame(renderer, *game, profileInfo);
-        profileInfo.renderTimeMillis = renderTimer.elapsedMillis();
-        ConsoleProfileInfo averageProfileInfo = getConsoleProfileInfoAverage(profileInfo);
-
-        Console::draw(profileInfo, game->scale(), game->offset(), boldFont);
-        editor.renderUI(*game, averageProfileInfo);
-        game = editor.getCurrentGame(); // Editor might have changed the game
-
-        ImGui::Render();
-        Timer extraDrawTimer;
-        ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer);
-        SDL_RenderPresent(renderer);
-        profileInfo.swapTimeMillis = extraDrawTimer.elapsedMillis();
+    }
+    else if (game->renderSettings().clearDebugGeometryWhenPaused)
+    {
+        Console::clearFrame();
     }
 
-    editor.saveState();
+    if (app->showDemoWindow)
+    {
+        ImGui::ShowDemoWindow(&app->showDemoWindow);
+    }
 
-    // Should do nicer cleanup
-    delete Scheduler::instance;
+    ImGuiIO &io = ImGui::GetIO();
+    Timer renderTimer;
+    SDL_SetRenderScale(app->renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
+    SDL_SetRenderDrawColor(app->renderer, 0xFF, 0xFF, 0xFF, 255);
+    SDL_RenderClear(app->renderer);
+
+    app->gameRenderer->renderGame(app->renderer, *game, app->profileInfo);
+    app->profileInfo.renderTimeMillis = renderTimer.elapsedMillis();
+    ConsoleProfileInfo averageProfileInfo = getConsoleProfileInfoAverage(app->profileInfo);
+    averageProfileInfo.rawFrameTimeMillis = app->profileInfo.rawFrameTimeMillis;
+    averageProfileInfo.displayedFrameTimeMillis = app->profileInfo.displayedFrameTimeMillis;
+    averageProfileInfo.displayedFps = app->profileInfo.displayedFps;
+    averageProfileInfo.targetFrameTimeMillis = app->profileInfo.targetFrameTimeMillis;
+    averageProfileInfo.targetTickRate = app->profileInfo.targetTickRate;
+    averageProfileInfo.frameTimeSnappingEnabled = app->profileInfo.frameTimeSnappingEnabled;
+
+    Console::draw(app->profileInfo, game->scale(), game->offset(), app->boldFont);
+    app->editor->renderUI(*game, averageProfileInfo);
+    game = app->editor->getCurrentGame();
+
+    ImGui::Render();
+    Timer presentTimer;
+    ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), app->renderer);
+    SDL_RenderPresent(app->renderer);
+    app->profileInfo.swapTimeMillis = presentTimer.elapsedMillis();
+
+    return !app->libraryReloaded && !game->shouldQuit();
+}
+
+void destroyGameApp(GameApp *app)
+{
+    if (app == nullptr)
+    {
+        return;
+    }
+
+    if (app->editor != nullptr)
+    {
+        app->editor->saveState();
+    }
+
+    delete app->gameRenderer;
+    delete app->editor;
+
+    if (Scheduler::instance != nullptr)
+    {
+        delete Scheduler::instance;
+        Scheduler::instance = nullptr;
+    }
 
     ImGui_ImplSDLRenderer3_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
 
-    return libraryReloaded ? 1 : 0;
+    delete app;
+}
+
+extern "C" int mainFunc(SDL_Window *window, SDL_Renderer *renderer, bool vsync, double frameTime, bool snapElapsedToFrameTime, ConsoleState *consoleState)
+{
+    GameApp *app = createGameApp(window, renderer, vsync, frameTime, snapElapsedToFrameTime, consoleState);
+    while (tickGameApp(app))
+    {
+    }
+
+    int result = app != nullptr && app->libraryReloaded ? 1 : 0;
+    destroyGameApp(app);
+    return result;
 }

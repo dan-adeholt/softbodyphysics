@@ -456,12 +456,14 @@ void Game::onMouseUp(int button, float x, float y, bool shiftDown)
 
         for (int i = 0; i < abs(m->addSubshapeData.repeatX); i++)
         {
-            Shapes::addSubshapeToShape(m->physicsSpace, m->addSubshapeData.sourcePos + Vector2(i * gridSize * signX, 0.0f), points);
+            float repeatedOffsetX = static_cast<float>(i) * gridSize * signX;
+            Shapes::addSubshapeToShape(m->physicsSpace, m->addSubshapeData.sourcePos + Vector2(repeatedOffsetX, 0.0f), points);
         }
 
         for (int i = 0; i < abs(m->addSubshapeData.repeatY); i++)
         {
-            Shapes::addSubshapeToShape(m->physicsSpace, m->addSubshapeData.sourcePos + Vector2(0.0f, signY * i * gridSize), points);
+            float repeatedOffsetY = signY * static_cast<float>(i) * gridSize;
+            Shapes::addSubshapeToShape(m->physicsSpace, m->addSubshapeData.sourcePos + Vector2(0.0f, repeatedOffsetY), points);
         }
 
         m->addSubshapeData.repeatX = 0;
@@ -581,16 +583,16 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
     switch (keyCode)
     {
     case GameKeyCode::LEFT:
-        m->offset += Vector2(nudge, 0.0f);
+        m->offset += Vector2(static_cast<float>(nudge), 0.0f);
         break;
     case GameKeyCode::RIGHT:
-        m->offset += Vector2(-nudge, 0.0f);
+        m->offset += Vector2(static_cast<float>(-nudge), 0.0f);
         break;
     case GameKeyCode::UP:
-        m->offset += Vector2(0.0f, nudge);
+        m->offset += Vector2(0.0f, static_cast<float>(nudge));
         break;
     case GameKeyCode::DOWN:
-        m->offset += Vector2(0.0f, -nudge);
+        m->offset += Vector2(0.0f, static_cast<float>(-nudge));
         break;
     case GameKeyCode::BACKSPACE:
         m->physicsSpace.removeShape(m->selectedShapeIndex);
