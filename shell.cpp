@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
             break;
         }
 
-        auto runGameFn = (int (*)(SDL_Window *window, SDL_Renderer *renderer, bool vsync, double frameTime, ConsoleState *state))dlsym(handle, "mainFunc");
+        auto runGameFn = (int (*)(SDL_Window *window, SDL_Renderer *renderer, bool vsync, double frameTime, bool snapElapsedToFrameTime, ConsoleState *state))dlsym(handle, "mainFunc");
 
         if (!runGameFn)
         {
@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
         // 7. Run the game
         // int result = 0; // runGameFn(renderer, vsync, frameTime);
 
-        int result = runGameFn(window, renderer, vsync, frameTime, consoleState);
+        int result = runGameFn(window, renderer, vsync, frameTime, true, consoleState);
         // 8. Close library
         dlclose(handle);
 

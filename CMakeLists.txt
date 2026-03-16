@@ -1,17 +1,15 @@
 cmake_minimum_required(VERSION 3.10)
-#project(SoftBodyPhysics LANGUAGES CXX ISPC)
 project(SoftBodyPhysics LANGUAGES CXX)
 
-include(CTest)   # or enable_testing()
+include(CTest)
 
-set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-# Set the compiler flags for the debug build type
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Og -g -fno-omit-frame-pointer -finline-functions")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -UNDEBUG")
-set(CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE}   -UNDEBUG")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -UNDEBUG")
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(
@@ -26,7 +24,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         -Werror=uninitialized
         -Wno-unused-variable
         -Wno-unused-parameter
-        -Wno-unused-but-set-variable        
+        -Wno-unused-but-set-variable
     )
 endif()
 
@@ -43,53 +41,20 @@ if(MSVC)
     )
 endif()
 
-# ISPC settings for ARM (M1)
-set(CMAKE_ISPC_INSTRUCTION_SETS "neon")
+if(NOT EMSCRIPTEN)
+    if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+        add_compile_options(-fno-exceptions -fno-rtti -nostdlib++)
+    elseif(MSVC)
+        add_compile_options(/EHsc- /GR- /Zl)
+    endif()
 
-# Disable exceptions
-if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    add_compile_options(-fno-exceptions -fno-rtti -nostdlib++)
-elseif(MSVC)
-    add_compile_options(/EHsc- /GR- /Zl)
+    set(CMAKE_INSTALL_RPATH "/Library/Frameworks")
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+    find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
 endif()
 
-set(CMAKE_INSTALL_RPATH "/Library/Frameworks")
-set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-
-
-find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
-
-# ISPC compilation
-# add_custom_command(
-#     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o
-#     COMMAND ispc ${CMAKE_CURRENT_SOURCE_DIR}/physics/PhysicsSIMD.ispc
-#             -o ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o
-#             -h ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD_ispc.h
-#             ${CMAKE_ISPC_FLAGS}
-#             --target=${CMAKE_ISPC_INSTRUCTION_SETS}
-#     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/physics/PhysicsSIMD.ispc
-#     COMMENT "Compiling ISPC file PhysicsSIMD.ispc"
-# )
-
-
-
-# Path to the Python script
-set(FIND_TESTS_SCRIPT "${CMAKE_SOURCE_DIR}/find_tests.py")
-
-# Run the Python script to generate a temporary CMake file with add_test calls
-execute_process(
-    COMMAND python3 "${FIND_TESTS_SCRIPT}"
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-    OUTPUT_FILE "${CMAKE_BINARY_DIR}/generated_tests.cmake"
-    RESULT_VARIABLE result
-)
-
-
-if(result)
-    message(FATAL_ERROR "Failed to run ${FIND_TESTS_SCRIPT}")
-endif()
-
-SET(SOURCE_FILES timer.cpp
+set(SOURCE_FILES
+    timer.cpp
     game/Game.cpp
     game/Editor.cpp
     game/Scenes.cpp
@@ -138,96 +103,125 @@ SET(SOURCE_FILES timer.cpp
     tasks/Scheduler.h
     stb_image/stb_image.cpp
     stb_sprintf/stb_sprintf.cpp
-    utils/DynamicLibrary.cpp
     utils/Console.h
     utils/UnitTestUtil.h
     utils/MinMax.h
     utils/DynamicLibrary.h
     utils/CustomFont.h
-    
     containers/Array.h
     containers/ContainerPlatform.h
     containers/Range.h
     containers/Span.h
-    # ${CMAKE_CURRENT_BINARY_DIR}/PhysicsSIMD.o
 )
 
-# This is our icon
-set(MYGAME_ICON "${CMAKE_CURRENT_SOURCE_DIR}/icon.icns")
-
-# Mark it as a resource file in the macOS bundle
-set_source_files_properties(${MYGAME_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
-
-
-add_library(SoftBodyPhysicsShared SHARED
-    main.cpp
-    ${SOURCE_FILES}
+set(NATIVE_ONLY_SOURCE_FILES
+    utils/DynamicLibrary.cpp
 )
 
-add_executable(SoftBodyPhysics MACOSX_BUNDLE
-    shell.cpp
-    ${SOURCE_FILES}
-    ${MYGAME_ICON}
-)
+function(configure_common_target target_name)
+    target_include_directories(${target_name} PRIVATE "${CMAKE_SOURCE_DIR}/imgui")
+    target_include_directories(${target_name} PRIVATE "${CMAKE_SOURCE_DIR}/external/include")
 
+    if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+        target_link_libraries(${target_name} PRIVATE c)
+    endif()
+endfunction()
 
-# Add to make xcode happy
-# target_link_libraries(SoftBodyPhysics PRIVATE SoftBodyPhysicsShared)
+if(EMSCRIPTEN)
+    file(MAKE_DIRECTORY "${CMAKE_SOURCE_DIR}/web/public/generated")
 
- add_executable(PerfTest
-    perftest.cpp
-    ${SOURCE_FILES}
- ) 
+    add_executable(SoftBodyPhysicsWeb
+        web_main.cpp
+        main.cpp
+        ${SOURCE_FILES}
+    )
 
- add_executable(SoftBodyPhysicsTests
-    tests.cpp
-    ${SOURCE_FILES}
- )  
+    configure_common_target(SoftBodyPhysicsWeb)
+    target_compile_options(SoftBodyPhysicsWeb PRIVATE
+        -Wno-error
+        -Wno-error=c++20-designator
+        -Wno-error=deprecated-pragma
+        -Wno-error=implicit-int-float-conversion
+        -Wno-error=missing-designated-field-initializers
+        -Wno-error=reorder-init-list
+        -Wno-error=uninitialized
+        -Wno-error=uninitialized-const-pointer
+    )
 
-target_include_directories(SoftBodyPhysicsShared PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
-target_include_directories(SoftBodyPhysics PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
-target_include_directories(PerfTest PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
-target_include_directories(SoftBodyPhysicsTests PRIVATE ${CMAKE_SOURCE_DIR}/imgui)
+    set_target_properties(SoftBodyPhysicsWeb PROPERTIES
+        OUTPUT_NAME "softbodyphysics"
+        SUFFIX ".js"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/web/public/generated"
+    )
 
-target_include_directories(SoftBodyPhysicsShared PRIVATE "${CMAKE_SOURCE_DIR}/external/include")
-target_include_directories(SoftBodyPhysics PRIVATE "${CMAKE_SOURCE_DIR}/external/include")
-target_include_directories(PerfTest PRIVATE "${CMAKE_SOURCE_DIR}/external/include")
-target_include_directories(SoftBodyPhysicsTests PRIVATE "${CMAKE_SOURCE_DIR}/external/include")
+    target_link_options(SoftBodyPhysicsWeb PRIVATE
+        "SHELL:-sUSE_SDL=3"
+        "SHELL:-sALLOW_MEMORY_GROWTH=1"
+        "SHELL:-sFORCE_FILESYSTEM=1"
+        "SHELL:-lidbfs.js"
+        "SHELL:-sMODULARIZE=1"
+        "SHELL:-sEXPORT_ES6=1"
+        "SHELL:-sEXPORT_NAME=createSoftBodyPhysicsModule"
+        "SHELL:-sEXIT_RUNTIME=0"
+        "SHELL:--pre-js ${CMAKE_SOURCE_DIR}/web/pre.js"
+        "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data@/data"
+        "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/levels@/levels"
+        "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/scenedefs@/scenedefs"
+    )
 
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_link_options(SoftBodyPhysicsWeb PRIVATE
+            "SHELL:-sASSERTIONS=2"
+        )
+    else()
+        target_link_options(SoftBodyPhysicsWeb PRIVATE "SHELL:-O3")
+    endif()
+else()
+    set(MYGAME_ICON "${CMAKE_CURRENT_SOURCE_DIR}/icon.icns")
+    set_source_files_properties(${MYGAME_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 
-# Link against C standard library
-if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    target_link_libraries(SoftBodyPhysics PRIVATE c)
-    target_link_libraries(PerfTest PRIVATE c)
-    target_link_libraries(SoftBodyPhysicsTests PRIVATE c)
-    target_link_libraries(SoftBodyPhysicsShared PRIVATE c)
+    add_library(SoftBodyPhysicsShared SHARED
+        main.cpp
+        ${SOURCE_FILES}
+        ${NATIVE_ONLY_SOURCE_FILES}
+    )
+
+    add_executable(SoftBodyPhysics MACOSX_BUNDLE
+        shell.cpp
+        ${SOURCE_FILES}
+        ${NATIVE_ONLY_SOURCE_FILES}
+        ${MYGAME_ICON}
+    )
+
+    add_executable(PerfTest
+        perftest.cpp
+        ${SOURCE_FILES}
+        ${NATIVE_ONLY_SOURCE_FILES}
+    )
+
+    add_executable(SoftBodyPhysicsTests
+        tests.cpp
+        ${SOURCE_FILES}
+        ${NATIVE_ONLY_SOURCE_FILES}
+    )
+
+    foreach(target_name IN ITEMS SoftBodyPhysicsShared SoftBodyPhysics PerfTest SoftBodyPhysicsTests)
+        configure_common_target(${target_name})
+        target_link_options(${target_name} PRIVATE "-F/Library/Frameworks")
+        target_link_libraries(${target_name} PRIVATE "-framework SDL3")
+    endforeach()
+
+    set(FIND_TESTS_SCRIPT "${CMAKE_SOURCE_DIR}/find_tests.py")
+    execute_process(
+        COMMAND python3 "${FIND_TESTS_SCRIPT}"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        OUTPUT_FILE "${CMAKE_BINARY_DIR}/generated_tests.cmake"
+        RESULT_VARIABLE result
+    )
+
+    if(result)
+        message(FATAL_ERROR "Failed to run ${FIND_TESTS_SCRIPT}")
+    endif()
+
+    include("${CMAKE_BINARY_DIR}/generated_tests.cmake")
 endif()
-
-# target_link_libraries(SoftBodyPhysicsShared PRIVATE SDL3::SDL3)
-# target_link_libraries(SoftBodyPhysics PRIVATE SDL3::SDL3)
-# target_link_libraries(PerfTest PRIVATE SDL3::SDL3)
-# target_link_libraries(SoftBodyPhysicsTests PRIVATE SDL3::SDL3)
-
-target_link_options(SoftBodyPhysicsShared PRIVATE "-F/Library/Frameworks")
-target_link_options(SoftBodyPhysics PRIVATE "-F/Library/Frameworks")
-target_link_options(PerfTest PRIVATE "-F/Library/Frameworks")
-target_link_options(SoftBodyPhysicsTests PRIVATE "-F/Library/Frameworks")
-
-target_link_libraries(SoftBodyPhysicsShared PRIVATE "-framework SDL3")
-target_link_libraries(SoftBodyPhysics PRIVATE "-framework SDL3")
-target_link_libraries(PerfTest PRIVATE "-framework SDL3")
-target_link_libraries(SoftBodyPhysicsTests PRIVATE "-framework SDL3")
-
-
-# message(STATUS "SDL3 Variables:")
-# get_cmake_property(_variableNames VARIABLES)
-# foreach (_variableName ${_variableNames})
-#     if (_variableName MATCHES "^SDL3|^SDL_")
-#         message(STATUS "${_variableName}=${${_variableName}}")
-#     endif()
-# endforeach()
-
-
-
-# Include the generated add_test calls
-include("${CMAKE_BINARY_DIR}/generated_tests.cmake")

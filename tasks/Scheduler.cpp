@@ -161,8 +161,22 @@ Scheduler::Scheduler()
     m = new Impl;
 }
 
+bool Scheduler::supportsWorkers()
+{
+#ifdef __EMSCRIPTEN__
+    return false;
+#else
+    return true;
+#endif
+}
+
 void Scheduler::start()
 {
+    if (!supportsWorkers() || m->initialized)
+    {
+        return;
+    }
+
     m->threadStop.store(false);
 
     for (int i = 0; i < Scheduler::numThreads; i++)
@@ -182,6 +196,11 @@ void Scheduler::start()
 
 void Scheduler::stop()
 {
+    if (!m->initialized)
+    {
+        return;
+    }
+
     m->threadStop.store(true);
 
     for (int i = 0; i < m->threads.size(); i++)
@@ -288,8 +307,11 @@ Thread::Thread(void *(*function)(void *), int index, Scheduler *scheduler)
     data.threadIndex = index;
     pthread_attr_t qosAttribute;
     pthread_attr_init(&qosAttribute);
+#ifdef __APPLE__
     pthread_attr_set_qos_class_np(&qosAttribute, QOS_CLASS_USER_INTERACTIVE, 0);
+#endif
     pthread_create(&thread, &qosAttribute, function, &data);
+    pthread_attr_destroy(&qosAttribute);
 }
 
 Thread::~Thread()
@@ -308,10 +330,14 @@ void Thread::setCpu(int threadIndex)
     thread_affinity_policy_data_t policy = {threadIndex + 1};
     thread_policy_set(pthread_mach_thread_np(pthread_self()), THREAD_AFFINITY_POLICY, (thread_policy_t)&policy, THREAD_AFFINITY_POLICY_COUNT);
 #else
+#ifdef __EMSCRIPTEN__
+    (void)threadIndex;
+#else
     // Linux: Set thread affinity
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
     CPU_SET(threadIndex + 1, &cpuset);
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+#endif
 #endif
 }

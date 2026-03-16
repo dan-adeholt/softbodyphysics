@@ -23,6 +23,12 @@ struct ConsoleProfileInfo
     int numCircleRejections;
     int numIntersections;
     int numCollisions;
+    double rawFrameTimeMillis;
+    double displayedFrameTimeMillis;
+    double displayedFps;
+    double targetFrameTimeMillis;
+    double targetTickRate;
+    bool frameTimeSnappingEnabled;
 };
 
 class Vector2;
@@ -32,6 +38,7 @@ struct ImFont;
 struct ShapeBoundingBox;
 
 extern "C" ConsoleState *allocConsoleState();
+extern "C" void freeConsoleState(ConsoleState *state);
 
 class Console
 {
