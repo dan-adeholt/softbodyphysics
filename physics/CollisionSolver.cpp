@@ -182,6 +182,118 @@ struct CollisionSolver::Impl
 
 float frictionCoefficient = 0.9f;
 
+static WheelMotor *findWheelMotor(PhysicsSpace *space, int shapeIndex)
+{
+    if (space == nullptr)
+    {
+        return nullptr;
+    }
+
+    for (int i = 0; i < space->wheelMotors.size(); i++)
+    {
+        WheelMotor &wheelMotor = space->wheelMotors[i];
+        if (wheelMotor.shapeIndex == shapeIndex)
+        {
+            return &wheelMotor;
+        }
+    }
+
+    return nullptr;
+}
+
+static void resetWheelMotorState(PhysicsSpace *space)
+{
+    if (space == nullptr)
+    {
+        return;
+    }
+
+    for (int i = 0; i < space->wheelMotors.size(); i++)
+    {
+        WheelMotor &wheelMotor = space->wheelMotors[i];
+        wheelMotor.groundedThisStep = false;
+        wheelMotor.groundedContactCount = 0;
+        wheelMotor.groundedTangentSum = Vector2();
+        wheelMotor.groundedGroundVelocitySum = Vector2();
+        wheelMotor.lastSurfaceSpeed = 0.0f;
+        wheelMotor.lastSurfaceSpeedError = 0.0f;
+        wheelMotor.lastAppliedImpulse = 0.0f;
+        wheelMotor.lastParentForwardSpeed = 0.0f;
+        wheelMotor.lastGroundSpeed = 0.0f;
+        wheelMotor.lastRelativeForwardSpeed = 0.0f;
+        wheelMotor.lastCommandSpaceSpeed = 0.0f;
+        wheelMotor.lastAuthorityClamp = 0.0f;
+        wheelMotor.lastHandoverBand = 0.0f;
+        wheelMotor.lastMode = WheelMotorMode::Coast;
+    }
+}
+
+static void recordWheelMotorContact(WheelMotor &wheelMotor, Vector2 tangent, Vector2 groundVelocity)
+{
+    wheelMotor.groundedThisStep = true;
+    wheelMotor.groundedContactCount++;
+    wheelMotor.groundedTangentSum += tangent;
+    wheelMotor.groundedGroundVelocitySum += groundVelocity;
+}
+
+static void applyWheelMotorImpulseStatic(PhysicsSpace *space,
+                                         const Shape &movingShape,
+                                         const Vector2 &contactPoint,
+                                         int pointIndex0,
+                                         int pointIndex1,
+                                         float pointMass,
+                                         Vector2 segmentNormal,
+                                         PointMassesRange points)
+{
+    (void)contactPoint;
+    (void)pointIndex0;
+    (void)pointIndex1;
+    (void)pointMass;
+    (void)points;
+    WheelMotor *wheelMotor = findWheelMotor(space, movingShape.index);
+    if (wheelMotor == nullptr)
+    {
+        return;
+    }
+
+    recordWheelMotorContact(*wheelMotor, segmentNormal.normalVector(), Vector2());
+}
+
+static void applyWheelMotorImpulseDynamic(PhysicsSpace *space,
+                                          const Shape &movingShape,
+                                          const Vector2 &contactPoint,
+                                          int pointIndex0,
+                                          int pointIndex1,
+                                          float pointMass,
+                                          int collisionIndex0,
+                                          int collisionIndex1,
+                                          float pm0Mass,
+                                          const Vector2 &pm0Velocity,
+                                          float pm1Mass,
+                                          const Vector2 &pm1Velocity,
+                                          float contactT,
+                                          Vector2 segmentNormal,
+                                          PointMassesRange points)
+{
+    (void)contactPoint;
+    (void)pointIndex0;
+    (void)pointIndex1;
+    (void)pointMass;
+    (void)collisionIndex0;
+    (void)collisionIndex1;
+    (void)pm0Mass;
+    (void)pm1Mass;
+    (void)points;
+    WheelMotor *wheelMotor = findWheelMotor(space, movingShape.index);
+    if (wheelMotor == nullptr)
+    {
+        return;
+    }
+
+    Vector2 groundVelocity = pm0Velocity + (pm1Velocity - pm0Velocity) * contactT;
+    recordWheelMotorContact(*wheelMotor, segmentNormal.normalVector(), groundVelocity);
+}
+
 inline Vector2 calculateImpulseStatic(float pointVelX, float pointVelY, float pointMass, Vector2 segmentNormal)
 {
     // Velocities of static points are zero
@@ -692,7 +804,8 @@ void reduceOverlapStatic(ShapeBoundingBox &box1, ShapeBoundingBox &staticBox)
     }
 }
 
-int CollisionSolver::calculateCollisionsMidPoint(
+static int calculateCollisionsMidPointInternal(
+    PhysicsSpace *space,
     PointMassesRange points,
     const Shape &collisionShape,
     const Shape &movingShape,
@@ -725,7 +838,7 @@ int CollisionSolver::calculateCollisionsMidPoint(
 
         // First check - is the point outside the bounding box of the other shape?
         // Then extend horizontal line from point to the right,  outside of bounding box.
-        if (isPointOutsideShape(pointIndex, pointPos.x, pointPos.y, collisionBox, points, collisionShape))
+        if (CollisionSolver::isPointOutsideShape(pointIndex, pointPos.x, pointPos.y, collisionBox, points, collisionShape))
         {
             continue;
         }
@@ -757,7 +870,7 @@ int CollisionSolver::calculateCollisionsMidPoint(
         }
         else
         {
-            result = findEntryEdgeClosestSegment(points, collisionShape, pointPos);
+            result = CollisionSolver::findEntryEdgeClosestSegment(points, collisionShape, pointPos);
         }
 
         if (result.entryEdgeIndex0 == -1)
@@ -765,12 +878,12 @@ int CollisionSolver::calculateCollisionsMidPoint(
             continue;
         }
 
-        Vector2 pointVelocity = points.velocity[pointIndex];
+        Vector2 pointVelocity = (points.velocity[pointIndex] + points.velocity[nextPointIndex]) * 0.5f;
 
         int collisionIndex0 = collisionRange[result.entryEdgeIndex0];
         int collisionIndex1 = collisionRange[(result.entryEdgeIndex0 + 1) % collisionRange.size()];
 
-        float pointMass = (points.mass[pointIndex] + points.mass[pointIndex]) * 0.5f;
+        float pointMass = (points.mass[pointIndex] + points.mass[nextPointIndex]) * 0.5f;
 
         Vector2 pm0Pos = points.pos[collisionIndex0];
         Vector2 pm1Pos = points.pos[collisionIndex1];
@@ -787,6 +900,7 @@ int CollisionSolver::calculateCollisionsMidPoint(
 
             points.velocity[pointIndex] += (impulse / pointMass) * 0.5f;
             points.velocity[nextPointIndex] += (impulse / pointMass) * 0.5f;
+            applyWheelMotorImpulseStatic(space, movingShape, result.closestPoint0, pointIndex, nextPointIndex, pointMass, segmentNormal, points);
         }
         else
         {
@@ -822,6 +936,7 @@ int CollisionSolver::calculateCollisionsMidPoint(
                 points.pos[nextPointIndex] = closestPointToAxis(A, B, points.pos[nextPointIndex]) + reflection * 0.2f;
                 points.velocity[pointIndex] += (impulse / pointMass) * 0.5f;
                 points.velocity[nextPointIndex] += (impulse / pointMass) * 0.5f;
+                applyWheelMotorImpulseDynamic(space, movingShape, result.closestPoint0, pointIndex, nextPointIndex, pointMass, collisionIndex0, collisionIndex1, pm0Mass, pm0Vel, pm1Mass, pm1Vel, result.entryTime0, segmentNormal, points);
             }
             else
             {
@@ -836,7 +951,18 @@ int CollisionSolver::calculateCollisionsMidPoint(
     return numCollisions;
 }
 
-int CollisionSolver::calculateCollisions(
+int CollisionSolver::calculateCollisionsMidPoint(
+    PointMassesRange points,
+    const Shape &collisionShape,
+    const Shape &movingShape,
+    const BoundingBox &collisionBox,
+    const BoundingBox &movingBox)
+{
+    return calculateCollisionsMidPointInternal(nullptr, points, collisionShape, movingShape, collisionBox, movingBox);
+}
+
+static int calculateCollisionsInternal(
+    PhysicsSpace *space,
     PointMassesRange points,
     const Shape &collisionShape,
     const Shape &movingShape,
@@ -863,7 +989,7 @@ int CollisionSolver::calculateCollisions(
 
         // First check - is the point outside the bounding box of the other shape?
         // Then extend horizontal line from point to the right,  outside of bounding box.
-        if (isPointOutsideShape(pointIndex, pointPos.x, pointPos.y, collisionBox, points, collisionShape))
+        if (CollisionSolver::isPointOutsideShape(pointIndex, pointPos.x, pointPos.y, collisionBox, points, collisionShape))
         {
             continue;
         }
@@ -893,7 +1019,7 @@ int CollisionSolver::calculateCollisions(
         }
         else
         {
-            result = findEntryEdgeClosestSegment(points, collisionShape, pointPos);
+            result = CollisionSolver::findEntryEdgeClosestSegment(points, collisionShape, pointPos);
         }
 
         if (result.entryEdgeIndex0 == -1)
@@ -920,6 +1046,7 @@ int CollisionSolver::calculateCollisions(
             Vector2 diff = points.pos[pointIndex] - result.closestPoint0;
             Vector2 oldPos = points.pos[pointIndex];
             points.pos[pointIndex] = result.closestPoint0 + reflection * 0.1f;
+            applyWheelMotorImpulseStatic(space, movingShape, result.closestPoint0, pointIndex, -1, pointMass, segmentNormal, points);
         }
         else
         {
@@ -949,6 +1076,7 @@ int CollisionSolver::calculateCollisions(
                 float distance = (points.pos[pointIndex] - oldPos).length();
 
                 points.velocity[pointIndex] += impulse / pointMass;
+                applyWheelMotorImpulseDynamic(space, movingShape, result.closestPoint0, pointIndex, -1, pointMass, collisionIndex0, collisionIndex1, pm0Mass, pm0Vel, pm1Mass, pm1Vel, result.entryTime0, segmentNormal, points);
             }
             else
             {
@@ -960,6 +1088,16 @@ int CollisionSolver::calculateCollisions(
     }
 
     return numCollisions;
+}
+
+int CollisionSolver::calculateCollisions(
+    PointMassesRange points,
+    const Shape &collisionShape,
+    const Shape &movingShape,
+    const BoundingBox &collisionBox,
+    const BoundingBox &movingBox)
+{
+    return calculateCollisionsInternal(nullptr, points, collisionShape, movingShape, collisionBox, movingBox);
 }
 
 void CollisionSolver::calculateBoundingBoxes(Array<ShapeBoundingBox> &boundingBoxes,
@@ -1158,6 +1296,7 @@ void CollisionSolver::boxSeparateDynamicAndStaticShapes(PointMassesRange points,
 void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &profileInfo)
 {
     Timer collisionsTimer;
+    resetWheelMotorState(&space);
     updateBoundingBoxes(space, profileInfo);
 
     // Insertion sort - O(n^2), but since the movements are relatively stable it should be fine
@@ -1223,13 +1362,13 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &
             {
                 if (numCollisions % 2 == 0)
                 {
-                    calculateCollisions(space.points.range(), shape1, shape2, box, otherBox);
-                    calculateCollisions(space.points.range(), shape2, shape1, otherBox, box);
+                    calculateCollisionsInternal(&space, space.points.range(), shape1, shape2, box, otherBox);
+                    calculateCollisionsInternal(&space, space.points.range(), shape2, shape1, otherBox, box);
                 }
                 else
                 {
-                    calculateCollisionsMidPoint(space.points.range(), shape1, shape2, box, otherBox);
-                    calculateCollisionsMidPoint(space.points.range(), shape2, shape1, otherBox, box);
+                    calculateCollisionsMidPointInternal(&space, space.points.range(), shape1, shape2, box, otherBox);
+                    calculateCollisionsMidPointInternal(&space, space.points.range(), shape2, shape1, otherBox, box);
                 }
             }
             else if (!shape1.isStatic && !shape2.isStatic)

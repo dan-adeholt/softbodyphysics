@@ -65,6 +65,7 @@ struct Game::Impl
 
     int selectedShapeIndex = 0;
     double timeBucket = 0.0;
+    double lastElapsedTimeMilliseconds = 0.0;
     int iterationNumber = 0;
     int simulationSpeed = 100;
     bool paused = false;
@@ -244,6 +245,7 @@ void Game::forwardHistory()
 
 void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfileInfo &profileInfo)
 {
+    m->lastElapsedTimeMilliseconds = elapsedTimeMilliseconds;
     m->timeBucket += elapsedTimeMilliseconds;
 
     for (int i = 0; i < m->scheduledCallbacks.size(); i++)
@@ -289,9 +291,16 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
         m->integrator.performIntegration(m->physicsSpace, m->shapeMatchDragData, profileInfo);
         m->iterationNumber++;
 
-        if (m->physicsSpace.collisionsEnabled && m->iterationNumber % 2 == 0)
+        bool hasWheelMotors = m->physicsSpace.wheelMotors.size() > 0;
+        if (m->physicsSpace.collisionsEnabled && (hasWheelMotors || m->iterationNumber % 2 == 0))
         {
             m->collisionSolver.handleCollisions(m->physicsSpace, profileInfo);
+        }
+
+        if (hasWheelMotors)
+        {
+            m->integrator.applyWheelMotorTraction(m->physicsSpace);
+            m->integrator.dampWheelMotors(m->physicsSpace);
         }
 
         if (Console::isDebugger())
@@ -786,6 +795,11 @@ bool Game::keyWasPressed(GameKeyCode keyCode)
     return m->keyPressedState[(size_t)keyCode];
 }
 
+bool Game::keyIsPressed(GameKeyCode keyCode)
+{
+    return m->keyState[(size_t)keyCode];
+}
+
 Array<ShapeBoundingBox> &Game::shapeBoundingBoxes()
 {
     return m->collisionSolver.boundingBoxes();
@@ -930,4 +944,9 @@ GameRenderSettings Game::renderSettings()
 void Game::setRenderSettings(const GameRenderSettings &settings)
 {
     m->renderSettings = settings;
+}
+
+double Game::lastElapsedTimeMilliseconds() const
+{
+    return m->lastElapsedTimeMilliseconds;
 }

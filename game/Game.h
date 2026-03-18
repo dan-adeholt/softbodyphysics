@@ -57,6 +57,7 @@ public:
     void keyUp(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profileInfo);
 
     bool keyWasPressed(GameKeyCode keyCode);
+    bool keyIsPressed(GameKeyCode keyCode);
 
     Array<ShapeBoundingBox> &shapeBoundingBoxes();
 
@@ -106,6 +107,7 @@ public:
     Range<int> collisionCandidates() const;
 
     void testCollisionPerformance(ConsoleProfileInfo &profileInfo, int numIterations) const;
+    double lastElapsedTimeMilliseconds() const;
 
 private:
     void updateAfterRewindOrForward();

@@ -5,10 +5,44 @@
 #include <cstring>
 #include <cstdio>
 #include "../game/Game.h"
+#include "../game/GameKeyCode.h"
+#include "../game/Shapes.h"
 #include "../containers/Array.h"
 #include "../utils/Console.h"
+#include "ShapeUtils.h"
 #include <cassert>
 #include <cmath>
+
+namespace
+{
+    static bool isWheelShape(const PhysicsSpace &space, int shapeIndex)
+    {
+        for (int i = 0; i < space.wheelMotors.size(); i++)
+        {
+            if (space.wheelMotors[i].shapeIndex == shapeIndex)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static int findTankHullShapeIndex(const PhysicsSpace &space, int parentId)
+    {
+        for (int i = 0; i < space.shapes.size(); i++)
+        {
+            const Shape &shape = space.shapes[i];
+            if (shape.parentId == parentId && !isWheelShape(space, shape.index))
+            {
+                return shape.index;
+            }
+        }
+
+        return -1;
+    }
+
+}
 
 PhysicsTestDefinition tests[] = {
     PhysicsTestDefinition(
@@ -77,6 +111,65 @@ PhysicsTestDefinition tests[] = {
         },
         [](Game *game, int time) {
 
+        })
+    ,
+    PhysicsTestDefinition(
+        "Tank manual flip",
+        60,
+        [](Game *game)
+        {
+            Console::clear();
+            SceneDefinition *def = SceneDefinition::getDefinitionFromName("Tank");
+            assert(def != nullptr);
+            def->initFunc(game);
+
+            PhysicsSpace &space = game->physicsSpace();
+            assert(space.wheelMotors.size() > 0);
+
+            const int parentId = space.wheelMotors[0].parentId;
+            const int hullShapeIndex = findTankHullShapeIndex(space, parentId);
+            assert(hullShapeIndex != -1);
+        },
+        [](Game *game, int time)
+        {
+            if (time < 20)
+            {
+                return (const char *)nullptr;
+            }
+
+            PhysicsSpace &space = game->physicsSpace();
+            if (space.wheelMotors.size() == 0)
+            {
+                return "Tank wheel motors missing";
+            }
+
+            const int parentId = space.wheelMotors[0].parentId;
+            const int hullShapeIndex = findTankHullShapeIndex(space, parentId);
+            if (hullShapeIndex == -1)
+            {
+                return "Tank hull shape missing";
+            }
+
+            ShapeProperties hullProperties = ShapeUtils::getShapeProperties(space.points.range(), space.shapes[hullShapeIndex]);
+            Vector2 worldUp = Vector2(0.0f, -1.0f).rotate(hullProperties.diffAngle);
+            if (worldUp.dot(Vector2(0.0f, -1.0f)) > -0.75f)
+            {
+                return "Tank did not flip upside down";
+            }
+
+            return (const char *)nullptr;
+        },
+        [](Game *game, int time)
+        {
+            ConsoleProfileInfo profileInfo = {};
+            if (time == 5)
+            {
+                game->keyDown(GameKeyCode::SPACE, 0, profileInfo);
+            }
+            else if (time == 6)
+            {
+                game->keyUp(GameKeyCode::SPACE, 0, profileInfo);
+            }
         })
 
 };

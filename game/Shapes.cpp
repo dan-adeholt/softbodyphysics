@@ -651,12 +651,12 @@ namespace Shapes
         return line;
     }
 
-    void createCar(PhysicsSpace &space, float x, float y, const PhysicsSpace &prefabSpace)
+    int createCar(PhysicsSpace &space, float x, float y, const PhysicsSpace &prefabSpace)
     {
         int nextParentId = space.nextParentId();
         Shape wheel1 = createCircle(space, x + 20.0f, y + 20.0f, 25.0f, 6.25f);
         Shape wheel2 = createCircle(space, x + 100.0f, y + 20.0f, 25.0f, 6.25f);
-        Shape upperBody = space.addShapeFromSpace(x + 52.0f, y - 43.0f, prefabSpace, ShapeResource::carOutline);
+        Shape upperBody = space.addShapeFromSpace(x + 52.0f, y, prefabSpace, ShapeResource::carOutline);
         space.shapes[wheel1.index].parentId = nextParentId;
         space.shapes[wheel2.index].parentId = nextParentId;
         space.shapes[upperBody.index].parentId = nextParentId;
@@ -693,10 +693,130 @@ namespace Shapes
         wheel2Joint.shape2Points[3] = upperBody.end - 6 + w2Offset;
         space.shapeJoints.push(wheel2Joint);
 
-        RadialAccelerator accelerator;
-        accelerator.shapeIndex = wheel1.index;
-        accelerator.enabled = true;
-        accelerator.strength = 0.5f;
-        space.radialAccelerators.push(accelerator);
+        WheelMotor wheelMotor1;
+        wheelMotor1.shapeIndex = wheel1.index;
+        wheelMotor1.parentId = nextParentId;
+        wheelMotor1.targetSurfaceSpeed = 0.18f;
+        wheelMotor1.maxDriveImpulsePerStep = 0.06f;
+        wheelMotor1.maxBrakeImpulsePerStep = 0.18f;
+        wheelMotor1.reverseEngageSpeed = 0.04f;
+        wheelMotor1.freeSpinDamping = 0.01f;
+        space.wheelMotors.push(wheelMotor1);
+
+        WheelMotor wheelMotor2;
+        wheelMotor2.shapeIndex = wheel2.index;
+        wheelMotor2.parentId = nextParentId;
+        wheelMotor2.targetSurfaceSpeed = 0.18f;
+        wheelMotor2.maxDriveImpulsePerStep = 0.06f;
+        wheelMotor2.maxBrakeImpulsePerStep = 0.18f;
+        wheelMotor2.reverseEngageSpeed = 0.04f;
+        wheelMotor2.freeSpinDamping = 0.01f;
+        space.wheelMotors.push(wheelMotor2);
+
+        return nextParentId;
+    }
+
+    TankInstance createTank(PhysicsSpace &space, float x, float y)
+    {
+        int nextParentId = space.nextParentId();
+
+        const float tankWidth = 150.0f;
+        const float wheelRadius = 15.0f;
+        const float wheelMass = 2.0f;
+        const float wheelSpacing = 45.0f;
+        const float bottomWheelY = y + wheelRadius;
+        const float raisedWheelY = y - 20.0f;
+        const float wheelStartX = x + 30.0f;
+
+        const float hullY = y - 25.0f;
+        const float hullHeight = 30.0f;
+        const float hullTopInset = 15.0f;
+        const int hullStart = space.points.size();
+        const float hullMass = 1.0f;
+        const float hullBottom = hullY + hullHeight;
+
+        const float turretWidth = 60.0f;
+        const float turretHeight = 25.0f;
+        const float turretX = x + (tankWidth - turretWidth) / 2.0f + 10.0f;
+        const float turretY = hullY - turretHeight;
+        const float cannonLength = 70.0f;
+        const float cannonThickness = 8.0f;
+        const float cannonY = turretY + turretHeight / 2.0f - cannonThickness / 2.0f;
+        const float cannonX = turretX + turretWidth - 5.0f;
+        const float cannonMass = 1.0f;
+
+        space.points.push(x, hullBottom, hullMass);
+        space.points.push(x + hullTopInset, hullY, hullMass);
+        space.points.push(turretX, hullY, hullMass);
+        space.points.push(turretX, turretY, hullMass);
+        space.points.push(turretX + turretWidth, turretY, hullMass);
+        space.points.push(turretX + turretWidth, cannonY, cannonMass);
+        space.points.push(cannonX, cannonY, cannonMass);
+        space.points.push(cannonX + cannonLength, cannonY, cannonMass);
+        space.points.push(cannonX + cannonLength, cannonY + cannonThickness, cannonMass);
+        space.points.push(cannonX, cannonY + cannonThickness, cannonMass);
+        space.points.push(turretX + turretWidth, cannonY + cannonThickness, cannonMass);
+        space.points.push(turretX + turretWidth, hullY, hullMass);
+        space.points.push(x + tankWidth - hullTopInset, hullY, hullMass);
+        space.points.push(x + tankWidth, hullBottom, hullMass);
+        space.points.push(wheelStartX + wheelSpacing * 2, hullBottom, hullMass);
+        space.points.push(wheelStartX + wheelSpacing, hullBottom, hullMass);
+        space.points.push(wheelStartX, hullBottom, hullMass);
+
+        Shape hull(hullStart, space.points.size());
+        hull.stiffness = 2.0f;
+        hull.damping = 1.0f;
+        hull.parentId = nextParentId;
+        hull.index = space.nextShapeIndex();
+        space.addShape(hull);
+        const int hullShapeIndex = hull.index;
+
+        auto connectWheelToHull = [&](const Shape &wheel, int hullAttachPoint, int leftPoint, int rightPoint)
+        {
+            ShapeJoint joint;
+            joint.shapeIndex1 = wheel.index;
+            joint.shapeIndex2 = hull.index;
+
+            const int wheelSize = wheel.end - wheel.start;
+            joint.shape1Points[0] = wheel.start;
+            joint.shape1Points[1] = wheel.start + wheelSize / 4;
+            joint.shape1Points[2] = wheel.start + wheelSize / 2;
+            joint.shape1Points[3] = wheel.start + wheelSize * 3 / 4;
+
+            joint.shape2Points[0] = hullStart + hullAttachPoint;
+            joint.shape2Points[1] = hullStart + hullAttachPoint;
+            joint.shape2Points[2] = hullStart + leftPoint;
+            joint.shape2Points[3] = hullStart + rightPoint;
+
+            space.shapeJoints.push(joint);
+        };
+
+        Shape bottomWheels[3];
+        const int wheelPoints[3] = {16, 15, 14};
+        for (int i = 0; i < 3; i++)
+        {
+            bottomWheels[i] = createCircle(space, wheelStartX + i * wheelSpacing, bottomWheelY, wheelRadius, wheelMass, 3.0f);
+            space.shapes[bottomWheels[i].index].parentId = nextParentId;
+
+            const int attachmentPoint = wheelPoints[i];
+            const int leftPoint = i == 0 ? 0 : wheelPoints[i - 1];
+            const int rightPoint = i == 2 ? 13 : wheelPoints[i + 1];
+            connectWheelToHull(bottomWheels[i], attachmentPoint, leftPoint, rightPoint);
+        }
+
+        for (int i = 0; i < 3; i++)
+        {
+            WheelMotor wheelMotor;
+            wheelMotor.shapeIndex = bottomWheels[i].index;
+            wheelMotor.parentId = nextParentId;
+            wheelMotor.targetSurfaceSpeed = 0.36f;
+            wheelMotor.maxDriveImpulsePerStep = 0.06f;
+            wheelMotor.maxBrakeImpulsePerStep = 0.40f;
+            wheelMotor.reverseEngageSpeed = 3.00f;
+            wheelMotor.freeSpinDamping = 0.01f;
+            space.wheelMotors.push(wheelMotor);
+        }
+
+        return {nextParentId, hullShapeIndex};
     }
 }

@@ -200,6 +200,45 @@ struct RadialAccelerator
     int shapeIndex;
     bool enabled = false;
     float strength = 1.0f;
+    float limit = 0.0f;
+};
+
+enum class WheelMotorMode
+{
+    Coast = 0,
+    Drive,
+    Handover,
+    Brake,
+    Air
+};
+
+struct WheelMotor
+{
+    int shapeIndex = -1;
+    int parentId = -1;
+    bool enabled = false;
+    float command = 0.0f;
+    float targetSurfaceSpeed = 0.0f;
+    float maxDriveImpulsePerStep = 0.0f;
+    float maxBrakeImpulsePerStep = 0.0f;
+    float reverseEngageSpeed = 0.0f;
+    float freeSpinDamping = 0.0f;
+
+    float lastCommand = 0.0f;
+    bool groundedThisStep = false;
+    int groundedContactCount = 0;
+    Vector2 groundedTangentSum;
+    Vector2 groundedGroundVelocitySum;
+    float lastSurfaceSpeed = 0.0f;
+    float lastSurfaceSpeedError = 0.0f;
+    float lastAppliedImpulse = 0.0f;
+    float lastParentForwardSpeed = 0.0f;
+    float lastGroundSpeed = 0.0f;
+    float lastRelativeForwardSpeed = 0.0f;
+    float lastCommandSpaceSpeed = 0.0f;
+    float lastAuthorityClamp = 0.0f;
+    float lastHandoverBand = 0.0f;
+    WheelMotorMode lastMode = WheelMotorMode::Coast;
 };
 
 struct StaticJoint

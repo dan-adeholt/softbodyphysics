@@ -9,6 +9,12 @@ struct Range;
 
 namespace Shapes
 {
+    struct TankInstance
+    {
+        int parentId = -1;
+        int hullShapeIndex = -1;
+    };
+
     void recalculateOriginalPos(PhysicsSpace &space, const Shape &shape);
     void snapToGrid(PhysicsSpace &space, int shapeIndex);
     void addPointToShape(PhysicsSpace &space, int shapeIndex, float x, float y);
@@ -30,7 +36,8 @@ namespace Shapes
     Shape createParallelogram(PhysicsSpace &space, float x, float y, float width = 32.0f, float height = 32.0f, float sideOffset = 0.0f, float mass = 1.0f);
     Shape createTriangle(PhysicsSpace &space, bool isStatic, float x0, float y0, float x1, float y1, float x2, float y2, float mass = 1.0f);
 
-    void createCar(PhysicsSpace &space, float x, float y, const PhysicsSpace &prefabSpace);
+    int createCar(PhysicsSpace &space, float x, float y, const PhysicsSpace &prefabSpace);
+    TankInstance createTank(PhysicsSpace &space, float x, float y);
 }
 
 #endif

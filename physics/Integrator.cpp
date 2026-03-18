@@ -1,6 +1,7 @@
 #include "Integrator.h"
 #include "PhysicsSpace.h"
 #include "../utils/Console.h"
+#include "../utils/MinMax.h"
 #include "./Springs.h"
 #include "ShapeUtils.h"
 struct RK4Integrator::Impl
@@ -102,37 +103,215 @@ void RK4Integrator::updateRK4Springs(PhysicsSpace &space, Array<PointDerivative>
             derivative.acceleration += space.points.velocity[i] * -0.008f;
         }
     }
+}
 
-    for (int i = 0; i < space.radialAccelerators.size(); i++)
+float maxDistFromCenter = 180.0f;
+
+static float averageWheelRadius(PointMassesRange points, const Shape &shape, const Vector2 &center)
+{
+    float radius = 0.0f;
+    int count = 0;
+
+    for (ShapeIterator iter(shape); iter.isValid(); iter.next())
     {
-        const RadialAccelerator &accelerator = space.radialAccelerators[i];
-        if (!accelerator.enabled)
+        radius += (points.pos[iter.index()] - center).length();
+        count++;
+    }
+
+    return count > 0 ? radius / (float)count : 0.0f;
+}
+
+static Vector2 wheelCenter(PointMassesRange points, const Shape &shape)
+{
+    Vector2 center;
+    int count = 0;
+
+    for (ShapeIterator iter(shape); iter.isValid(); iter.next())
+    {
+        center += points.pos[iter.index()];
+        count++;
+    }
+
+    return count > 0 ? center / (float)count : Vector2();
+}
+
+static Vector2 computeParentCenterOfMassVelocity(PointMassesRange points, const PhysicsSpace &space, int parentId)
+{
+    Vector2 weightedVelocity;
+    float totalMass = 0.0f;
+
+    for (int i = 0; i < space.shapes.size(); i++)
+    {
+        const Shape &shape = space.shapes[i];
+        if (shape.parentId != parentId)
         {
             continue;
         }
 
-        const Shape &shape = space.shapes[accelerator.shapeIndex];
-        ShapeProperties properties = m->shapeProperties[accelerator.shapeIndex];
-
-        for (ShapeIterator s(shape); s.isValid(); s.next())
+        for (ShapeIterator iter(shape); iter.isValid(); iter.next())
         {
-            int pointIndex = s.index();
-            if (pointIndex < 0 || pointIndex >= space.points.size())
-            {
-                continue;
-            }
+            int pointIndex = iter.index();
+            float mass = points.mass[pointIndex];
+            weightedVelocity += points.velocity[pointIndex] * mass;
+            totalMass += mass;
+        }
+    }
 
-            PointDerivative &derivative = outDerivatives[pointIndex];
-            Vector2 pos = space.points.pos[pointIndex];
-            Vector2 direction = pos - properties.center;
-            Vector2 tangent = direction.normalVector();
+    return totalMass > 0.0f ? weightedVelocity / totalMass : Vector2();
+}
 
-            derivative.acceleration += tangent * accelerator.strength * 0.00002f;
+static void applyVelocityDeltaToParent(PhysicsSpace &space, int parentId, const Vector2 &deltaVelocity)
+{
+    if (deltaVelocity.isZero())
+    {
+        return;
+    }
+
+    PointMassesRange points = space.points.range();
+    for (int i = 0; i < space.shapes.size(); i++)
+    {
+        const Shape &shape = space.shapes[i];
+        if (shape.parentId != parentId)
+        {
+            continue;
+        }
+
+        for (ShapeIterator iter(shape); iter.isValid(); iter.next())
+        {
+            points.velocity[iter.index()] += deltaVelocity;
         }
     }
 }
 
-float maxDistFromCenter = 180.0f;
+static bool computeParentForwardAxis(PhysicsSpace &space, int parentId, Vector2 &outAxis)
+{
+    PointMassesRange points = space.points.range();
+    Vector2 firstCenter;
+    Vector2 lastCenter;
+    bool foundFirst = false;
+
+    for (int i = 0; i < space.wheelMotors.size(); i++)
+    {
+        const WheelMotor &wheelMotor = space.wheelMotors[i];
+        if (wheelMotor.parentId != parentId || wheelMotor.shapeIndex < 0 || wheelMotor.shapeIndex >= space.shapes.size())
+        {
+            continue;
+        }
+
+        Vector2 center = wheelCenter(points, space.shapes[wheelMotor.shapeIndex]);
+        if (!foundFirst)
+        {
+            firstCenter = center;
+            foundFirst = true;
+        }
+
+        lastCenter = center;
+    }
+
+    if (!foundFirst)
+    {
+        return false;
+    }
+
+    Vector2 axis = lastCenter - firstCenter;
+    if (axis.lengthSquared() <= 0.0001f)
+    {
+        axis = Vector2::right();
+    }
+
+    outAxis = axis.normalized();
+    return true;
+}
+
+static bool computeGroundDriveState(PhysicsSpace &space, int parentId, const Vector2 &forwardAxis, Vector2 &outGroundTangent, float &outGroundSpeed)
+{
+    Vector2 tangentSum;
+    float groundSpeedSum = 0.0f;
+    int totalContacts = 0;
+
+    for (int i = 0; i < space.wheelMotors.size(); i++)
+    {
+        const WheelMotor &wheelMotor = space.wheelMotors[i];
+        if (wheelMotor.parentId != parentId || wheelMotor.groundedContactCount <= 0)
+        {
+            continue;
+        }
+
+        Vector2 tangent = wheelMotor.groundedTangentSum;
+        if (tangent.lengthSquared() <= 0.0001f)
+        {
+            continue;
+        }
+
+        tangent = tangent.normalized();
+        if (tangent.dot(forwardAxis) < 0.0f)
+        {
+            tangent = -tangent;
+        }
+
+        Vector2 averageGroundVelocity = wheelMotor.groundedGroundVelocitySum / (float)wheelMotor.groundedContactCount;
+        float groundSpeed = averageGroundVelocity.dot(tangent);
+
+        tangentSum += tangent * (float)wheelMotor.groundedContactCount;
+        groundSpeedSum += groundSpeed * (float)wheelMotor.groundedContactCount;
+        totalContacts += wheelMotor.groundedContactCount;
+    }
+
+    if (totalContacts == 0 || tangentSum.lengthSquared() <= 0.0001f)
+    {
+        return false;
+    }
+
+    outGroundTangent = tangentSum.normalized();
+    if (outGroundTangent.dot(forwardAxis) < 0.0f)
+    {
+        outGroundTangent = -outGroundTangent;
+    }
+    outGroundSpeed = groundSpeedSum / (float)totalContacts;
+    return true;
+}
+
+static float computeWheelSurfaceSpeed(PointMassesRange points, const Shape &shape, ShapeVelocities &outAverageVelocity, float &outRadius)
+{
+    outAverageVelocity = ShapeUtils::getAverageShapeVelocity(points, shape);
+    outRadius = averageWheelRadius(points, shape, outAverageVelocity.centerOfMass);
+    if (outRadius <= 0.0f)
+    {
+        return 0.0f;
+    }
+
+    return outAverageVelocity.angularVelocity * outRadius;
+}
+
+static float applyWheelVisualSpin(PointMassesRange points, const Shape &shape, float desiredSurfaceSpeed, float maxDelta, float &outSurfaceSpeed, float &outSpeedError)
+{
+    ShapeVelocities averageVelocity;
+    float averageRadius = 0.0f;
+    outSurfaceSpeed = computeWheelSurfaceSpeed(points, shape, averageVelocity, averageRadius);
+    outSpeedError = desiredSurfaceSpeed - outSurfaceSpeed;
+
+    if (averageRadius <= 0.0f || maxDelta <= 0.0f)
+    {
+        return 0.0f;
+    }
+
+    float spinDelta = clamp(outSpeedError * 0.35f, -maxDelta, maxDelta);
+    for (ShapeIterator iter(shape); iter.isValid(); iter.next())
+    {
+        int pointIndex = iter.index();
+        Vector2 relPos = points.pos[pointIndex] - averageVelocity.centerOfMass;
+        float radialLengthSquared = relPos.lengthSquared();
+        if (radialLengthSquared <= 0.0001f)
+        {
+            continue;
+        }
+
+        Vector2 tangent = relPos.normalVector() * (1.0f / sqrtf(radialLengthSquared));
+        points.velocity[pointIndex] += tangent * spinDelta;
+    }
+
+    return spinDelta;
+}
 
 void Integrator::performIntegration(PhysicsSpace &space, const ShapeMatchDragData &dragData, ConsoleProfileInfo &profileInfo)
 {
@@ -152,9 +331,6 @@ void Integrator::performIntegration(PhysicsSpace &space, const ShapeMatchDragDat
         space.points.velocity[space.mouseJoint.pointIndex] = Vector2();
     }
 }
-
-float maxVelocity = 5.0f;
-float maxVelocitySquared = maxVelocity * maxVelocity;
 
 void RK4Integrator::performRK4Integration(PhysicsSpace &space, const ShapeMatchDragData &dragData, ConsoleProfileInfo &profileInfo)
 {
@@ -344,4 +520,257 @@ void RK4Integrator::testSpringPerformance(int iterations, PhysicsSpace &space)
 void Integrator::clear()
 {
     rk4Integrator.clear();
+}
+
+void Integrator::applyWheelMotorTraction(PhysicsSpace &space)
+{
+    PointMassesRange points = space.points.range();
+    Array<int> processedParentIds;
+
+    for (int i = 0; i < space.wheelMotors.size(); i++)
+    {
+        WheelMotor &wheelMotor = space.wheelMotors[i];
+        if (wheelMotor.parentId == -1)
+        {
+            continue;
+        }
+
+        bool alreadyProcessed = false;
+        for (int j = 0; j < processedParentIds.size(); j++)
+        {
+            if (processedParentIds[j] == wheelMotor.parentId)
+            {
+                alreadyProcessed = true;
+                break;
+            }
+        }
+
+        if (alreadyProcessed)
+        {
+            continue;
+        }
+
+        processedParentIds.push(wheelMotor.parentId);
+
+        Vector2 forwardAxis;
+        if (!computeParentForwardAxis(space, wheelMotor.parentId, forwardAxis))
+        {
+            continue;
+        }
+
+        Vector2 groundTangent;
+        float groundSpeed = 0.0f;
+        if (!computeGroundDriveState(space, wheelMotor.parentId, forwardAxis, groundTangent, groundSpeed))
+        {
+            continue;
+        }
+
+        Vector2 parentVelocity = computeParentCenterOfMassVelocity(points, space, wheelMotor.parentId);
+        float parentForwardSpeed = parentVelocity.dot(groundTangent);
+        float relativeForwardSpeed = parentForwardSpeed - groundSpeed;
+
+        float parentCommand = 0.0f;
+        float targetSurfaceSpeed = 0.0f;
+        float maxDriveImpulse = 0.0f;
+        float maxBrakeImpulse = 0.0f;
+        float reverseEngageSpeed = 0.0f;
+
+        for (int j = 0; j < space.wheelMotors.size(); j++)
+        {
+            const WheelMotor &otherWheelMotor = space.wheelMotors[j];
+            if (otherWheelMotor.parentId != wheelMotor.parentId)
+            {
+                continue;
+            }
+
+            if (otherWheelMotor.command != 0.0f)
+            {
+                parentCommand = otherWheelMotor.command;
+            }
+
+            targetSurfaceSpeed = max(targetSurfaceSpeed, otherWheelMotor.targetSurfaceSpeed);
+            maxDriveImpulse = max(maxDriveImpulse, otherWheelMotor.maxDriveImpulsePerStep);
+            maxBrakeImpulse = max(maxBrakeImpulse, otherWheelMotor.maxBrakeImpulsePerStep);
+            reverseEngageSpeed = max(reverseEngageSpeed, otherWheelMotor.reverseEngageSpeed);
+        }
+
+        WheelMotorMode mode = WheelMotorMode::Coast;
+        float appliedDelta = 0.0f;
+        float commandSpaceSpeed = 0.0f;
+        float authorityClamp = 0.0f;
+        if (parentCommand != 0.0f)
+        {
+            commandSpaceSpeed = relativeForwardSpeed * parentCommand;
+            float handoverBand = max(reverseEngageSpeed, 0.0001f);
+
+            if (commandSpaceSpeed <= -handoverBand)
+            {
+                mode = WheelMotorMode::Brake;
+                authorityClamp = maxBrakeImpulse;
+                appliedDelta = clamp(-relativeForwardSpeed, -authorityClamp, authorityClamp);
+            }
+            else if (commandSpaceSpeed < handoverBand)
+            {
+                mode = WheelMotorMode::Handover;
+                if (commandSpaceSpeed < 0.0f)
+                {
+                    float brakeBlend = clamp((-commandSpaceSpeed) / handoverBand, 0.0f, 1.0f);
+                    float minBrakeClamp = maxDriveImpulse * 0.10f;
+                    authorityClamp = minBrakeClamp + (maxBrakeImpulse - minBrakeClamp) * brakeBlend;
+                    appliedDelta = clamp(-relativeForwardSpeed, -authorityClamp, authorityClamp);
+                }
+                else
+                {
+                    float driveBlend = clamp(commandSpaceSpeed / handoverBand, 0.0f, 1.0f);
+                    float minDriveClamp = maxDriveImpulse * 0.10f;
+                    authorityClamp = minDriveClamp + (maxDriveImpulse - minDriveClamp) * driveBlend;
+                    float desiredRelativeSpeed = parentCommand * targetSurfaceSpeed;
+                    float speedError = desiredRelativeSpeed - relativeForwardSpeed;
+                    appliedDelta = clamp(speedError * 0.75f, -authorityClamp, authorityClamp);
+                }
+            }
+            else
+            {
+                mode = WheelMotorMode::Drive;
+                authorityClamp = maxDriveImpulse;
+                float desiredRelativeSpeed = parentCommand * targetSurfaceSpeed;
+                float speedError = desiredRelativeSpeed - relativeForwardSpeed;
+                appliedDelta = clamp(speedError * 0.75f, -authorityClamp, authorityClamp);
+            }
+        }
+
+        applyVelocityDeltaToParent(space, wheelMotor.parentId, groundTangent * appliedDelta);
+
+        for (int j = 0; j < space.wheelMotors.size(); j++)
+        {
+            WheelMotor &parentWheelMotor = space.wheelMotors[j];
+            if (parentWheelMotor.parentId != wheelMotor.parentId ||
+                parentWheelMotor.shapeIndex < 0 ||
+                parentWheelMotor.shapeIndex >= space.shapes.size())
+            {
+                continue;
+            }
+
+            const Shape &wheelShape = space.shapes[parentWheelMotor.shapeIndex];
+            float desiredSurfaceSpeed = 0.0f;
+            float visualLimit = parentWheelMotor.maxDriveImpulsePerStep;
+
+            if (mode == WheelMotorMode::Drive)
+            {
+                desiredSurfaceSpeed = parentCommand * parentWheelMotor.targetSurfaceSpeed;
+            }
+            else if (mode == WheelMotorMode::Handover)
+            {
+                desiredSurfaceSpeed = relativeForwardSpeed;
+                visualLimit = max(parentWheelMotor.maxDriveImpulsePerStep * 0.25f, authorityClamp);
+            }
+            else if (mode == WheelMotorMode::Brake)
+            {
+                desiredSurfaceSpeed = relativeForwardSpeed;
+                visualLimit = max(parentWheelMotor.maxBrakeImpulsePerStep * 0.35f, parentWheelMotor.maxDriveImpulsePerStep);
+            }
+            else if (mode == WheelMotorMode::Coast)
+            {
+                desiredSurfaceSpeed = relativeForwardSpeed;
+                visualLimit = parentWheelMotor.maxDriveImpulsePerStep * 0.25f;
+            }
+
+            float surfaceSpeed = 0.0f;
+            float surfaceSpeedError = 0.0f;
+            applyWheelVisualSpin(points, wheelShape, desiredSurfaceSpeed, visualLimit, surfaceSpeed, surfaceSpeedError);
+
+            parentWheelMotor.lastMode = mode;
+            parentWheelMotor.lastParentForwardSpeed = parentForwardSpeed;
+            parentWheelMotor.lastGroundSpeed = groundSpeed;
+            parentWheelMotor.lastRelativeForwardSpeed = relativeForwardSpeed;
+            parentWheelMotor.lastCommandSpaceSpeed = commandSpaceSpeed;
+            parentWheelMotor.lastAuthorityClamp = authorityClamp;
+            parentWheelMotor.lastHandoverBand = reverseEngageSpeed;
+            parentWheelMotor.lastSurfaceSpeed = surfaceSpeed;
+            parentWheelMotor.lastSurfaceSpeedError = surfaceSpeedError;
+            parentWheelMotor.lastAppliedImpulse = appliedDelta;
+            parentWheelMotor.lastCommand = parentCommand;
+        }
+    }
+}
+
+void Integrator::dampWheelMotors(PhysicsSpace &space)
+{
+    PointMassesRange points = space.points.range();
+
+    for (int i = 0; i < space.wheelMotors.size(); i++)
+    {
+        WheelMotor &wheelMotor = space.wheelMotors[i];
+        if (wheelMotor.shapeIndex < 0 || wheelMotor.shapeIndex >= space.shapes.size())
+        {
+            continue;
+        }
+
+        if (wheelMotor.groundedThisStep)
+        {
+            continue;
+        }
+
+        const Shape &shape = space.shapes[wheelMotor.shapeIndex];
+        ShapeVelocities averageVelocity = ShapeUtils::getAverageShapeVelocity(points, shape);
+        float averageRadius = 0.0f;
+        int numPoints = 0;
+
+        for (ShapeIterator iter(shape); iter.isValid(); iter.next())
+        {
+            averageRadius += (points.pos[iter.index()] - averageVelocity.centerOfMass).length();
+            numPoints++;
+        }
+
+        averageRadius = numPoints > 0 ? averageRadius / (float)numPoints : 0.0f;
+
+        wheelMotor.lastMode = wheelMotor.enabled && wheelMotor.command != 0.0f ? WheelMotorMode::Air : WheelMotorMode::Coast;
+
+        if (wheelMotor.enabled && wheelMotor.command != 0.0f && wheelMotor.maxDriveImpulsePerStep > 0.0f && averageRadius > 0.0f)
+        {
+            float currentSurfaceSpeed = averageVelocity.angularVelocity * averageRadius;
+            float desiredSurfaceSpeed = wheelMotor.command * wheelMotor.targetSurfaceSpeed;
+            float speedError = desiredSurfaceSpeed - currentSurfaceSpeed;
+            float airDriveDelta = clamp(speedError * 0.15f,
+                                        -wheelMotor.maxDriveImpulsePerStep * 0.35f,
+                                        wheelMotor.maxDriveImpulsePerStep * 0.35f);
+
+            for (ShapeIterator iter(shape); iter.isValid(); iter.next())
+            {
+                int pointIndex = iter.index();
+                Vector2 relPos = points.pos[pointIndex] - averageVelocity.centerOfMass;
+                float radialLengthSquared = relPos.lengthSquared();
+                if (radialLengthSquared <= 0.0001f)
+                {
+                    continue;
+                }
+
+                Vector2 tangent = relPos.normalVector() * (1.0f / sqrtf(radialLengthSquared));
+                points.velocity[pointIndex] += tangent * airDriveDelta;
+            }
+
+            wheelMotor.lastSurfaceSpeed = currentSurfaceSpeed;
+            wheelMotor.lastSurfaceSpeedError = speedError;
+            wheelMotor.lastAppliedImpulse = airDriveDelta;
+        }
+        else
+        {
+            wheelMotor.lastSurfaceSpeed = averageRadius > 0.0f ? averageVelocity.angularVelocity * averageRadius : 0.0f;
+            wheelMotor.lastSurfaceSpeedError = 0.0f;
+            wheelMotor.lastAppliedImpulse = 0.0f;
+        }
+
+        if (wheelMotor.freeSpinDamping <= 0.0f)
+        {
+            continue;
+        }
+
+        for (ShapeIterator iter(shape); iter.isValid(); iter.next())
+        {
+            int pointIndex = iter.index();
+            Vector2 relPos = points.pos[pointIndex] - averageVelocity.centerOfMass;
+            Vector2 rotationVelocity = Vector2(-relPos.y, relPos.x) * averageVelocity.angularVelocity;
+            points.velocity[pointIndex] -= rotationVelocity * wheelMotor.freeSpinDamping;
+        }
+    }
 }

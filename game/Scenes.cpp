@@ -7,6 +7,7 @@
 #include "../physics/PhysicsSpaceStorage.h"
 #include "../physics/CollisionSolver.h"
 #include "../physics/ShapeAxisSeparator.h"
+#include "../physics/ShapeUtils.h"
 #include "../containers/Array.h"
 #include "../utils/Console.h"
 #include "../utils/MinMax.h"
@@ -15,6 +16,79 @@
 #include "stdint.h"
 
 #define ARRAYSIZE(_ARR) ((int)(sizeof(_ARR) / sizeof(*(_ARR)))) // Size of a static C-style array. Don't use on pointers!
+
+namespace
+{
+    struct TankRecoveryState
+    {
+        int parentId = -1;
+        int hullShapeIndex = -1;
+        float controlLockTimerMs = 0.0f;
+    };
+
+    static void setTankMotorCommand(PhysicsSpace &space, int parentId, float command)
+    {
+        for (int i = 0; i < space.wheelMotors.size(); i++)
+        {
+            WheelMotor &wheelMotor = space.wheelMotors[i];
+            if (wheelMotor.parentId != parentId)
+            {
+                continue;
+            }
+
+            wheelMotor.enabled = command != 0.0f;
+            wheelMotor.command = command;
+        }
+    }
+
+    static Vector2 averageParentPosition(const PhysicsSpace &space, int parentId, bool useOriginalPositions)
+    {
+        Vector2 center;
+        int count = 0;
+
+        for (int i = 0; i < space.shapes.size(); i++)
+        {
+            const Shape &shape = space.shapes[i];
+            if (shape.parentId != parentId)
+            {
+                continue;
+            }
+
+            for (ShapeIterator iter(shape); iter.isValid(); iter.next())
+            {
+                int pointIndex = iter.index();
+                center += useOriginalPositions ? space.points.shapeOriginalPos[pointIndex] : space.points.pos[pointIndex];
+                count++;
+            }
+        }
+
+        return count > 0 ? center / (float)count : Vector2();
+    }
+
+    static void resetTankPose(PhysicsSpace &space, const TankRecoveryState &state, float angle)
+    {
+        const Vector2 currentCenter = averageParentPosition(space, state.parentId, false);
+        const Vector2 originalCenter = averageParentPosition(space, state.parentId, true);
+        const Vector2 targetCenter = currentCenter;
+
+        for (int i = 0; i < space.shapes.size(); i++)
+        {
+            const Shape &shape = space.shapes[i];
+            if (shape.parentId != state.parentId)
+            {
+                continue;
+            }
+
+            for (ShapeIterator iter(shape); iter.isValid(); iter.next())
+            {
+                int pointIndex = iter.index();
+                Vector2 localOffset = space.points.shapeOriginalPos[pointIndex] - originalCenter;
+                space.points.pos[pointIndex] = targetCenter + localOffset.rotate(angle);
+                space.points.velocity[pointIndex] = Vector2();
+            }
+        }
+    }
+}
 
 SceneDefinition deformedScenes[] = {
     {"Failed triangulation", [](Game *game)
@@ -69,6 +143,18 @@ SceneDefinition deformedScenes[] = {
 };
 
 SceneDefinition collisionScenes[] = {
+    {"New Unit Test 45", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_45.txt");
+
+         GameRenderSettings renderSettings;
+         renderSettings.renderShapeMatching = true;
+         game->setRenderSettings(renderSettings);
+         game->scale() = 1.00f;
+         game->offset() = Vector2(-41.44f, 568.12f);
+         game->setPaused();
+     }},
     {"New Unit Test 32", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();
@@ -719,17 +805,190 @@ SceneDefinition gameScenes[] = {
 
          PhysicsSpace prefabSpace;
          PhysicsSpaceStorage::loadFromFile(prefabSpace, "levels/prefab_3.txt");
-         Shapes::createCar(space, 400.0f, 440.0f, prefabSpace);
+         int carParentId = Shapes::createCar(space, 400.0f, 440.0f, prefabSpace);
+
+         struct CallbackData
+         {
+             int carParentId;
+             float jumpFuel = 1.0f;
+         };
+
+         CallbackData *callbackData = new CallbackData();
+         callbackData->carParentId = carParentId;
+         constexpr float jumpFuelLoss = 0.015f;
+
+         game->scheduleFrameCallback(
+             [](Game *game, void *data)
+             {
+                 PhysicsSpace &space = game->physicsSpace();
+                 CallbackData *callbackData = (CallbackData *)data;
+
+                 Console::logFrame(200, 200, "Jump fuel: %.2f", callbackData->jumpFuel);
+
+                 callbackData->jumpFuel += 0.0065f;
+                 if (callbackData->jumpFuel > 1.0f)
+                 {
+                     callbackData->jumpFuel = 1.0f;
+                 }
+
+                 if (game->keyWasPressed(GameKeyCode::SPACE) && callbackData->jumpFuel > jumpFuelLoss)
+                 {
+                     for (int i = 0; i < space.shapes.size(); i++)
+                     {
+                         const Shape &shape = space.shapes[i];
+                         if (shape.parentId != callbackData->carParentId)
+                         {
+                             continue;
+                         }
+
+                         callbackData->jumpFuel -= jumpFuelLoss;
+                         ShapeIndexedRange range(shape);
+                         for (int j = 0; j < range.size(); j++)
+                         {
+                             space.points.velocity[range[j]].y -= 0.015f;
+                         }
+                     }
+                 }
+
+                 float command = 0.0f;
+                 if (game->keyIsPressed(GameKeyCode::D))
+                 {
+                     command = 1.0f;
+                 }
+                 else if (game->keyIsPressed(GameKeyCode::A))
+                 {
+                     command = -1.0f;
+                 }
+
+                 for (int i = 0; i < space.wheelMotors.size(); i++)
+                 {
+                     space.wheelMotors[i].enabled = command != 0.0f;
+                     space.wheelMotors[i].command = command;
+                 }
+             },
+             callbackData);
 
          GameRenderSettings renderSettings;
-        //  renderSettings.renderPointIndices = true;
+         //  renderSettings.renderPointIndices = true;
          renderSettings.renderShapeMatching = false;
          renderSettings.clearDebugGeometryWhenPaused = true;
          game->setRenderSettings(renderSettings);
 
          game->scale() = 1.00f;
          game->offset() = Vector2(270.00f, 47.00f);
-         game->setPaused();
+     }},
+    {"Tank", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "levels/car_scene.txt");
+         Shapes::TankInstance tank = Shapes::createTank(space, 400.0f, 440.0f);
+
+         TankRecoveryState *state = new TankRecoveryState();
+         state->parentId = tank.parentId;
+         state->hullShapeIndex = tank.hullShapeIndex;
+
+         game->scheduleFrameCallback(
+             [](Game *game, void *data)
+             {
+                 PhysicsSpace &space = game->physicsSpace();
+                 TankRecoveryState *state = (TankRecoveryState *)data;
+                 const float deltaMs = (float)game->lastElapsedTimeMilliseconds();
+
+                 if (state->controlLockTimerMs > 0.0f)
+                 {
+                     state->controlLockTimerMs = max(0.0f, state->controlLockTimerMs - deltaMs);
+                     setTankMotorCommand(space, state->parentId, 0.0f);
+                     return;
+                 }
+
+                 if (state->hullShapeIndex < 0 || state->hullShapeIndex >= space.shapes.size())
+                 {
+                     setTankMotorCommand(space, state->parentId, 0.0f);
+                     return;
+                 }
+
+                 const Shape &hull = space.shapes[state->hullShapeIndex];
+                 ShapeProperties hullProperties = ShapeUtils::getShapeProperties(space.points.range(), hull);
+                 const Vector2 worldUp = Vector2(0.0f, -1.0f).rotate(hullProperties.diffAngle);
+                 const float uprightDot = worldUp.dot(Vector2(0.0f, -1.0f));
+                 const bool inverted = uprightDot < -0.35f;
+
+                 Console::logFrame(200.0f, 200.0f, inverted ? "Press SPACE to recover" : "Press SPACE to flip");
+                 if (game->keyWasPressed(GameKeyCode::SPACE))
+                 {
+                     resetTankPose(space, *state, inverted ? 0.0f : 3.14159265f);
+                     state->controlLockTimerMs = 500.0f;
+                     setTankMotorCommand(space, state->parentId, 0.0f);
+                     return;
+                 }
+
+                 float command = 0.0f;
+                 if (game->keyIsPressed(GameKeyCode::D))
+                 {
+                     command = 1.0f;
+                 }
+                 else if (game->keyIsPressed(GameKeyCode::A))
+                 {
+                     command = -1.0f;
+                 }
+
+                 setTankMotorCommand(space, state->parentId, command);
+             },
+             state);
+
+         GameRenderSettings renderSettings;
+         renderSettings.renderShapeMatching = false;
+         renderSettings.clearDebugGeometryWhenPaused = true;
+         game->setRenderSettings(renderSettings);
+
+         game->scale() = 1.00f;
+         game->offset() = Vector2(270.00f, 47.00f);
+     }},
+    {"Tank accelerate", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "levels/car_scene.txt");
+         Shapes::createTank(space, 400.0f, 440.0f);
+
+         for (int i = 0; i < space.wheelMotors.size(); i++)
+         {
+             space.wheelMotors[i].enabled = true;
+             space.wheelMotors[i].command = 1.0f;
+         }
+
+         GameRenderSettings renderSettings;
+         renderSettings.renderShapeMatching = false;
+         game->setRenderSettings(renderSettings);
+
+         game->scale() = 1.00f;
+         game->offset() = Vector2(270.00f, 47.00f);
+     }},
+    {"Rotation bug", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         Shapes::createStaticQuad(space, 50.0f, 520.0f, 700.0f, 40.0f, 1.0f);
+         int wheelParentId = space.nextParentId();
+         Shape wheel = Shapes::createCircle(space, 400.0f, 445.0f, 50.0f, 1.0f);
+         space.shapes[wheel.index].parentId = wheelParentId;
+
+         WheelMotor wheelMotor;
+         wheelMotor.shapeIndex = wheel.index;
+         wheelMotor.parentId = wheelParentId;
+         wheelMotor.enabled = true;
+         wheelMotor.command = 1.0f;
+         wheelMotor.targetSurfaceSpeed = 0.18f;
+         wheelMotor.maxDriveImpulsePerStep = 0.06f;
+         wheelMotor.maxBrakeImpulsePerStep = 0.18f;
+         wheelMotor.reverseEngageSpeed = 0.04f;
+         wheelMotor.freeSpinDamping = 0.01f;
+         space.wheelMotors.push(wheelMotor);
+
+         GameRenderSettings renderSettings;
+         renderSettings.renderShapeMatching = true;
+         game->setRenderSettings(renderSettings);
+
+         game->scale() = 1.2f;
+         game->offset() = Vector2(50.0f, 50.0f);
      }},
     {"New Prefab 1", [](Game *game)
      {

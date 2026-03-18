@@ -59,6 +59,7 @@ enum class GameKeyCode : int
     RIGHT,
     UP,
     DOWN,
+    SPACE,
     NUM_KEY_CODES
 };
 

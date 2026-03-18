@@ -31,6 +31,8 @@ struct Integrator
     RK4Integrator rk4Integrator;
     void clear();
     void performIntegration(PhysicsSpace &space, const ShapeMatchDragData &dragData, ConsoleProfileInfo &profileInfo);
+    void applyWheelMotorTraction(PhysicsSpace &space);
+    void dampWheelMotors(PhysicsSpace &space);
 };
 
 #endif // __GAME_Integrator_H__

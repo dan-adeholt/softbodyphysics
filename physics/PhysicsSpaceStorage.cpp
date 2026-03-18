@@ -3,6 +3,8 @@
 #include "ShapeUtils.h"
 #include <stdio.h>
 #include <assert.h>
+#include <stdarg.h>
+#include <math.h>
 #include "../utils/Console.h"
 #include "../containers/StringBuffer.h"
 #include <SDL3/SDL.h>
@@ -12,6 +14,23 @@
 //  interiorEdges=0,1,0,0
 //  interiorEdges=0,1,0,1
 //  interiorEdges=0,0,0,1
+
+void ValidationResult::addError(const char *fmt, ...)
+{
+    if (errorCount >= 16)
+    {
+        valid = false;
+        return;
+    }
+
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(errors[errorCount], sizeof(errors[errorCount]), fmt, args);
+    va_end(args);
+
+    errorCount++;
+    valid = false;
+}
 
 void readVector2QuadArray(FILE *file, Vector2 *array)
 {
@@ -477,4 +496,80 @@ void PhysicsSpaceStorage::dumpToUnitTest(PhysicsSpace &space, float scale, const
 
     // Free the buffer
     free(buffer);
+}
+
+ValidationResult PhysicsSpaceStorage::validate(const PhysicsSpace &space)
+{
+    ValidationResult result;
+
+    for (int i = 0; i < space.points.size(); i++)
+    {
+        const Vector2 &pos = space.points.pos[i];
+        if (isnan(pos.x) || isnan(pos.y))
+        {
+            result.addError("Point %d has NaN position", i);
+        }
+        if (isinf(pos.x) || isinf(pos.y))
+        {
+            result.addError("Point %d has Inf position", i);
+        }
+
+        const Vector2 &velocity = space.points.velocity[i];
+        if (isnan(velocity.x) || isnan(velocity.y))
+        {
+            result.addError("Point %d has NaN velocity", i);
+        }
+        if (isinf(velocity.x) || isinf(velocity.y))
+        {
+            result.addError("Point %d has Inf velocity", i);
+        }
+
+        const float speed = sqrtf(velocity.x * velocity.x + velocity.y * velocity.y);
+        if (speed > 10000.0f)
+        {
+            result.addError("Point %d has extreme velocity %.2f", i, speed);
+        }
+
+        if (space.points.mass[i] <= 0.0f)
+        {
+            result.addError("Point %d has non-positive mass %.6f", i, space.points.mass[i]);
+        }
+
+        if (fabsf(pos.x) > 100000.0f || fabsf(pos.y) > 100000.0f)
+        {
+            result.addError("Point %d escaped bounds (%.2f, %.2f)", i, pos.x, pos.y);
+        }
+    }
+
+    for (int i = 0; i < space.shapes.size(); i++)
+    {
+        const Shape &shape = space.shapes[i];
+        if (shape.start < 0 || shape.start >= space.points.size())
+        {
+            result.addError("Shape %d has invalid start %d", i, shape.start);
+        }
+        if (shape.end < shape.start || shape.end > space.points.size())
+        {
+            result.addError("Shape %d has invalid end %d", i, shape.end);
+        }
+        if (shape.stiffness < 0.0f)
+        {
+            result.addError("Shape %d has negative stiffness %.6f", i, shape.stiffness);
+        }
+        if (shape.damping < 0.0f)
+        {
+            result.addError("Shape %d has negative damping %.6f", i, shape.damping);
+        }
+    }
+
+    for (int i = 0; i < space.staticJoints.size(); i++)
+    {
+        const StaticJoint &joint = space.staticJoints[i];
+        if (joint.pointIndex < 0 || joint.pointIndex >= space.points.size())
+        {
+            result.addError("Static joint %d references invalid point %d", i, joint.pointIndex);
+        }
+    }
+
+    return result;
 }

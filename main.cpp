@@ -175,6 +175,8 @@ GameKeyCode convertSdlKeycode(SDL_Keycode code)
         return GameKeyCode::UP;
     case SDLK_DOWN:
         return GameKeyCode::DOWN;
+    case SDLK_SPACE:
+        return GameKeyCode::SPACE;
     case SDLK_BACKSPACE:
         return GameKeyCode::BACKSPACE;
     case SDLK_F1:

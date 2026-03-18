@@ -15,6 +15,7 @@ PhysicsSpace::PhysicsSpace() : gravityEnabled(true), collisionsEnabled(true), sh
     staticJoints.reserve(NUM_POINTS / 2);
     shapeJoints.reserve(NUM_SHAPES / 2);
     radialAccelerators.reserve(NUM_SHAPES / 2);
+    wheelMotors.reserve(NUM_SHAPES / 2);
     mouseJoint.pointIndex = -1;
     mouseJoint.position = Vector2::zero();
     triangleIndices.reserve(NUM_POINTS * 3);
@@ -30,6 +31,7 @@ void PhysicsSpace::assign(PhysicsSpace &other)
     triangleIndices.replace(other.triangleIndices);
     uvCoordinates.replace(other.uvCoordinates);
     radialAccelerators.replace(other.radialAccelerators);
+    wheelMotors.replace(other.wheelMotors);
 }
 
 void PhysicsSpace::initFromEntries(const Array<ShapeEntry> &entries)
@@ -84,6 +86,7 @@ void PhysicsSpace::clear()
     gravityEnabled = true;
     shapeJoints.clear();
     radialAccelerators.clear();
+    wheelMotors.clear();
 }
 
 void PhysicsSpace::removeShapeWithoutPoints(int shapeIndex)
@@ -109,6 +112,21 @@ void PhysicsSpace::removeShapeWithoutPoints(int shapeIndex)
         {
 
             radialAccelerator.shapeIndex--;
+        }
+    }
+
+    for (int i = 0; i < wheelMotors.size(); i++)
+    {
+        WheelMotor &wheelMotor = wheelMotors[i];
+
+        if (wheelMotor.shapeIndex == shapeIndex)
+        {
+            wheelMotors.remove(i);
+            i--;
+        }
+        else if (wheelMotor.shapeIndex > shapeIndex)
+        {
+            wheelMotor.shapeIndex--;
         }
     }
 

@@ -43,6 +43,7 @@ struct PhysicsSpace
     Array<StaticJoint> staticJoints;
     Array<ShapeJoint> shapeJoints;
     Array<RadialAccelerator> radialAccelerators;
+    Array<WheelMotor> wheelMotors;
 
     Array<int> triangleIndices;
     Array<Vector2> uvCoordinates;

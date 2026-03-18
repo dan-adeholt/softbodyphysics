@@ -13,6 +13,7 @@
 #include "../containers/StringBuffer.h"
 #include "../imgui/imgui.h"
 #include "../physics/PhysicsSpaceStorage.h"
+#include "../physics/ShapeUtils.h"
 #include "../physics/PhysicsTests.h"
 #include "../fontawesome/IconsFontAwesome4.h"
 #include "../utils/MinMax.h"
@@ -38,6 +39,52 @@ struct FileEntry
 {
     StringBuffer<MAX_FILENAME_LENGTH> name;
 };
+
+static float averageRadius(Range<Vector2> points, const Shape &shape, const Vector2 &center)
+{
+    float radius = 0.0f;
+    int count = 0;
+
+    for (ShapeIterator iter(shape); iter.isValid(); iter.next())
+    {
+        radius += (points[iter.index()] - center).length();
+        count++;
+    }
+
+    return count > 0 ? radius / (float)count : 0.0f;
+}
+
+static float wheelRadiusRatio(PhysicsSpace &space, const Shape &shape)
+{
+    ShapeProperties properties = ShapeUtils::getShapeProperties(space.points.range(), shape);
+    float currentRadius = averageRadius(space.points.pos.range(), shape, properties.center);
+    float originalRadius = averageRadius(space.points.shapeOriginalPos.range(), shape, properties.origCenter);
+
+    if (originalRadius <= 0.0f)
+    {
+        return 1.0f;
+    }
+
+    return currentRadius / originalRadius;
+}
+
+static const char *wheelMotorModeName(WheelMotorMode mode)
+{
+    switch (mode)
+    {
+    case WheelMotorMode::Drive:
+        return "drive";
+    case WheelMotorMode::Handover:
+        return "handover";
+    case WheelMotorMode::Brake:
+        return "brake";
+    case WheelMotorMode::Air:
+        return "air";
+    case WheelMotorMode::Coast:
+    default:
+        return "coast";
+    }
+}
 
 struct BridgePopup
 {
@@ -404,6 +451,52 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
                 ImGui::Text("Collisions time: %.1lf ms", profileInfo.collisionTimeMillis);
                 ImGui::Text("Collision resolve: %.1lf ms", profileInfo.collisionHandlingTimeMillis);
                 ImGui::Text("Collision grid: %.1lf ms", profileInfo.collisionGridUpdateTimeMillis);
+
+                PhysicsSpace &space = game.physicsSpace();
+                int groundedWheelMotors = 0;
+                for (int i = 0; i < space.wheelMotors.size(); i++)
+                {
+                    if (space.wheelMotors[i].groundedThisStep)
+                    {
+                        groundedWheelMotors++;
+                    }
+                }
+
+                ImGui::Separator();
+                ImGui::Text("Wheel motors: %d", space.wheelMotors.size());
+                ImGui::Text("Grounded motors: %d", groundedWheelMotors);
+
+                for (int i = 0; i < space.wheelMotors.size(); i++)
+                {
+                    const WheelMotor &wheelMotor = space.wheelMotors[i];
+                    if (wheelMotor.shapeIndex < 0 || wheelMotor.shapeIndex >= space.shapes.size())
+                    {
+                        continue;
+                    }
+
+                    const Shape &shape = space.shapes[wheelMotor.shapeIndex];
+                    float radiusRatio = wheelRadiusRatio(space, shape);
+
+                    ImGui::Text("Wheel %d: cmd %.1f mode %s grounded %s (%d)",
+                                wheelMotor.shapeIndex,
+                                wheelMotor.command,
+                                wheelMotorModeName(wheelMotor.lastMode),
+                                wheelMotor.groundedThisStep ? "yes" : "no",
+                                wheelMotor.groundedContactCount);
+                    ImGui::Text("surface %.3f err %.3f radius %.2f impulse %.3f",
+                                wheelMotor.lastSurfaceSpeed,
+                                wheelMotor.lastSurfaceSpeedError,
+                                radiusRatio,
+                                wheelMotor.lastAppliedImpulse);
+                    ImGui::Text("parent %.3f ground %.3f rel %.3f",
+                                wheelMotor.lastParentForwardSpeed,
+                                wheelMotor.lastGroundSpeed,
+                                wheelMotor.lastRelativeForwardSpeed);
+                    ImGui::Text("cmd-space %.3f clamp %.3f band %.3f",
+                                wheelMotor.lastCommandSpaceSpeed,
+                                wheelMotor.lastAuthorityClamp,
+                                wheelMotor.lastHandoverBand);
+                }
                 ImGui::EndTabItem();
             }
 
