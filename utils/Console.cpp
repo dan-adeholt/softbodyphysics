@@ -295,7 +295,10 @@ void Console::draw(ConsoleProfileInfo profileInfo, float scale, const Vector2 &o
             ImGui::PushFont(boldFont);
         }
 
-        ImGui::TextColored(ImVec4(entry.r / 255.0f, entry.g / 255.0f, entry.b / 255.0f, 1.0f),
+        ImGui::TextColored(ImVec4(static_cast<float>(entry.r) / 255.0f,
+                                  static_cast<float>(entry.g) / 255.0f,
+                                  static_cast<float>(entry.b) / 255.0f,
+                                  1.0f),
                            "[%d] %s", entry.writeIndex, entry.text);
 
         if (entry.bold)

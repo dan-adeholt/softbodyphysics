@@ -371,7 +371,7 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
         {
             for (int i = 0; i < abs(addSubShapeData.repeatX); i++)
             {
-                Vector2 subOffset(i * gridSize, 0);
+                Vector2 subOffset(static_cast<float>(i) * gridSize, 0.0f);
 
                 if (addSubShapeData.repeatX < 0)
                 {
@@ -383,7 +383,7 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
 
             for (int i = 0; i < abs(addSubShapeData.repeatY); i++)
             {
-                Vector2 subOffset(0.0f, i * gridSize);
+                Vector2 subOffset(0.0f, static_cast<float>(i) * gridSize);
 
                 if (addSubShapeData.repeatY < 0)
                 {
@@ -571,13 +571,13 @@ void GameRenderer::renderGrid(SDL_Renderer *renderer, Game &game, float scale)
 
     for (int i = 0; i < 200; i++)
     {
-        float x = -2000.0f + i * gridSize;
+        float x = -2000.0f + static_cast<float>(i) * gridSize;
         addLine(m->backgroundVertices, x, -10000, x, 10000, scale, color);
     }
 
     for (int i = 0; i < 200; i++)
     {
-        float y = -2000.0f + i * gridSize;
+        float y = -2000.0f + static_cast<float>(i) * gridSize;
         addLine(m->backgroundVertices, -10000, y, 10000, y, scale, color);
     }
 }
@@ -588,6 +588,9 @@ void GameRenderer::renderCollisionGrid(SDL_Renderer *renderer, Game &game, float
     SDL_FColor color = {gray, 0.0f, gray, 1.0f};
 
     CollisionGridSimple &collisionGrid = game.collisionGrid();
+    const float cellSize = static_cast<float>(collisionGrid.cellSize);
+    const float gridHeight = static_cast<float>(collisionGrid.height) * cellSize;
+    const float gridWidth = static_cast<float>(collisionGrid.width) * cellSize;
 
     Array<OrientedBoundingBox> &orientedBoundingBoxes = game.shapeOrientedBoundingBoxes();
 
@@ -610,27 +613,27 @@ void GameRenderer::renderCollisionGrid(SDL_Renderer *renderer, Game &game, float
 
     for (int i = 0; i < collisionGrid.width; i++)
     {
-        float x = collisionGrid.originX + i * collisionGrid.cellSize;
-        addLine(m->backgroundVertices, x, collisionGrid.originY, x, collisionGrid.originY + collisionGrid.height * collisionGrid.cellSize, scale, color);
+        float x = collisionGrid.originX + static_cast<float>(i) * cellSize;
+        addLine(m->backgroundVertices, x, collisionGrid.originY, x, collisionGrid.originY + gridHeight, scale, color);
     }
 
     for (int i = 0; i < collisionGrid.height; i++)
     {
-        float y = collisionGrid.originY + i * collisionGrid.cellSize;
-        addLine(m->backgroundVertices, collisionGrid.originX, y, collisionGrid.originX + collisionGrid.width * collisionGrid.cellSize, y, scale, color);
+        float y = collisionGrid.originY + static_cast<float>(i) * cellSize;
+        addLine(m->backgroundVertices, collisionGrid.originX, y, collisionGrid.originX + gridWidth, y, scale, color);
     }
 
     for (int x = 0; x < collisionGrid.width; x++)
     {
-        float xp = collisionGrid.originX + x * collisionGrid.cellSize;
+        float xp = collisionGrid.originX + static_cast<float>(x) * cellSize;
 
         for (int y = 0; y < collisionGrid.height; y++)
         {
-            float yp = collisionGrid.originY + y * collisionGrid.cellSize;
+            float yp = collisionGrid.originY + static_cast<float>(y) * cellSize;
             CollisionGridCell &cell = collisionGrid.cells[x + y * collisionGrid.width];
             if (cell.numIndices > 0)
             {
-                Console::logFrame(xp + collisionGrid.cellSize * 0.5f, yp + collisionGrid.cellSize * 0.5f, "%d", cell.numIndices);
+                Console::logFrame(xp + cellSize * 0.5f, yp + cellSize * 0.5f, "%d", cell.numIndices);
             }
         }
     }

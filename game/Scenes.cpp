@@ -347,62 +347,61 @@ SceneDefinition collisionScenes[] = {
      }},
     {"Boxes overlapping", [](Game *game)
      {
-         ShapeEntry shape0 = {
-             .isStatic = false,
-             .points = PointMasses()
-                           .withPos({
-                               {150.000000f, 668.858093f},
-                               {180.000000f, 668.858093f},
-                               {180.000000f, 698.858154f},
-                               {150.000000f, 698.858154f},
-                           })
-                           .withVelocity({
-                               {-0.000001f, 0.877949f},
-                               {0.000001f, 0.877949f},
-                               {0.000001f, 0.877954f},
-                               {-0.000001f, 0.877954f},
-                           })
-                           .withMass({
-                               0.250000f,
-                               0.250000f,
-                               0.250000f,
-                               0.250000f,
-                           })
-                           .withShapeOriginalPos({
-                               {-15.000000f, -15.000000f},
-                               {15.000000f, -15.000000f},
-                               {15.000000f, 15.000000f},
-                               {-15.000000f, 15.000000f},
-                           }),
-         };
-         ShapeEntry shape1 = {
-             .isStatic = false,
-             .points = PointMasses()
-                           .withPos({
-                               {148.365570f, 699.373230f},
-                               {176.053162f, 700.380371f},
-                               {176.345566f, 736.231323f},
-                               {152.611252f, 727.010132f},
-                           })
-                           .withVelocity({
-                               {0.061911f, -0.113225f},
-                               {0.085712f, 0.114880f},
-                               {-0.168945f, -0.115960f},
-                               {-0.036014f, 0.112005f},
-                           })
-                           .withMass({
-                               0.250000f,
-                               0.250000f,
-                               0.250000f,
-                               0.250000f,
-                           })
-                           .withShapeOriginalPos({
-                               {-15.000000f, -15.000000f},
-                               {15.000000f, -15.000000f},
-                               {15.000000f, 15.000000f},
-                               {-15.000000f, 15.000000f},
-                           }),
-         };
+         ShapeEntry shape0;
+         shape0.isStatic = false;
+         shape0.points = PointMasses()
+                             .withPos({
+                                 {150.000000f, 668.858093f},
+                                 {180.000000f, 668.858093f},
+                                 {180.000000f, 698.858154f},
+                                 {150.000000f, 698.858154f},
+                             })
+                             .withVelocity({
+                                 {-0.000001f, 0.877949f},
+                                 {0.000001f, 0.877949f},
+                                 {0.000001f, 0.877954f},
+                                 {-0.000001f, 0.877954f},
+                             })
+                             .withMass({
+                                 0.250000f,
+                                 0.250000f,
+                                 0.250000f,
+                                 0.250000f,
+                             })
+                             .withShapeOriginalPos({
+                                 {-15.000000f, -15.000000f},
+                                 {15.000000f, -15.000000f},
+                                 {15.000000f, 15.000000f},
+                                 {-15.000000f, 15.000000f},
+                             });
+
+         ShapeEntry shape1;
+         shape1.isStatic = false;
+         shape1.points = PointMasses()
+                             .withPos({
+                                 {148.365570f, 699.373230f},
+                                 {176.053162f, 700.380371f},
+                                 {176.345566f, 736.231323f},
+                                 {152.611252f, 727.010132f},
+                             })
+                             .withVelocity({
+                                 {0.061911f, -0.113225f},
+                                 {0.085712f, 0.114880f},
+                                 {-0.168945f, -0.115960f},
+                                 {-0.036014f, 0.112005f},
+                             })
+                             .withMass({
+                                 0.250000f,
+                                 0.250000f,
+                                 0.250000f,
+                                 0.250000f,
+                             })
+                             .withShapeOriginalPos({
+                                 {-15.000000f, -15.000000f},
+                                 {15.000000f, -15.000000f},
+                                 {15.000000f, 15.000000f},
+                                 {-15.000000f, 15.000000f},
+                             });
          Array<ShapeEntry> shapes = {
              shape0,
              shape1,
@@ -481,7 +480,9 @@ SceneDefinition collisionScenes[] = {
          {
              for (int x = 0; x < 1; x++)
              {
-                 Shapes::createQuad(space, spacing + x * spacing + y * 3.0f, spacing + y * spacing + x * 0.01f - 430.0f, size, size, 5.5f);
+                 float xf = static_cast<float>(x);
+                 float yf = static_cast<float>(y);
+                 Shapes::createQuad(space, spacing + xf * spacing + yf * 3.0f, spacing + yf * spacing + xf * 0.01f - 430.0f, size, size, 5.5f);
              }
          }
 
@@ -508,9 +509,8 @@ SceneDefinition collisionScenes[] = {
          PhysicsSpace &space = game->physicsSpace();
          for (int y = 3; y < 5; y++)
          {
-             float x = 15;
-
-             Shapes::createQuad(space, 150.0f + y * 2.0f, 100.0f + y * spacing, size, size, 0.25f);
+             float yf = static_cast<float>(y);
+             Shapes::createQuad(space, 150.0f + yf * 2.0f, 100.0f + yf * spacing, size, size, 0.25f);
 
              //  if (y < 4)
              //  {
@@ -542,7 +542,9 @@ SceneDefinition collisionScenes[] = {
          {
              for (int x = 0; x < 1; x++)
              {
-                 Shapes::createQuad(space, spacing + x * spacing + y * 2.0f, spacing + y * spacing + x * 0.01f - 900.0f, size, size, 0.25f);
+                 float xf = static_cast<float>(x);
+                 float yf = static_cast<float>(y);
+                 Shapes::createQuad(space, spacing + xf * spacing + yf * 2.0f, spacing + yf * spacing + xf * 0.01f - 900.0f, size, size, 0.25f);
 
                  //  if (x < 10)
                  //  {
@@ -660,9 +662,8 @@ SceneDefinition collectionScenes[] = {
          PhysicsSpace &space = game->physicsSpace();
          for (int y = 0; y < 20; y++)
          {
-             float x = 15;
-
-             Shapes::createQuad(space, 150.0f + y * 2.0f, -1900.0f + y * spacing, size, size, 0.25f);
+             float yf = static_cast<float>(y);
+             Shapes::createQuad(space, 150.0f + yf * 2.0f, -1900.0f + yf * spacing, size, size, 0.25f);
 
              //  if (y < 4)
              //  {
@@ -691,7 +692,9 @@ SceneDefinition collectionScenes[] = {
          {
              for (int x = 0; x < 30; x++)
              {
-                 Shapes::createRoundedQuad(space, spacing + x * spacing + y * 2.0f, spacing + y * spacing + x * 0.01f - 900.0f, size, size, 1.0f);
+                 float xf = static_cast<float>(x);
+                 float yf = static_cast<float>(y);
+                 Shapes::createRoundedQuad(space, spacing + xf * spacing + yf * 2.0f, spacing + yf * spacing + xf * 0.01f - 900.0f, size, size, 1.0f);
              }
          }
 
@@ -711,7 +714,9 @@ SceneDefinition collectionScenes[] = {
          {
              for (int x = 0; x < 30; x++)
              {
-                 Shapes::createQuad(space, spacing + x * spacing + y * 2.0f, spacing + y * spacing + x * 0.01f - 900.0f, size, size, 1.0f);
+                 float xf = static_cast<float>(x);
+                 float yf = static_cast<float>(y);
+                 Shapes::createQuad(space, spacing + xf * spacing + yf * 2.0f, spacing + yf * spacing + xf * 0.01f - 900.0f, size, size, 1.0f);
              }
          }
 
@@ -734,7 +739,9 @@ SceneDefinition collectionScenes[] = {
          {
              for (int x = 0; x < 25; x++)
              {
-                 Shapes::createCircle(space, spacing + x * spacing + y * 2.0f, spacing + y * spacing + x * 0.01f - 500.0f, size, 1.0f);
+                 float xf = static_cast<float>(x);
+                 float yf = static_cast<float>(y);
+                 Shapes::createCircle(space, spacing + xf * spacing + yf * 2.0f, spacing + yf * spacing + xf * 0.01f - 500.0f, size, 1.0f);
              }
          }
 
@@ -755,7 +762,9 @@ SceneDefinition collectionScenes[] = {
          {
              for (int x = 0; x < 35; x++)
              {
-                 Shapes::createCircle(space, spacing + x * spacing, spacing * 2 + y * spacing, size, 0.25f);
+                 float xf = static_cast<float>(x);
+                 float yf = static_cast<float>(y);
+                 Shapes::createCircle(space, spacing + xf * spacing, spacing * 2.0f + yf * spacing, size, 0.25f);
              }
          }
 
@@ -772,18 +781,19 @@ SceneDefinition gameScenes[] = {
          PhysicsSpace &space = game->physicsSpace();
          float segmentWidth = 70.0f;
          float segmentHeight = 80.0f;
+         float bridgeSpan = segmentWidth * static_cast<float>(numSegments);
          Shapes::createBridge(space, x, y, 1.0f, numSegments, segmentWidth, segmentHeight);
          space.staticJoints.push({0, Vector2(x, y)});
-         space.staticJoints.push({numSegments, Vector2(x + segmentWidth * (numSegments), y)});
-         space.staticJoints.push({numSegments + 1, Vector2(x + segmentWidth * (numSegments), y + segmentHeight)});
+         space.staticJoints.push({numSegments, Vector2(x + bridgeSpan, y)});
+         space.staticJoints.push({numSegments + 1, Vector2(x + bridgeSpan, y + segmentHeight)});
          space.staticJoints.push({numSegments * 2 + 1, Vector2(x, y + segmentHeight)});
 
          Shapes::createStaticQuad(space, 149.0f, 90.0f, 50.0f, 600.0f, 1.0f);
-         Shapes::createStaticQuad(space, x + (numSegments)*segmentWidth + 1, 90.0f, 50.0f, 600.0f, 1.0f);
+         Shapes::createStaticQuad(space, x + bridgeSpan + 1.0f, 90.0f, 50.0f, 600.0f, 1.0f);
 
          for (int i = 0; i < 10; i++)
          {
-             Shape s = Shapes::createCircle(space, 440.0f + i * 55.0f, 50.0f, 40.0f, 1.0f);
+             Shape s = Shapes::createCircle(space, 440.0f + static_cast<float>(i) * 55.0f, 50.0f, 40.0f, 1.0f);
          }
      }},
     {"Falling box with shelf", [](Game *game)

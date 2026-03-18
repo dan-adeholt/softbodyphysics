@@ -212,7 +212,12 @@ namespace Shapes
             for (int i = 0; i < pointsRange.size; i++)
             {
                 Vector2 p0 = pointsRange[i] + pos;
-                space.points.push(Vertex{.pos = p0});
+                Vertex vertex;
+                vertex.pos = p0;
+                vertex.originalPos = p0;
+                vertex.mass = 1.0f;
+                vertex.velocity = Vector2();
+                space.points.push(vertex);
                 newShape.indices[i] = (uint16_t)i;
             }
 
@@ -298,11 +303,12 @@ namespace Shapes
                 int newPointIndex = referenceShape.end;
                 Vector2 p0 = pointsRange[i];
                 Vector2 origPos = space.points.shapeOriginalPos[referenceIndex] + (p0 - referencePoint);
-
-                space.points.insert(newPointIndex,
-                                    Vertex{.pos = p0 + pos,
-                                           .mass = referenceMass,
-                                           .originalPos = origPos});
+                Vertex vertex;
+                vertex.pos = p0 + pos;
+                vertex.originalPos = origPos;
+                vertex.mass = referenceMass;
+                vertex.velocity = Vector2();
+                space.points.insert(newPointIndex, vertex);
                 subShape.end++;
 
                 for (int j = 0; j < space.shapes.size(); j++)
@@ -359,8 +365,8 @@ namespace Shapes
         float curX = x;
         float curY = y;
 
-        float width = meshWidth / numSegments;
-        float height = meshHeight / numSegments;
+        float width = meshWidth / static_cast<float>(numSegments);
+        float height = meshHeight / static_cast<float>(numSegments);
 
         float diagonal = sqrt(width * width + height * height);
         float stiffness = 1.2f;
@@ -436,7 +442,7 @@ namespace Shapes
         float damping = 1.0f;
 
         int numSegments = 16;
-        float segmentAngle = 2 * PI_F / numSegments;
+        float segmentAngle = 2.0f * PI_F / static_cast<float>(numSegments);
         int startIndex = space.points.size();
         int curIndex = startIndex;
         float curAngle = 0.0f;
@@ -795,7 +801,7 @@ namespace Shapes
         const int wheelPoints[3] = {16, 15, 14};
         for (int i = 0; i < 3; i++)
         {
-            bottomWheels[i] = createCircle(space, wheelStartX + i * wheelSpacing, bottomWheelY, wheelRadius, wheelMass, 3.0f);
+            bottomWheels[i] = createCircle(space, wheelStartX + static_cast<float>(i) * wheelSpacing, bottomWheelY, wheelRadius, wheelMass, 3.0f);
             space.shapes[bottomWheels[i].index].parentId = nextParentId;
 
             const int attachmentPoint = wheelPoints[i];
