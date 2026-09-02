@@ -28,6 +28,13 @@
 
 #define NUM_PROFILE_AVERAGES 10
 
+// Upper bound on how far a single frame may advance the simulation. A stall -
+// dragging the window, a breakpoint, the machine sleeping, or a backgrounded
+// browser tab suspending requestAnimationFrame - otherwise hands the physics
+// loop a huge time bucket that it tries to catch up on in one frame.
+// Diagnostics still report the real frame time.
+static const double maxSimulationStepMillis = 100.0;
+
 ConsoleProfileInfo consoleProfileInfoAverages[NUM_PROFILE_AVERAGES] = {};
 
 struct GameApp
@@ -546,6 +553,11 @@ bool tickGameApp(GameApp *app)
     updateProfileFrameStats(app);
 
     double elapsedMilliseconds = rawElapsedMilliseconds;
+
+    if (elapsedMilliseconds > maxSimulationStepMillis)
+    {
+        elapsedMilliseconds = maxSimulationStepMillis;
+    }
 
 #ifndef __EMSCRIPTEN__
     if (DynamicLibrary::hasLibraryChanged())
