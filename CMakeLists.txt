@@ -105,6 +105,8 @@ set(SOURCE_FILES
     physics/Springs.cpp
     physics/CollisionSolver.h
     physics/CollisionSolver.cpp
+    physics/CollisionSolverInternal.h
+    physics/CollisionSolverPerf.cpp
     physics/ShapeAxisSeparator.h
     physics/ShapeAxisSeparator.cpp
     physics/Integrator.h

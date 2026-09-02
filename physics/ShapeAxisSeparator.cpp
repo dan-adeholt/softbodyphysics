@@ -19,7 +19,7 @@ Vector2 closestPointToLine(const Vector2 &A, const Vector2 &B, const Vector2 &P)
     Vector2 AP = P - A;
     Vector2 AB = B - A;
 
-    float magnitudeAB = AB.dot();
+    float magnitudeAB = AB.lengthSquared();
     float t = AP.dot(AB) / magnitudeAB;
 
     return A + AB * t;

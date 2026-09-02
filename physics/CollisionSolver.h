@@ -110,6 +110,11 @@ lineIntersection(const Vector2 &s1, const Vector2 &s2, const Vector2 &p1, const 
 
 struct ConsoleProfileInfo;
 
+// Push a penetrating point out along the contact normal after it is snapped to
+// the entry edge. Off restores the legacy normalize(v - 2n) direction, which
+// inverts above |v| = 2. See CollisionSolver.cpp.
+extern bool depenetrateAlongNormal;
+
 // enum class EdgeStrategy
 // {
 //     ClosestSegment,

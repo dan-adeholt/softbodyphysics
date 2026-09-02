@@ -268,6 +268,12 @@ struct Shape
     int triangleStart = -1;
     int triangleEnd = -1;
 
+    // Derived, not serialized. +1 when the rest pose is wound so that
+    // perp(edge) points into the shape, which is what the collision code
+    // assumes; -1 for a shape wound the other way. Recalculated on
+    // triangulation, from shapeOriginalPos rather than the deformed pose.
+    float windingSign = 1.0f;
+
     uint16_t indices[4] = {UINT16_MAX, UINT16_MAX, UINT16_MAX, UINT16_MAX};
     bool interiorEdges[4] = {false, false, false, false};
 

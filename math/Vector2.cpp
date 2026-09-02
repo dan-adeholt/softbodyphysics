@@ -69,7 +69,7 @@ Vector2 closestPointToLineSegment(const Vector2 &p0, const Vector2 &p1, const Ve
     // The projection of point P onto the line defined by segment AB is given by:
     // v dot w / v dot v
     // Compute projection t
-    float t = segmentToPoint.dot(segment) / segment.dot();
+    float t = segmentToPoint.dot(segment) / segment.lengthSquared();
     t = clamp(t, 0.0f, 1.0f);
 
     return p0 + segment * t;
@@ -85,7 +85,7 @@ Vector2 closestPointToAxis(const Vector2 &p0, const Vector2 &p1, const Vector2 &
     // The projection of point P onto the line defined by segment AB is given by:
     // v dot w / v dot v
     // Compute projection t
-    float t = segmentToPoint.dot(segment) / segment.dot();
+    float t = segmentToPoint.dot(segment) / segment.lengthSquared();
 
     return p0 + segment * t;
 }

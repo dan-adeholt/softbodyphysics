@@ -14,6 +14,7 @@
 #include "../imgui/imgui.h"
 #include "../physics/PhysicsSpaceStorage.h"
 #include "../physics/ShapeUtils.h"
+#include "../physics/CollisionSolver.h"
 #include "../physics/PhysicsTests.h"
 #include "../fontawesome/IconsFontAwesome4.h"
 #include "../utils/MinMax.h"
@@ -711,6 +712,12 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
             ImGui::Checkbox("Collisions", &game.physicsSpace().collisionsEnabled);
             ImGui::Checkbox("Shape matching", &game.physicsSpace().shapeMatchingEnabled);
             ImGui::Checkbox("Springs", &game.physicsSpace().springsEnabled);
+            ImGui::Checkbox("Depenetrate along normal", &depenetrateAlongNormal);
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("Off restores the legacy normalize(v - 2n) push-out, which\n"
+                                  "inverts above |v| = 2. Compare with \"Falling box with shelf\".");
+            }
             ImGui::DragInt("Speed", &game.simulationSpeed(), 1.0, 1, 100, "%d", ImGuiSliderFlags_AlwaysClamp);
             ImGui::EndMenu();
         }

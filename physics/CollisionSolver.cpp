@@ -1,5 +1,4 @@
-#include "CollisionSolver.h"
-#include "CollisionMap.h"
+#include "CollisionSolverInternal.h"
 #include "CollisionSet.h"
 #include "ShapeAxisSeparator.h"
 #include "../utils/MinMax.h"
@@ -159,28 +158,32 @@ struct CollisionPair
     int shape1Index;
     int shape2Index;
 };
-struct CollisionSolver::Impl
-{
-    Impl() : collisionMap(0),
-             gridCollisionMap(0),
-             boundingBoxes(0),
-             sortedBoundingBoxes(0),
-             sortedBoundingBoxShapeIndices(0)
-    {
-    }
-
-    CollisionMap collisionMap;
-    CollisionMap gridCollisionMap;
-    Array<ShapeBoundingBox> boundingBoxes;
-    Array<OrientedBoundingBox> orientedBoundingBoxes;
-    Array<KDOPProjection> kdopProjections;
-    Array<BoundingBox> sortedBoundingBoxes;
-    Array<int> sortedBoundingBoxShapeIndices;
-    CollisionGridSimple collisionGridSimple;
-    bool useCollisionGrid = false;
-};
 
 float frictionCoefficient = 0.9f;
+
+// When a penetrating point is snapped back onto the entry edge it is nudged
+// slightly clear of the surface. segmentNormal points *into* the collision
+// shape, so -segmentNormal is the outward direction.
+//
+// The legacy path used Vector2::reflect(), which evaluated to
+// normalize(v - 2n). That is a speed dependent blend between -n and v: it
+// matches -n as |v| -> 0, degrades as speed rises, and above |v| = 2 it
+// inverts and pushes the point back into the shape (and is a 0/0 singularity
+// at v == 2n exactly). It is kept behind this toggle so the two can be
+// compared side by side in the editor.
+bool depenetrateAlongNormal = true;
+
+Vector2 depenetrationDirection(const Vector2 &pointVelocity, const Vector2 &segmentNormal, float windingSign)
+{
+    if (depenetrateAlongNormal)
+    {
+        // segmentNormal points into the shape for the usual winding, so -n is
+        // outward. A reversed shape flips that, hence windingSign.
+        return -segmentNormal * windingSign;
+    }
+
+    return (pointVelocity - segmentNormal * 2.0f * segmentNormal.lengthSquared()).normalized();
+}
 
 static WheelMotor *findWheelMotor(PhysicsSpace *space, int shapeIndex)
 {
@@ -660,7 +663,7 @@ ClosestSegmentResult CollisionSolver::findEntryEdgeClosestSegment(PointMassesRan
         // The projection of point P onto the line defined by segment AB is given by:
         // v dot w / v dot v
         // Compute projection t
-        float t = segmentToPoint.dot(segment) / segment.dot();
+        float t = segmentToPoint.dot(segment) / segment.lengthSquared();
         t = clamp(t, 0.0f, 1.0f);
 
         Vector2 closestPoint = segment0 + segment * t;
@@ -861,7 +864,7 @@ static int calculateCollisionsMidPointInternal(
             // Vector from A to P
             Vector2 segmentToPoint = pointPos - segment0;
             // Compute projection t
-            float t = segmentToPoint.dot(segment) / segment.dot();
+            float t = segmentToPoint.dot(segment) / segment.lengthSquared();
             t = clamp(t, 0.0f, 1.0f);
             Vector2 closestPoint = segment0 + segment * t;
             result.closestPoint0 = closestPoint;
@@ -892,11 +895,11 @@ static int calculateCollisionsMidPointInternal(
         if (collisionShape.isStatic)
         {
             Vector2 impulse = calculateImpulseStatic(pointVelocity.x, pointVelocity.y, pointMass, segmentNormal);
-            Vector2 reflection = pointVelocity.reflect(segmentNormal).normalized();
+            Vector2 pushOutDirection = depenetrationDirection(pointVelocity, segmentNormal, collisionShape.windingSign);
 
             Vector2 splitOffset = result.closestPoint0 - pointPos;
-            points.pos[pointIndex] += splitOffset + reflection * 0.1f;
-            points.pos[nextPointIndex] += splitOffset + reflection * 0.1f;
+            points.pos[pointIndex] += splitOffset + pushOutDirection * 0.1f;
+            points.pos[nextPointIndex] += splitOffset + pushOutDirection * 0.1f;
 
             points.velocity[pointIndex] += (impulse / pointMass) * 0.5f;
             points.velocity[nextPointIndex] += (impulse / pointMass) * 0.5f;
@@ -923,7 +926,7 @@ static int calculateCollisionsMidPointInternal(
                 float totalMass = pm0Mass + pm1Mass + pointMass;
                 Vector2 splitOffset = result.closestPoint0 - pointPos;
 
-                Vector2 reflection = pointVelocity.reflect(segmentNormal).normalized();
+                Vector2 pushOutDirection = depenetrationDirection(pointVelocity, segmentNormal, collisionShape.windingSign);
 
                 Vector2 avgDir = (pm1Pos - pm0Pos).normalized();
 
@@ -932,8 +935,8 @@ static int calculateCollisionsMidPointInternal(
 
                 points.pos[collisionIndex0] = closestPointToAxis(A, B, pm0Pos);
                 points.pos[collisionIndex1] = closestPointToAxis(A, B, pm1Pos);
-                points.pos[pointIndex] = closestPointToAxis(A, B, points.pos[pointIndex]) + reflection * 0.2f;
-                points.pos[nextPointIndex] = closestPointToAxis(A, B, points.pos[nextPointIndex]) + reflection * 0.2f;
+                points.pos[pointIndex] = closestPointToAxis(A, B, points.pos[pointIndex]) + pushOutDirection * 0.2f;
+                points.pos[nextPointIndex] = closestPointToAxis(A, B, points.pos[nextPointIndex]) + pushOutDirection * 0.2f;
                 points.velocity[pointIndex] += (impulse / pointMass) * 0.5f;
                 points.velocity[nextPointIndex] += (impulse / pointMass) * 0.5f;
                 applyWheelMotorImpulseDynamic(space, movingShape, result.closestPoint0, pointIndex, nextPointIndex, pointMass, collisionIndex0, collisionIndex1, pm0Mass, pm0Vel, pm1Mass, pm1Vel, result.entryTime0, segmentNormal, points);
@@ -1010,7 +1013,7 @@ static int calculateCollisionsInternal(
             // Vector from A to P
             Vector2 segmentToPoint = pointPos - segment0;
             // Compute projection t
-            float t = segmentToPoint.dot(segment) / segment.dot();
+            float t = segmentToPoint.dot(segment) / segment.lengthSquared();
             t = clamp(t, 0.0f, 1.0f);
             Vector2 closestPoint = segment0 + segment * t;
             result.closestPoint0 = closestPoint;
@@ -1041,11 +1044,11 @@ static int calculateCollisionsInternal(
         {
             Vector2 impulse = calculateImpulseStatic(pointVelocity.x, pointVelocity.y, pointMass, segmentNormal);
 
-            Vector2 reflection = pointVelocity.reflect(segmentNormal).normalized();
+            Vector2 pushOutDirection = depenetrationDirection(pointVelocity, segmentNormal, collisionShape.windingSign);
             points.velocity[pointIndex] += impulse / pointMass;
             Vector2 diff = points.pos[pointIndex] - result.closestPoint0;
             Vector2 oldPos = points.pos[pointIndex];
-            points.pos[pointIndex] = result.closestPoint0 + reflection * 0.1f;
+            points.pos[pointIndex] = result.closestPoint0 + pushOutDirection * 0.1f;
             applyWheelMotorImpulseStatic(space, movingShape, result.closestPoint0, pointIndex, -1, pointMass, segmentNormal, points);
         }
         else
@@ -1067,12 +1070,12 @@ static int calculateCollisionsInternal(
             if (!movingShape.isStatic)
             {
                 float totalMass = pm0Mass + pm1Mass + pointMass;
-                Vector2 reflection = pointVelocity.reflect(segmentNormal).normalized();
+                Vector2 pushOutDirection = depenetrationDirection(pointVelocity, segmentNormal, collisionShape.windingSign);
 
                 points.pos[collisionIndex0] = pm0Pos;
                 points.pos[collisionIndex1] = pm1Pos;
                 Vector2 oldPos = points.pos[pointIndex];
-                points.pos[pointIndex] = result.closestPoint0 + reflection * 0.1f;
+                points.pos[pointIndex] = result.closestPoint0 + pushOutDirection * 0.1f;
                 float distance = (points.pos[pointIndex] - oldPos).length();
 
                 points.velocity[pointIndex] += impulse / pointMass;
@@ -1444,391 +1447,4 @@ void CollisionGridSimple::init(Array<BoundingBox> &boundingBoxes)
             }
         }
     }
-}
-
-int CollisionSolver::testBoundingBoxesPerformance(PhysicsSpace &space, ConsoleProfileInfo &profileInfo, int numIterations)
-{
-    updateBoundingBoxes(space, profileInfo);
-
-    int numRejects = 0;
-    for (int i = 0; i < numIterations; i++)
-    {
-        // Insertion sort - O(n^2), but since the movements are relatively stable it should be fine
-        // TODO: Pre-sort using something better the first time it is run
-        for (int i = 0; i < m->sortedBoundingBoxes.size(); i++)
-        {
-            const BoundingBox &box = m->sortedBoundingBoxes[i];
-
-            for (int j = i + 1; j < m->sortedBoundingBoxes.size(); j++)
-            {
-                const BoundingBox &otherBox = m->sortedBoundingBoxes[j];
-                profileInfo.numBbboxChecks++;
-
-                if (otherBox.x1 >= box.x2)
-                {
-                    numRejects++;
-                    break;
-                }
-                // Due to the sorted nature of the bounding boxes, we already know that
-                // otherBox.x1 >= box.x1, so we only need to check the other axis
-                else if (otherBox.y1 >= box.y2 || otherBox.y2 <= box.y1)
-                {
-                    numRejects++;
-                    continue;
-                }
-            }
-        }
-    }
-
-    return numRejects / numIterations;
-}
-
-int CollisionSolver::testAlignedBoundingBoxesPerformance(PhysicsSpace &space, ConsoleProfileInfo &profileInfo, int numIterations)
-{
-    struct OrientedBoundingBoxPair
-    {
-        OrientedBoundingBox box1;
-        OrientedBoundingBox box2;
-    };
-
-    updateBoundingBoxes(space, profileInfo);
-
-    Array<OrientedBoundingBoxPair> pairs;
-    // Insertion sort - O(n^2), but since the movements are relatively stable it should be fine
-    // TODO: Pre-sort using something better the first time it is run
-    for (int i = 0; i < m->sortedBoundingBoxes.size(); i++)
-    {
-        const BoundingBox &box = m->sortedBoundingBoxes[i];
-
-        for (int j = i + 1; j < m->sortedBoundingBoxes.size(); j++)
-        {
-            const BoundingBox &otherBox = m->sortedBoundingBoxes[j];
-            profileInfo.numBbboxChecks++;
-
-            if (otherBox.x1 >= box.x2)
-            {
-                break;
-            }
-            // Due to the sorted nature of the bounding boxes, we already know that
-            // otherBox.x1 >= box.x1, so we only need to check the other axis
-            else if (otherBox.y1 >= box.y2 || otherBox.y2 <= box.y1)
-            {
-                continue;
-            }
-
-            int shapeIndex1 = m->sortedBoundingBoxShapeIndices[i];
-            int shapeIndex2 = m->sortedBoundingBoxShapeIndices[j];
-            const Shape &shape1 = space.shapes[shapeIndex1];
-            const Shape &shape2 = space.shapes[shapeIndex2];
-
-            const OrientedBoundingBox &box1 = m->orientedBoundingBoxes[shapeIndex1];
-            const OrientedBoundingBox &box2 = m->orientedBoundingBoxes[shapeIndex2];
-            OrientedBoundingBoxPair pair = {box1, box2};
-            pairs.push(pair);
-        }
-    }
-
-    int numRejects = 0;
-
-    for (int i = 0; i < numIterations; i++)
-    {
-        for (int j = 0; j < pairs.size(); j++)
-        {
-            OrientedBoundingBoxPair &pair(pairs[j]);
-            if (!pairs[j].box1.overlaps(pairs[j].box2))
-            {
-                numRejects++;
-            }
-        }
-    }
-
-    return numRejects / numIterations;
-}
-
-int CollisionSolver::testKdopPerformance(PhysicsSpace &space, ConsoleProfileInfo &profileInfo, int numIterations)
-{
-    struct KdopProjectionPair
-    {
-        KDOPProjection box1;
-        KDOPProjection box2;
-    };
-
-    updateBoundingBoxes(space, profileInfo);
-
-    Array<KdopProjectionPair> pairs;
-    // Insertion sort - O(n^2), but since the movements are relatively stable it should be fine
-    // TODO: Pre-sort using something better the first time it is run
-    for (int i = 0; i < m->sortedBoundingBoxes.size(); i++)
-    {
-        const BoundingBox &box = m->sortedBoundingBoxes[i];
-
-        for (int j = i + 1; j < m->sortedBoundingBoxes.size(); j++)
-        {
-            const BoundingBox &otherBox = m->sortedBoundingBoxes[j];
-            profileInfo.numBbboxChecks++;
-
-            if (otherBox.x1 >= box.x2)
-            {
-                break;
-            }
-            // Due to the sorted nature of the bounding boxes, we already know that
-            // otherBox.x1 >= box.x1, so we only need to check the other axis
-            else if (otherBox.y1 >= box.y2 || otherBox.y2 <= box.y1)
-            {
-                continue;
-            }
-
-            int shapeIndex1 = m->sortedBoundingBoxShapeIndices[i];
-            int shapeIndex2 = m->sortedBoundingBoxShapeIndices[j];
-            const Shape &shape1 = space.shapes[shapeIndex1];
-            const Shape &shape2 = space.shapes[shapeIndex2];
-
-            const KDOPProjection &box1 = m->kdopProjections[shapeIndex1];
-            const KDOPProjection &box2 = m->kdopProjections[shapeIndex2];
-            KdopProjectionPair pair = {box1, box2};
-            pairs.push(pair);
-        }
-    }
-
-    int numRejects = 0;
-
-    for (int i = 0; i < numIterations; i++)
-    {
-        for (int j = 0; j < pairs.size(); j++)
-        {
-            KdopProjectionPair &pair(pairs[j]);
-            if (!kdopOverlap(pair.box1, pair.box2))
-            {
-                numRejects++;
-            }
-        }
-    }
-
-    return numRejects / numIterations;
-}
-
-inline float sign(const Vector2 &p1, const Vector2 &p2, const Vector2 &p3)
-{
-    return (p1.x - p3.x) * (p2.y - p3.y) -
-           (p2.x - p3.x) * (p1.y - p3.y);
-}
-
-inline bool pointInTriangleFast(const Vector2 &pt, const Vector2 &a, const Vector2 &b, const Vector2 &c)
-{
-    float d1 = sign(pt, a, b);
-    float d2 = sign(pt, b, c);
-    float d3 = sign(pt, c, a);
-    bool has_neg = (d1 < 0) || (d2 < 0) || (d3 < 0);
-    bool has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
-    return !(has_neg && has_pos);
-}
-
-inline bool edgeEdgeIntersect(const Vector2 &a1, const Vector2 &a2, const Vector2 &b1, const Vector2 &b2)
-{
-    float d = (a2.x - a1.x) * (b2.y - b1.y) - (a2.y - a1.y) * (b2.x - b1.x);
-    if (d == 0.0f)
-        return false;
-
-    float s = ((b1.x - a1.x) * (b2.y - b1.y) - (b1.y - a1.y) * (b2.x - b1.x)) / d;
-    float t = ((b1.x - a1.x) * (a2.y - a1.y) - (b1.y - a1.y) * (a2.x - a1.x)) / d;
-
-    return s >= 0.0f && s <= 1.0f && t >= 0.0f && t <= 1.0f;
-}
-
-int CollisionSolver::testSimpleOverlapPerformance(PhysicsSpace &space, ConsoleProfileInfo &profileInfo, int numIterations)
-{
-    struct OverlapPair
-    {
-        Shape shape1;
-        Shape shape2;
-    };
-
-    updateBoundingBoxes(space, profileInfo);
-
-    Array<OverlapPair> pairs;
-    // Insertion sort - O(n^2), but since the movements are relatively stable it should be fine
-    // TODO: Pre-sort using something better the first time it is run
-    for (int i = 0; i < m->sortedBoundingBoxes.size(); i++)
-    {
-        const BoundingBox &box = m->sortedBoundingBoxes[i];
-
-        for (int j = i + 1; j < m->sortedBoundingBoxes.size(); j++)
-        {
-            const BoundingBox &otherBox = m->sortedBoundingBoxes[j];
-            profileInfo.numBbboxChecks++;
-
-            if (otherBox.x1 >= box.x2)
-            {
-                break;
-            }
-            // Due to the sorted nature of the bounding boxes, we already know that
-            // otherBox.x1 >= box.x1, so we only need to check the other axis
-            else if (otherBox.y1 >= box.y2 || otherBox.y2 <= box.y1)
-            {
-                continue;
-            }
-
-            int shapeIndex1 = m->sortedBoundingBoxShapeIndices[i];
-            int shapeIndex2 = m->sortedBoundingBoxShapeIndices[j];
-            const Shape &shape1 = space.shapes[shapeIndex1];
-            const Shape &shape2 = space.shapes[shapeIndex2];
-
-            OverlapPair pair = {shape1, shape2};
-            pairs.push(pair);
-        }
-    }
-    int numRejects = 0;
-
-    for (int i = 0; i < numIterations; i++)
-    {
-        for (int j = 0; j < pairs.size(); j++)
-        {
-            OverlapPair &pair(pairs[j]);
-            if (!shapesOverlapSimple(space.points.range(), pair.shape1, pair.shape2))
-            {
-                numRejects++;
-            }
-        }
-    }
-
-    return numRejects / numIterations;
-}
-
-int CollisionSolver::testOverlapPerformance(PhysicsSpace &space, ConsoleProfileInfo &profileInfo, int numIterations)
-{
-    struct OverlapPair
-    {
-        Shape shape1;
-        Shape shape2;
-    };
-
-    updateBoundingBoxes(space, profileInfo);
-
-    Array<OverlapPair> pairs;
-    // Insertion sort - O(n^2), but since the movements are relatively stable it should be fine
-    // TODO: Pre-sort using something better the first time it is run
-    for (int i = 0; i < m->sortedBoundingBoxes.size(); i++)
-    {
-        const BoundingBox &box = m->sortedBoundingBoxes[i];
-
-        for (int j = i + 1; j < m->sortedBoundingBoxes.size(); j++)
-        {
-            const BoundingBox &otherBox = m->sortedBoundingBoxes[j];
-            profileInfo.numBbboxChecks++;
-
-            if (otherBox.x1 >= box.x2)
-            {
-                break;
-            }
-            // Due to the sorted nature of the bounding boxes, we already know that
-            // otherBox.x1 >= box.x1, so we only need to check the other axis
-            else if (otherBox.y1 >= box.y2 || otherBox.y2 <= box.y1)
-            {
-                continue;
-            }
-
-            int shapeIndex1 = m->sortedBoundingBoxShapeIndices[i];
-            int shapeIndex2 = m->sortedBoundingBoxShapeIndices[j];
-            const Shape &shape1 = space.shapes[shapeIndex1];
-            const Shape &shape2 = space.shapes[shapeIndex2];
-
-            OverlapPair pair = {shape1, shape2};
-            pairs.push(pair);
-        }
-    }
-
-    int numRejects = 0;
-
-    for (int i = 0; i < numIterations; i++)
-    {
-        for (int j = 0; j < pairs.size(); j++)
-        {
-            OverlapPair &pair(pairs[j]);
-            if (!shapesOverlap(space.points.range(), pair.shape1, pair.shape2))
-            {
-                numRejects++;
-            }
-        }
-    }
-
-    return numRejects / numIterations;
-}
-
-int CollisionSolver::testCollisionPerformance(PhysicsSpace &space, ConsoleProfileInfo &profileInfo, int numIterations, bool testMidPoint)
-{
-    struct OverlapPair
-    {
-        Shape shape1;
-        Shape shape2;
-    };
-
-    updateBoundingBoxes(space, profileInfo);
-
-    Array<OverlapPair> pairs;
-    // Insertion sort - O(n^2), but since the movements are relatively stable it should be fine
-    // TODO: Pre-sort using something better the first time it is run
-    for (int i = 0; i < m->sortedBoundingBoxes.size(); i++)
-    {
-        const BoundingBox &box = m->sortedBoundingBoxes[i];
-
-        for (int j = i + 1; j < m->sortedBoundingBoxes.size(); j++)
-        {
-            const BoundingBox &otherBox = m->sortedBoundingBoxes[j];
-            profileInfo.numBbboxChecks++;
-
-            if (otherBox.x1 >= box.x2)
-            {
-                break;
-            }
-            // Due to the sorted nature of the bounding boxes, we already know that
-            // otherBox.x1 >= box.x1, so we only need to check the other axis
-            else if (otherBox.y1 >= box.y2 || otherBox.y2 <= box.y1)
-            {
-                continue;
-            }
-
-            int shapeIndex1 = m->sortedBoundingBoxShapeIndices[i];
-            int shapeIndex2 = m->sortedBoundingBoxShapeIndices[j];
-            const Shape &shape1 = space.shapes[shapeIndex1];
-            const Shape &shape2 = space.shapes[shapeIndex2];
-
-            const OrientedBoundingBox &orientedBox1 = m->orientedBoundingBoxes[shapeIndex1];
-            const OrientedBoundingBox &orientedBox2 = m->orientedBoundingBoxes[shapeIndex2];
-
-            if (!orientedBox1.overlaps(orientedBox2))
-            {
-                continue;
-            }
-
-            OverlapPair pair = {shape1, shape2};
-            pairs.push(pair);
-        }
-    }
-
-    PhysicsSpace copy;
-    for (int i = 0; i < numIterations; i++)
-    {
-        copy.assign(space);
-
-        if (testMidPoint)
-        {
-            for (int j = 0; j < pairs.size(); j++)
-            {
-                OverlapPair &pair(pairs[j]);
-
-                calculateCollisionsMidPoint(copy.points.range(), pair.shape1, pair.shape2, m->boundingBoxes[pair.shape1.index], m->boundingBoxes[pair.shape2.index]);
-                calculateCollisionsMidPoint(copy.points.range(), pair.shape2, pair.shape1, m->boundingBoxes[pair.shape2.index], m->boundingBoxes[pair.shape1.index]);
-            }
-        }
-        else
-            for (int j = 0; j < pairs.size(); j++)
-            {
-                OverlapPair &pair(pairs[j]);
-
-                calculateCollisions(copy.points.range(), pair.shape1, pair.shape2, m->boundingBoxes[pair.shape1.index], m->boundingBoxes[pair.shape2.index]);
-                calculateCollisions(copy.points.range(), pair.shape2, pair.shape1, m->boundingBoxes[pair.shape2.index], m->boundingBoxes[pair.shape1.index]);
-            }
-    }
-
-    return 0;
 }

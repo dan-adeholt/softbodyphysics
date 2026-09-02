@@ -51,24 +51,24 @@ public:
         return x1 * x2 + y1 * y2;
     }
 
-    float dot() const
-    {
-        return x * x + y * y;
-    }
-
     float dot(const Vector2 &rhs) const
     {
         return x * rhs.x + y * rhs.y;
     }
 
-    float cross(const Vector2 &rhs)
+    float cross(const Vector2 &rhs) const
     {
         return x * rhs.y - y * rhs.x;
     }
 
-    Vector2 normalized()
+    Vector2 normalized() const
     {
         float length = sqrtf(x * x + y * y);
+        if (length == 0.0f)
+        {
+            return Vector2(0.0f, 0.0f);
+        }
+
         return {x / length, y / length};
     }
 
@@ -76,11 +76,6 @@ public:
     Vector2 operator-() const
     {
         return Vector2(-x, -y);
-    }
-
-    Vector2 reflect(const Vector2 &normal) const
-    {
-        return *this - normal * 2.0f * normal.dot();
     }
 
     Vector2 operator/(const Vector2 &other) const
@@ -155,7 +150,7 @@ public:
         return x != other.x || y != other.y;
     }
 
-    constexpr float length() const
+    float length() const
     {
         return sqrtf(x * x + y * y);
     }
@@ -174,7 +169,7 @@ public:
         return (*this - other).lengthSquared();
     }
 
-    constexpr float angle() const
+    float angle() const
     {
         float angle = atan2f(y, x);
 
@@ -186,7 +181,7 @@ public:
         return angle;
     }
 
-    constexpr float angle(const Vector2 &other) const
+    float angle(const Vector2 &other) const
     {
         float angle1 = atan2f(y, x);
         float angle2 = atan2f(other.y, other.x);

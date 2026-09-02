@@ -4,6 +4,7 @@
 #include "ShapeUtils.h"
 #include "../utils/MinMax.h"
 #include "stdio.h"
+#include <math.h>
 
 #define NUM_SHAPES 40
 #define NUM_POINTS 1024
@@ -401,6 +402,37 @@ void reverseWindingOrder(Array<int> &indices)
     }
 }
 
+// The collision code assumes perp(edge) points into the shape, which holds
+// only for one winding direction. Derive it from the rest pose rather than the
+// current one: a soft body that has momentarily folded through itself has a
+// reversed current winding, and following that would flip the contact
+// depenetration direction back and forth between steps.
+static float restPoseWindingSign(const PointMasses &points, const Shape &shape)
+{
+    ShapeIndexedRange range(shape);
+    int count = range.size();
+
+    float doubleArea = 0.0f;
+    float sumSquaredEdgeLengths = 0.0f;
+    for (int i = 0; i < count; i++)
+    {
+        const Vector2 &a = points.shapeOriginalPos[range[i]];
+        const Vector2 &b = points.shapeOriginalPos[range[(i + 1) % count]];
+        doubleArea += a.x * b.y - b.x * a.y;
+        sumSquaredEdgeLengths += (b - a).lengthSquared();
+    }
+
+    // Compare against the shape's own scale, not an absolute epsilon: a
+    // collapsed sliver can span tens of units and still enclose no area, and
+    // picking a winding out of that much numerical noise is meaningless.
+    if (fabsf(doubleArea) < 0.0001f * sumSquaredEdgeLengths)
+    {
+        return shape.windingSign;
+    }
+
+    return doubleArea > 0.0f ? 1.0f : -1.0f;
+}
+
 void PhysicsSpace::triangulate()
 {
     triangleIndices.clear();
@@ -413,6 +445,7 @@ void PhysicsSpace::triangulate()
         Shape &shape = shapes[shapeIdx];
 
         shape.triangleStart = triangleIndices.size();
+        shape.windingSign = restPoseWindingSign(points, shape);
 
         ShapeIndexedRange range(shape);
         curIndices.clear();
