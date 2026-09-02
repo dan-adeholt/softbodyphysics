@@ -24,7 +24,7 @@ void UnitTestUtil::registerTest(const char *name, void (*testFunction)())
     getAllTests().push(test);
 }
 
-void UnitTestUtil::runTest(const char *test)
+bool UnitTestUtil::runTest(const char *test)
 {
     Array<UnitTest> &allTests = getAllTests();
 
@@ -38,8 +38,11 @@ void UnitTestUtil::runTest(const char *test)
             fflush(stdout);
 
             allTests[i].testFunction();
+            return true;
         }
     }
+
+    return false;
 }
 
 bool testFailed = false;

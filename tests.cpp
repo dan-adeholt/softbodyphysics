@@ -12,13 +12,23 @@ int main(int argc, const char **argv)
         return 1;
     }
 
-    UnitTestUtil::runTest(argv[2]);
+    // testAssert() and Console::printToStandardOut() both write through the
+    // console state, so it has to exist before any test runs.
+    ConsoleState *consoleState = allocConsoleState();
+    Console::setConsoleState(consoleState);
+
+    bool found = UnitTestUtil::runTest(argv[2]);
     Console::printToStandardOut();
 
-    if (UnitTestUtil::getTestFailed())
+    if (!found)
     {
-        return 1;
+        printf("Unknown test: %s\n", argv[2]);
     }
 
-    return 0;
+    bool failed = !found || UnitTestUtil::getTestFailed();
+
+    Console::setConsoleState(nullptr);
+    freeConsoleState(consoleState);
+
+    return failed ? 1 : 0;
 }

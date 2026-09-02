@@ -4,7 +4,7 @@
 namespace UnitTestUtil
 {
     void registerTest(const char *name, void (*testFunction)());
-    void runTest(const char *name);
+    bool runTest(const char *name);
     void setTestFailed();
     bool getTestFailed();
 }
