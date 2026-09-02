@@ -1419,10 +1419,10 @@ void CollisionGridSimple::init(Array<BoundingBox> &boundingBoxes)
     for (int i = 0; i < boundingBoxes.size(); i++)
     {
         BoundingBox &box = boundingBoxes[i];
-        int x1 = (int)floorf(box.x1 / cellSize);
-        int y1 = (int)floorf(box.y1 / cellSize);
-        int x2 = (int)ceilf(box.x2 / cellSize);
-        int y2 = (int)ceilf(box.y2 / cellSize);
+        int x1 = (int)floorf(box.x1 / (float)cellSize);
+        int y1 = (int)floorf(box.y1 / (float)cellSize);
+        int x2 = (int)ceilf(box.x2 / (float)cellSize);
+        int y2 = (int)ceilf(box.y2 / (float)cellSize);
 
         for (int y = y1; y <= y2; y++)
         {

@@ -14,8 +14,8 @@ ShapeVelocities ShapeUtils::getAverageShapeVelocity(PointMassesRange points, con
 
     int numPoints = shape.end - shape.start;
 
-    centerOfMassVelocity /= numPoints;
-    centerOfMass /= numPoints;
+    centerOfMassVelocity /= (float)numPoints;
+    centerOfMass /= (float)numPoints;
 
     // compute proper angular velocity = (sum r×v) / (sum |r|^2)
 
@@ -66,8 +66,8 @@ ShapeUtils::getShapeProperties(PointMassesRange points, const Shape &shape)
     }
 
     int numPoints = shape.size();
-    result.center /= numPoints;
-    result.origCenter /= numPoints;
+    result.center /= (float)numPoints;
+    result.origCenter /= (float)numPoints;
 
     float A = 0.0f;
     float B = 0.0f;

@@ -28,6 +28,26 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     )
 endif()
 
+# ImGui is vendored verbatim, so keep the tree pristine and do not hold it to
+# this project's warning settings - a local edit would be lost on the next sync.
+# -w rather than -Wno-error because the explicit -Werror=<warning> promotions
+# above survive a plain -Wno-error.
+set(VENDORED_SOURCE_FILES
+    imgui/imgui.cpp
+    imgui/imgui_demo.cpp
+    imgui/imgui_draw.cpp
+    imgui/imgui_widgets.cpp
+    imgui/imgui_tables.cpp
+    imgui/imgui_impl_sdlrenderer3.cpp
+    imgui/imgui_impl_sdl3.cpp
+)
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set_source_files_properties(${VENDORED_SOURCE_FILES} PROPERTIES COMPILE_OPTIONS "-w")
+elseif(MSVC)
+    set_source_files_properties(${VENDORED_SOURCE_FILES} PROPERTIES COMPILE_OPTIONS "/w")
+endif()
+
 if(MSVC)
     add_compile_options(
         /W4

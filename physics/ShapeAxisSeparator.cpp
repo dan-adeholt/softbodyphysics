@@ -85,7 +85,7 @@ ShapeIntersectionInfo getShapeIntersectionInfo(const PointMassesRange &points, c
 
     if (result.isValid)
     {
-        result.averageIntersectionPoint /= numIntersections;
+        result.averageIntersectionPoint /= (float)numIntersections;
         result.averageIntersectionDirection = result.averageIntersectionDirection.normalized();
     }
 
@@ -102,7 +102,7 @@ Vector2 getCentroid(const PointMassesRange &points, const Shape &shape)
         centroid += points.pos[range[i]];
     }
 
-    return centroid / range.size();
+    return centroid / (float)range.size();
 }
 
 void placeOutsideRange(PointMassesRange &points, const Shape &shape, const Vector2 &averageIntersectionPoint, const Vector2 &averageIntersectionDirection, int shapeIndex, const FarthestPointResult &result)

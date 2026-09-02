@@ -51,7 +51,7 @@ void CustomFont::load(Range<CustomFontEntry> fonts)
                 if (charData.width > 0 && charData.height > 0)
                 {
                     charData.yoffset += entry.fixedYOffset;
-                    charData.rectId = io.Fonts->AddCustomRectFontGlyph(entry.font, (ImWchar)charData.id, charData.width, charData.height, charData.xadvance, ImVec2(charData.xoffset, charData.yoffset));
+                    charData.rectId = io.Fonts->AddCustomRectFontGlyph(entry.font, (ImWchar)charData.id, charData.width, charData.height, (float)charData.xadvance, ImVec2((float)charData.xoffset, (float)charData.yoffset));
                     charDataArray.push(charData);
                 }
             }
