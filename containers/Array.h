@@ -12,7 +12,7 @@ class Array
 {
 public:
     Array() : m_size(0), m_capacity(0), m_data(nullptr) {}
-    Array(const Array<T> &list) : m_size(list.size()), m_capacity(list.capacity()), m_data(reinterpret_cast<T *>(new char[sizeof(T) * (size_t)list.size()]))
+    Array(const Array<T> &list) : m_size(list.size()), m_capacity(list.size()), m_data(reinterpret_cast<T *>(new char[sizeof(T) * (size_t)list.size()]))
     {
         for (int i = 0; i < list.size(); i++)
         {
@@ -36,6 +36,9 @@ public:
     {
         clearAndFree();
     }
+
+    // Shallow-copying m_data would double free. Use replace() to copy contents.
+    Array<T> &operator=(const Array<T> &) = delete;
 
     inline T &operator[](int index) { return m_data[index]; }
     inline const T &operator[](int index) const { return m_data[index]; }
@@ -85,11 +88,10 @@ public:
 
     void replace(const Range<T> &other)
     {
+        // clear() before reserve() so the growth path does not copy elements
+        // that are about to be overwritten.
+        clear();
         reserve(other.size);
-        for (int i = m_size; i < m_size + other.size; i++)
-        {
-            m_data[i].~T();
-        }
 
         for (int i = 0; i < other.size; i++)
         {
@@ -101,15 +103,14 @@ public:
 
     void replace(const Array<T> &other)
     {
+        clear();
         reserve(other.size());
-        for (int i = m_size; i < m_size + other.size(); i++)
-        {
-            m_data[i].~T();
-        }
+
         for (int i = 0; i < other.size(); i++)
         {
             new (&m_data[i]) T(other[i]);
         }
+
         m_size = other.size();
     }
 
@@ -160,6 +161,7 @@ public:
         clear();
         // Reinterpret as char* in order to avoid calling destructors.
         delete[] reinterpret_cast<char *>(m_data);
+        m_data = nullptr;
         m_capacity = 0;
     }
 
@@ -218,7 +220,6 @@ public:
             }
         }
 
-        m_size -= numRemoved;
         return numRemoved;
     }
 
