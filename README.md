@@ -1,33 +1,93 @@
-# Soft-body dev #
+# Soft-body physics
 
-This is a test project where I develop a soft-body 2D physics game in C++. It is heavily inspired by this video from the author of JellyCar: https://www.youtube.com/watch?v=3OmkehAJoyo
+A 2D soft-body physics engine and level editor, written from scratch in C++ without the standard library. It runs natively on macOS and in the browser through WebAssembly.
 
-I usually do full stack web development these days, but I have a background in writing fairly low-level C++ code.
+![The Bridge scene: soft circles resting on a sagging bridge, with the editor's scene list on the left and the console below](docs/screenshot.png)
 
-## Goals ##
+It is heavily inspired by [this video](https://www.youtube.com/watch?v=3OmkehAJoyo) from the author of JellyCar. I usually do full stack web development these days, but I have a background in fairly low-level C++, and this is where I keep that up.
 
-* Lightning fast compile times. Good header file organization, forward declares and very restrictive use of templates.
-* No STL. This might seem odd, but I am challenging myself and will write my own containers. There are always different opionions on STL, my biggest gripes are the snowball effect on compilation times and over-engineering. For more serious projects, I have always used STL, but this is a hobby project so why not challenge your perspective. I've also never been a fan of too clever template code that takes ages to compile (Boost et al).
-* Simple, data-oriented structures inspired by Mike Actons talks.
+## Features
 
-## Approach ##
+**Simulation**
 
-I will start using SDL2 for rendering. Further on I will integrate some more advanced rendering engine. Why not completely torture myself and write a Vulkan backend? :)
+* Soft bodies that keep their form through shape matching: every point is pulled toward its place in a best-fit rigid copy of the rest shape, with per-shape stiffness and damping.
+* Springs, joints between shapes, and static joints that pin points to the world.
+* Fourth-order Runge-Kutta (RK4) integration.
+* Wheel motors with traction and braking, for driving vehicles.
 
-## WebAssembly ##
+**Collisions**
 
-The repo now includes a browser target that is intended to be built with Emscripten and served through Vite.
+* Broad phase: bounding boxes sorted along one axis, then an 8-DOP overlap test (four projection axes) to reject pairs early. A uniform grid is available as an alternative.
+* Narrow phase: point-in-polygon tests, then each penetrating point is projected onto the closest edge it entered through.
+* Impulse response with restitution and Coulomb friction, applied to both the point and the edge it hits.
+* A separating-axis fallback for shapes that end up deeply overlapping.
 
-1. Install and activate the Emscripten SDK. The repo scripts will use `emcmake` from your `PATH`, or auto-detect a sibling `../emsdk` checkout if present.
-2. Install the frontend tooling with `npm install`.
-3. Start the browser workflow with `npm run dev:web`.
+**Editor**
 
-The web scripts use a repo-local Emscripten cache at `.cache/emscripten` by default. If you override `EM_CACHE`, the scripts normalize it to the real filesystem path before invoking `emcc`. On macOS this avoids the `/tmp` -> `/private/tmp` symlink issue that breaks Emscripten 5.0.3 system library builds.
+* Scene browser, play/pause, single-stepping, and rewind through the last 1000 simulation states.
+* Drag points with the mouse, pan and zoom the view.
+* Profiler tab with per-phase timings (springs, bounding boxes, collision detection and response, rendering).
+* Scenes and prefabs saved and loaded as plain text files.
+* Textured shapes, triangulated for rendering.
 
-That command will:
+## Engineering goals
 
-* Configure and build the `SoftBodyPhysicsWeb` Emscripten target into `web/public/generated`.
-* Watch the C++ sources and bundled asset folders for changes.
-* Start a Vite dev server and trigger a full browser reload whenever the generated wasm bundle changes.
+* **Fast compile times.** Careful header organization, forward declarations, and very restrictive use of templates. I have never been a fan of clever template code that takes ages to compile.
+* **No STL.** The native build uses `-nostdlib++ -fno-exceptions -fno-rtti`, so the engine runs on its own containers (`Array`, `Range`, `Span`, `StringBuffer`). For more serious projects I have always used the STL, but this is a hobby project, so why not challenge my own perspective.
+* **Simple, data-oriented structures**, inspired by Mike Acton's talks. Point masses are stored as structure-of-arrays (positions, velocities and masses in separate arrays) so the hot loops stream through contiguous memory.
+* **Parallel where it pays.** Spring and shape-matching forces are split across worker threads by a small task scheduler (native only).
+* **Hot reload.** On macOS a thin shell executable loads the game as a dynamic library and reloads it when it is rebuilt, keeping the window and console.
 
-For a production-style browser bundle, run `npm run build:web`.
+## Building
+
+### Web
+
+Requires the [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html) and Node.js.
+
+```sh
+npm install
+npm run dev:web    # build, watch the C++ sources and serve on http://127.0.0.1:5200
+npm run build:web  # production bundle in web/dist
+```
+
+The scripts use `emcmake` from your `PATH`, or a sibling `../emsdk` checkout if there is one. `dev:web` rebuilds the wasm bundle whenever a source or asset file changes, then reloads the page. Don't run both at once: they write to the same output folder.
+
+The Emscripten cache lives in `.cache/emscripten` by default. If you override `EM_CACHE`, the scripts resolve it to its real path first, which avoids the `/tmp` -> `/private/tmp` symlink problem that breaks Emscripten 5.0.3 on macOS.
+
+### Native (macOS)
+
+Requires CMake, Ninja, and the [SDL3](https://github.com/libsdl-org/SDL/releases) framework installed in `/Library/Frameworks`.
+
+```sh
+cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build-release
+./build-release/SoftBodyPhysics.app/Contents/MacOS/SoftBodyPhysics
+```
+
+Run it from the repository root: it loads `build-release/libSoftBodyPhysicsShared.dylib` and the level data by relative path. `watch.sh` rebuilds the library on every change (it needs [entr](https://github.com/eradman/entr)), and the running app picks the new build up automatically.
+
+### Tests
+
+```sh
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+ctest --test-dir build
+```
+
+Unit tests cover the containers and the physics. `PerfTest` benchmarks the integrator and the collision solver.
+
+## Project layout
+
+| Folder | Contents |
+|---|---|
+| `physics/` | Integrator, springs and shape matching, collision detection and response, scene storage |
+| `containers/` | `Array`, `Range`, `Span` and `StringBuffer`, plus their tests |
+| `math/` | `Vector2` |
+| `game/` | Game loop, editor UI, scene definitions, rendering |
+| `tasks/` | Worker-thread task scheduler |
+| `web/`, `scripts/` | Browser shell and the Emscripten/Vite build scripts |
+| `levels/`, `scenedefs/` | Saved scenes and prefabs |
+
+## License
+
+MIT, see [LICENSE](LICENSE).
