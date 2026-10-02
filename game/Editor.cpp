@@ -221,6 +221,13 @@ Editor::Editor(const char *appPath)
         fclose(stateFile);
     }
 
+    // First run, or the saved scene no longer exists
+    if (SceneDefinition::getDefinitionFromName(m->lastScene.data) == nullptr)
+    {
+        m->lastScene.clear();
+        m->lastScene.append(SceneDefinition::defaultSceneName);
+    }
+
     setCurrentGameIndex(min(m->games.size() - 1, m->currentGameIndex));
     Game &game = *m->games[0];
     game.init(lastSceneName());
@@ -382,6 +389,12 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
                 for (int i = 0; i < SceneDefinitionFolder::numFolders; i++)
                 {
                     const SceneDefinitionFolder &folder = SceneDefinitionFolder::allFolders[i];
+#ifdef __EMSCRIPTEN__
+                    if (folder.hiddenInWebDemo)
+                    {
+                        continue;
+                    }
+#endif
                     if (ImGui::TreeNode(folder.name))
                     {
                         ImGui::Unindent(ImGui::GetTreeNodeToLabelSpacing());

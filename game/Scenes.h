@@ -11,6 +11,7 @@ struct SceneDefinition
     SceneInitFunction initFunc;
 
     static SceneDefinition *getDefinitionFromName(const char *name);
+    static const char *defaultSceneName;
 };
 
 struct SceneDefinitionFolder
@@ -18,6 +19,7 @@ struct SceneDefinitionFolder
     const char *name;
     SceneDefinition *scenes;
     int numScenes;
+    bool hiddenInWebDemo;
 
     static SceneDefinitionFolder *allFolders;
     static int numFolders;

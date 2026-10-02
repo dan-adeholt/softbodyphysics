@@ -591,7 +591,35 @@ SceneDefinition collisionScenes[] = {
          }
 
          game->physicsSpace().gravityEnabled = false;
-     }}};
+     }},
+    {"Rotation bug", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         Shapes::createStaticQuad(space, 50.0f, 520.0f, 700.0f, 40.0f, 1.0f);
+         int wheelParentId = space.nextParentId();
+         Shape wheel = Shapes::createCircle(space, 400.0f, 445.0f, 50.0f, 1.0f);
+         space.shapes[wheel.index].parentId = wheelParentId;
+
+         WheelMotor wheelMotor;
+         wheelMotor.shapeIndex = wheel.index;
+         wheelMotor.parentId = wheelParentId;
+         wheelMotor.enabled = true;
+         wheelMotor.command = 1.0f;
+         wheelMotor.targetSurfaceSpeed = 0.18f;
+         wheelMotor.maxDriveImpulsePerStep = 0.06f;
+         wheelMotor.maxBrakeImpulsePerStep = 0.18f;
+         wheelMotor.reverseEngageSpeed = 0.04f;
+         wheelMotor.freeSpinDamping = 0.01f;
+         space.wheelMotors.push(wheelMotor);
+
+         GameRenderSettings renderSettings;
+         renderSettings.renderShapeMatching = true;
+         game->setRenderSettings(renderSettings);
+
+         game->scale() = 1.2f;
+         game->offset() = Vector2(50.0f, 50.0f);
+     }},
+};
 
 SceneDefinition shapeScenes[] = {
     {"Bridge loose", [](Game *game)
@@ -600,7 +628,6 @@ SceneDefinition shapeScenes[] = {
          PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_31.txt");
          game->scale() = 1.00f;
          game->offset() = Vector2(-109.00f, 69.00f);
-         game->setPaused();
      }},
 
     {"Mesh", [](Game *game)
@@ -652,7 +679,35 @@ SceneDefinition shapeScenes[] = {
          Shapes::createLine(space, 400.0f, 100.0f, 700.0f, 500.0f, 1.0f);
          StaticJoint joint = {0, Vector2(400.0f, 100.0f)};
          space.staticJoints.push(joint);
-     }}};
+     }},
+    {"Falling box with shelf", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         Shapes::createQuad(space, 400.0f, 40.0f, 100.0f, 100.0f, 1.0f);
+         Shape shelf = Shapes::createTriangle(space, true, 50.0f, 700.0f, 800.0f, 500.0f, 800.0f, 700.0f, 0.0f);
+
+         ShapeIndexedRange range(shelf);
+         for (int i = 0; i < range.size(); i++)
+         {
+             space.points.mass[range[i]] = 10000000.0f;
+         }
+     }},
+    {"Crusher", [](Game *game)
+     {
+         float size = 170.0f;
+         float spacing = (size + 1.0f) * 2.0f;
+         PhysicsSpace &space = game->physicsSpace();
+
+         Shapes::createQuad(space, 400.0f, 460.0f, 480.0f, 80.0f, 15.0f);
+         Shapes::createQuad(space, 600.0f, 660.0f, 80.0f, 80.0f, 0.25f);
+
+         space.gravityEnabled = true;
+
+         Shapes::createStaticQuad(space, -36.0f, 0.0f, 40.0f, 755.0f, 30.0f);
+         Shapes::createStaticQuad(space, 1214.0f, 0.0f, 40.0f, 755.0f, 30.0f);
+         Shapes::createStaticQuad(space, 1.0f, 755.0f, 1217.0f, 80.0f, 30.0f);
+     }},
+};
 
 SceneDefinition collectionScenes[] = {
     {"Stacked boxes", [](Game *game)
@@ -796,18 +851,9 @@ SceneDefinition gameScenes[] = {
              Shape s = Shapes::createCircle(space, 440.0f + static_cast<float>(i) * 55.0f, 50.0f, 40.0f, 1.0f);
          }
      }},
-    {"Falling box with shelf", [](Game *game)
-     {
-         PhysicsSpace &space = game->physicsSpace();
-         Shapes::createQuad(space, 400.0f, 40.0f, 100.0f, 100.0f, 1.0f);
-         Shape shelf = Shapes::createTriangle(space, true, 50.0f, 700.0f, 800.0f, 500.0f, 800.0f, 700.0f, 0.0f);
+};
 
-         ShapeIndexedRange range(shelf);
-         for (int i = 0; i < range.size(); i++)
-         {
-             space.points.mass[range[i]] = 10000000.0f;
-         }
-     }},
+SceneDefinition vehicleScenes[] = {
     {"Car", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();
@@ -973,74 +1019,31 @@ SceneDefinition gameScenes[] = {
          game->scale() = 1.00f;
          game->offset() = Vector2(270.00f, 47.00f);
      }},
-    {"Rotation bug", [](Game *game)
-     {
-         PhysicsSpace &space = game->physicsSpace();
-         Shapes::createStaticQuad(space, 50.0f, 520.0f, 700.0f, 40.0f, 1.0f);
-         int wheelParentId = space.nextParentId();
-         Shape wheel = Shapes::createCircle(space, 400.0f, 445.0f, 50.0f, 1.0f);
-         space.shapes[wheel.index].parentId = wheelParentId;
-
-         WheelMotor wheelMotor;
-         wheelMotor.shapeIndex = wheel.index;
-         wheelMotor.parentId = wheelParentId;
-         wheelMotor.enabled = true;
-         wheelMotor.command = 1.0f;
-         wheelMotor.targetSurfaceSpeed = 0.18f;
-         wheelMotor.maxDriveImpulsePerStep = 0.06f;
-         wheelMotor.maxBrakeImpulsePerStep = 0.18f;
-         wheelMotor.reverseEngageSpeed = 0.04f;
-         wheelMotor.freeSpinDamping = 0.01f;
-         space.wheelMotors.push(wheelMotor);
-
-         GameRenderSettings renderSettings;
-         renderSettings.renderShapeMatching = true;
-         game->setRenderSettings(renderSettings);
-
-         game->scale() = 1.2f;
-         game->offset() = Vector2(50.0f, 50.0f);
-     }},
-    {"New Prefab 1", [](Game *game)
-     {
-         PhysicsSpace &space = game->physicsSpace();
-         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/prefab_1.txt");
-         game->setPaused();
-     }},
-
-    {"Crusher", [](Game *game)
-     {
-         float size = 170.0f;
-         float spacing = (size + 1.0f) * 2.0f;
-         PhysicsSpace &space = game->physicsSpace();
-
-         Shapes::createQuad(space, 400.0f, 460.0f, 480.0f, 80.0f, 15.0f);
-         Shapes::createQuad(space, 600.0f, 660.0f, 80.0f, 80.0f, 0.25f);
-
-         space.gravityEnabled = true;
-
-         Shapes::createStaticQuad(space, -36.0f, 0.0f, 40.0f, 755.0f, 30.0f);
-         Shapes::createStaticQuad(space, 1214.0f, 0.0f, 40.0f, 755.0f, 30.0f);
-         Shapes::createStaticQuad(space, 1.0f, 755.0f, 1217.0f, 80.0f, 30.0f);
-     }},
 };
 
 template <int N>
-SceneDefinitionFolder makeFolder(const char *name, SceneDefinition (&arr)[N])
+SceneDefinitionFolder makeFolder(const char *name, SceneDefinition (&arr)[N], bool hiddenInWebDemo = false)
 {
     SceneDefinitionFolder folder;
     folder.name = name;
     folder.scenes = &arr[0]; // pointer to the first element
     folder.numScenes = N;
+    folder.hiddenInWebDemo = hiddenInWebDemo;
     return folder;
 }
 
+// Folders hidden in the web demo are regression, debugging and work-in-progress scenes.
+// They are left out of the scene list there but can still be loaded by name, e.g. by the editor tests.
 SceneDefinitionFolder folders[] = {
     makeFolder("Shapes", shapeScenes),
-    makeFolder("Collisions", collisionScenes),
+    makeFolder("Collisions", collisionScenes, true),
     makeFolder("Collections", collectionScenes),
-    makeFolder("Deformed shapes", deformedScenes),
+    makeFolder("Deformed shapes", deformedScenes, true),
     makeFolder("Game", gameScenes),
+    makeFolder("Vehicles", vehicleScenes, true),
 };
+
+const char *SceneDefinition::defaultSceneName = "Bridge";
 
 int SceneDefinitionFolder::numFolders = ARRAYSIZE(folders);
 SceneDefinitionFolder *SceneDefinitionFolder::allFolders = folders;
