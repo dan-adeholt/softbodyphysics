@@ -12,3 +12,9 @@ build-web-release
 node_modules
 web/dist
 web/public/generated
+
+# Local build products and editor state
+/perftest
+/test
+imgui.ini
+levels/dump*.txt
