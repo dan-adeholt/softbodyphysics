@@ -773,6 +773,65 @@ static void addOutlineRing(GeometryLayer &layer, const Array<Vector2> &points, f
     }
 }
 
+// Whether a shape is a circle made of evenly spaced points, judged from its rest pose so squashing
+// doesn't change the answer. Shapes such as rounded rects also have many points, but a mix of short
+// corner edges and long sides, and a spline through them would bulge the sides.
+static bool isRoundShape(const PointMassesRange &points, const ShapeIndexedRange &range)
+{
+    const int numPoints = range.size();
+
+    if (numPoints < 8)
+    {
+        return false;
+    }
+
+    float shortestEdge = 1e9f;
+    float longestEdge = 0.0f;
+
+    for (int k = 0; k < numPoints; k++)
+    {
+        const float edge = (points.shapeOriginalPos[range[(k + 1) % numPoints]] - points.shapeOriginalPos[range[k]]).length();
+        shortestEdge = min(shortestEdge, edge);
+        longestEdge = max(longestEdge, edge);
+    }
+
+    return longestEdge > 0.0f && shortestEdge / longestEdge > 0.7f;
+}
+
+// Replaces the corner edge p1 -> p2 with a curve that meets the sides p0 -> p1 and p2 -> p3 tangentially.
+// The curve bends towards the point where the two sides would meet. Adds the points between p1 and p2.
+static void addRoundedCorner(Array<Vector2> &outlinePoints, Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float scale)
+{
+    const Vector2 inDir = p1 - p0;
+    const Vector2 outDir = p3 - p2;
+    const float denominator = inDir.cross(outDir);
+
+    // Parallel sides have no corner to round towards
+    if (fabsf(denominator) < 1e-6f)
+    {
+        return;
+    }
+
+    const float along = (p2 - p1).cross(outDir) / denominator;
+    const Vector2 corner = p1 + inDir * along;
+    const float edgeLength = (p2 - p1).length();
+
+    // A corner behind the edge or far away means the sides don't form one, e.g. while the shape is badly squashed
+    if (along <= 0.0f || (corner - (p1 + p2) * 0.5f).length() > edgeLength * 2.0f)
+    {
+        return;
+    }
+
+    const int segments = clamp(static_cast<int>(ceilf(edgeLength * scale / 3.0f)), 2, 8);
+
+    for (int i = 1; i < segments; i++)
+    {
+        const float t = static_cast<float>(i) / static_cast<float>(segments);
+        const float u = 1.0f - t;
+        outlinePoints.push(p1 * (u * u) + corner * (2.0f * u * t) + p2 * (t * t));
+    }
+}
+
 static Vector2 catmullRom(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
 {
     float t2 = t * t;
@@ -873,10 +932,22 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
         // Only as finely as their size on screen needs: a long edge gets up to four segments, a short one stays as is.
         Array<Vector2> &outlinePoints = m->outlinePoints;
         outlinePoints.clear();
-        const bool roundBody = style == ShapeStyle::Body && numPoints >= 8;
+        const bool roundBody = style == ShapeStyle::Body && isRoundShape(points, range);
         const float edgeLengthPixels = (points.pos[range[1]] - points.pos[range[0]]).length() * scale;
         const int subdivisions = roundBody ? clamp(static_cast<int>(ceilf(edgeLengthPixels / 6.0f)), 1, 4) : 1;
         const bool smooth = subdivisions > 1;
+
+        // Other bodies keep straight sides, but short corner edges, like a rounded rect's, are drawn as curves
+        const bool roundCorners = style == ShapeStyle::Body && !roundBody;
+        float longestRestEdge = 0.0f;
+
+        if (roundCorners)
+        {
+            for (int k = 0; k < numPoints; k++)
+            {
+                longestRestEdge = max(longestRestEdge, (points.shapeOriginalPos[range[(k + 1) % numPoints]] - points.shapeOriginalPos[range[k]]).length());
+            }
+        }
 
         for (int k = 0; k < numPoints; k++)
         {
@@ -885,6 +956,19 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
             if (!smooth)
             {
                 outlinePoints.push(p1);
+
+                const float restEdge = (points.shapeOriginalPos[range[(k + 1) % numPoints]] - points.shapeOriginalPos[range[k]]).length();
+
+                if (roundCorners && restEdge < longestRestEdge * 0.5f)
+                {
+                    addRoundedCorner(outlinePoints,
+                                     points.pos[range[(k + numPoints - 1) % numPoints]],
+                                     p1,
+                                     points.pos[range[(k + 1) % numPoints]],
+                                     points.pos[range[(k + 2) % numPoints]],
+                                     scale);
+                }
+
                 continue;
             }
 
