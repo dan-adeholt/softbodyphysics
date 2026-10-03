@@ -550,7 +550,7 @@ void Editor::renderCanvasPopups(Game &game)
 
             if (ImGui::MenuItem("Heavy circle"))
             {
-                Shapes::createCircle(space, addPos.x, addPos.y, size, defaultMass * 50.0f);
+                Shapes::createCircle(space, addPos.x, addPos.y, size, defaultMass * 6.0f);
             }
 
             if (ImGui::MenuItem("Triangle"))
