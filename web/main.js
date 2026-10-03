@@ -4,6 +4,9 @@ const GENERATED_BASE = "/generated";
 const statusText = document.querySelector("#status-text");
 const canvas = document.querySelector("#game-canvas");
 
+// Right click opens the app's own menu for adding shapes, so keep the browser's menu away
+canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+
 let moduleInstance = null;
 
 function setStatus(message) {
