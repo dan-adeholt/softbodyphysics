@@ -789,16 +789,15 @@ void Editor::renderToolbar(Game &game, ImFont *titleFont)
 
         if (comboOpen)
         {
+            // The demo folders are listed in full, the same as in the web demo
             for (int i = 0; i < SceneDefinitionFolder::numFolders; i++)
             {
                 const SceneDefinitionFolder &folder = SceneDefinitionFolder::allFolders[i];
 
-#ifdef __EMSCRIPTEN__
                 if (folder.hiddenInWebDemo)
                 {
                     continue;
                 }
-#endif
 
                 ImGui::SeparatorText(folder.name);
 
@@ -818,6 +817,44 @@ void Editor::renderToolbar(Game &game, ImFont *titleFont)
                     }
                 }
             }
+
+#ifndef __EMSCRIPTEN__
+            // The debugging folders are long, so they open as submenus
+            ImGui::SeparatorText("Debugging");
+
+            for (int i = 0; i < SceneDefinitionFolder::numFolders; i++)
+            {
+                const SceneDefinitionFolder &folder = SceneDefinitionFolder::allFolders[i];
+
+                if (!folder.hiddenInWebDemo)
+                {
+                    continue;
+                }
+
+                // Submenus are windows of their own and would get the toolbar's zero vertical padding
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 10.0f));
+                const bool folderOpen = ImGui::BeginMenu(folder.name);
+                ImGui::PopStyleVar();
+
+                if (!folderOpen)
+                {
+                    continue;
+                }
+
+                for (int j = 0; j < folder.numScenes; j++)
+                {
+                    const SceneDefinition &scene = folder.scenes[j];
+                    const bool isSelected = currentSceneName != nullptr && strcmp(scene.name, currentSceneName) == 0;
+
+                    if (ImGui::MenuItem(scene.name, nullptr, isSelected))
+                    {
+                        loadScene(scene);
+                    }
+                }
+
+                ImGui::EndMenu();
+            }
+#endif
 
             ImGui::EndCombo();
         }
