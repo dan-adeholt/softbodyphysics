@@ -99,6 +99,9 @@ public:
     // Draw the debug view (points, edges, shape matching) instead of the styled one
     bool &debugDraw();
 
+    // Soft one pixel edges on lines and outlines
+    bool &antiAliasing();
+
     const char *title() const;
 
     const AddSubShapeData &addSubShapeData() const;

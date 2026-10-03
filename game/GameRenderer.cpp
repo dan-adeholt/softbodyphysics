@@ -71,8 +71,27 @@ loadImage(const char *filename)
     return surface;
 }
 
-void renderVertices(SDL_Renderer *renderer, Array<GameVertex> &vertices, const Vector2 &offset, float scale, SDL_Texture *texture)
+// Indexed triangles, so the corners that quads and line strips share are only stored once
+struct GeometryLayer
 {
+    Array<GameVertex> vertices;
+    Array<int> indices;
+
+    void clear()
+    {
+        vertices.clear();
+        indices.clear();
+    }
+};
+
+// Set at the start of each frame. Lines fade out over one screen pixel when anti-aliasing is on.
+static bool antiAliasLines = true;
+static float worldUnitsPerPixel = 1.0f;
+
+void renderVertices(SDL_Renderer *renderer, GeometryLayer &layer, const Vector2 &offset, float scale, SDL_Texture *texture)
+{
+    Array<GameVertex> &vertices = layer.vertices;
+
     if (vertices.size() == 0)
     {
         return;
@@ -94,7 +113,7 @@ void renderVertices(SDL_Renderer *renderer, Array<GameVertex> &vertices, const V
                           xy, (int)sizeof(GameVertex),
                           color, (int)sizeof(GameVertex),
                           uv, (int)sizeof(GameVertex),
-                          vertices.size(), nullptr, 0, 0);
+                          vertices.size(), &layer.indices[0], layer.indices.size(), (int)sizeof(int));
 }
 
 struct GameRenderer::Impl
@@ -108,14 +127,14 @@ struct GameRenderer::Impl
 
     SDL_Texture *texture;
 
-    Array<GameVertex> foregroundVertices;
-    Array<GameVertex> backgroundVertices;
+    GeometryLayer foregroundVertices;
+    GeometryLayer backgroundVertices;
 
     // Styled rendering layers, drawn back to front
-    Array<GameVertex> shadowVertices;
-    Array<GameVertex> fillVertices;
-    Array<GameVertex> outlineVertices;
-    Array<GameVertex> detailVertices;
+    GeometryLayer shadowVertices;
+    GeometryLayer fillVertices;
+    GeometryLayer outlineVertices;
+    GeometryLayer detailVertices;
     Array<Vector2> outlinePoints;
 };
 
@@ -150,61 +169,103 @@ struct AtlasCoordinate
 
 AtlasCoordinate whiteColor(0, 0, 15, 15);
 AtlasCoordinate circle(17, 1, 13, 13);
-AtlasCoordinate springData(50, 0, 3, 512);
 
-void addCircle(Array<GameVertex> &vertices, float x, float y, float scale, SDL_FColor color)
+static void addQuad(GeometryLayer &layer, const GameVertex &v0, const GameVertex &v1, const GameVertex &v2, const GameVertex &v3)
+{
+    const int base = layer.vertices.size();
+    layer.vertices.push(v0);
+    layer.vertices.push(v1);
+    layer.vertices.push(v2);
+    layer.vertices.push(v3);
+
+    const int quadIndices[6] = {0, 1, 2, 2, 3, 0};
+
+    for (int i = 0; i < 6; i++)
+    {
+        layer.indices.push(base + quadIndices[i]);
+    }
+}
+
+void addCircle(GeometryLayer &layer, float x, float y, float scale, SDL_FColor color)
 {
     float size = circle.w * 0.5f / scale;
     float cx = x - size * 0.5f;
     float cy = y - size * 0.5f;
 
-    vertices.push({color,
-                   {cx, cy},
-                   circle.topLeft});
-    vertices.push({color,
-                   {cx + size, cy},
-                   circle.topRight});
-    vertices.push({color,
-                   {cx + size, cy + size},
-                   circle.bottomRight});
-    vertices.push({color,
-                   {cx + size, cy + size},
-                   circle.bottomRight});
-    vertices.push({color,
-                   {cx, cy + size},
-                   circle.bottomLeft});
-    vertices.push({color,
-                   {cx, cy},
-                   circle.topLeft});
+    addQuad(layer,
+            {color, {cx, cy}, circle.topLeft},
+            {color, {cx + size, cy}, circle.topRight},
+            {color, {cx + size, cy + size}, circle.bottomRight},
+            {color, {cx, cy + size}, circle.bottomLeft});
 }
 
-void addLine(Array<GameVertex> &vertices, float p0x, float p0y, float p1x, float p1y, float scale, SDL_FColor color, float baseLineWidth = 2.0f)
+// A line baseLineWidth pixels wide at the given scale. With anti-aliasing each side fades out over
+// one screen pixel; lines thinner than a pixel get fainter instead of thinner.
+void addLine(GeometryLayer &layer, float p0x, float p0y, float p1x, float p1y, float scale, SDL_FColor color, float baseLineWidth = 2.0f)
 {
     float lineWidth = baseLineWidth / scale;
     float dx = p1x - p0x;
     float dy = p1y - p0y;
     float length = Vector2::vec2length(dx, dy);
-    float nx = (-dy / length) * lineWidth * 0.5f;
-    float ny = (dx / length) * lineWidth * 0.5f;
 
-    vertices.push({color,
-                   {p0x + nx, p0y + ny},
-                   whiteColor.topRight});
-    vertices.push({color,
-                   {p1x + nx, p1y + ny},
-                   whiteColor.bottomRight});
-    vertices.push({color,
-                   {p1x - nx, p1y - ny},
-                   whiteColor.bottomLeft});
-    vertices.push({color,
-                   {p1x - nx, p1y - ny},
-                   whiteColor.bottomLeft});
-    vertices.push({color,
-                   {p0x - nx, p0y - ny},
-                   whiteColor.topLeft});
-    vertices.push({color,
-                   {p0x + nx, p0y + ny},
-                   whiteColor.topRight});
+    if (length <= 0.0f)
+    {
+        return;
+    }
+
+    float nx = -dy / length;
+    float ny = dx / length;
+    const Vector2 uv = whiteColor.topLeft + Vector2(whiteColor.normWidth, whiteColor.normHeight) * 0.5f;
+
+    if (!antiAliasLines)
+    {
+        float hx = nx * lineWidth * 0.5f;
+        float hy = ny * lineWidth * 0.5f;
+        addQuad(layer,
+                {color, {p0x + hx, p0y + hy}, uv},
+                {color, {p1x + hx, p1y + hy}, uv},
+                {color, {p1x - hx, p1y - hy}, uv},
+                {color, {p0x - hx, p0y - hy}, uv});
+        return;
+    }
+
+    const float pixel = worldUnitsPerPixel;
+    const float inner = max(lineWidth * 0.5f - pixel * 0.5f, 0.0f);
+    const float outer = lineWidth * 0.5f + pixel * 0.5f;
+    SDL_FColor core = color;
+    core.a *= min(lineWidth / pixel, 1.0f);
+    SDL_FColor edge = color;
+    edge.a = 0.0f;
+
+    // Four vertices across the line at each end: transparent edge, opaque core, opaque core, transparent edge
+    const float offsets[4] = {outer, inner, -inner, -outer};
+    const int base = layer.vertices.size();
+
+    for (int end = 0; end < 2; end++)
+    {
+        const float x = end == 0 ? p0x : p1x;
+        const float y = end == 0 ? p0y : p1y;
+
+        for (int i = 0; i < 4; i++)
+        {
+            layer.vertices.push({i == 0 || i == 3 ? edge : core, {x + nx * offsets[i], y + ny * offsets[i]}, uv});
+        }
+    }
+
+    // Three strips along the line: outer fade, core, outer fade
+    for (int strip = 0; strip < 3; strip++)
+    {
+        const int a = base + strip;
+        const int b = base + strip + 1;
+        const int c = base + 4 + strip + 1;
+        const int d = base + 4 + strip;
+        const int stripIndices[6] = {a, b, c, c, d, a};
+
+        for (int i = 0; i < 6; i++)
+        {
+            layer.indices.push(stripIndices[i]);
+        }
+    }
 }
 
 void GameRenderer::drawSubshape(SDL_Renderer *renderer, const AddSubShapeData &addSubshapeData, float scale, const Vector2 &offset)
@@ -222,6 +283,8 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
 {
     m->foregroundVertices.clear();
     m->backgroundVertices.clear();
+    antiAliasLines = game.antiAliasing();
+    worldUnitsPerPixel = 1.0f / game.scale();
 
     Vector2 mousePos(game.mousePos());
     Vector2 translatedMousePos = (mousePos - game.offset()) / game.scale();
@@ -491,41 +554,6 @@ void GameRenderer::renderShapes(SDL_Renderer *renderer,
     }
 }
 
-inline void addSpring(Array<GameVertex> &vertices, float p0x, float p0y, float p1x, float p1y, float springLength, float scale)
-{
-    AtlasCoordinate springDataMod(springData.x, springData.y, springData.w, min(512.0f, springLength) * scale);
-
-    float lineWidth = 1.5f / scale;
-
-    float dx = p1x - p0x;
-    float dy = p1y - p0y;
-    float vecLength = Vector2::vec2length(dx, dy);
-    float normalX = (-dy / vecLength) * lineWidth;
-    float normalY = (dx / vecLength) * lineWidth;
-
-    // float tension = fabs(1.0f - (springLength / vecLength));
-    SDL_FColor color = {0.25f, 0.25f, 0.25f, 1.0f};
-
-    vertices.push({color,
-                   {p0x + normalX, p0y + normalY},
-                   springDataMod.topRight});
-    vertices.push({color,
-                   {p1x + normalX, p1y + normalY},
-                   springDataMod.bottomRight});
-    vertices.push({color,
-                   {p1x - normalX, p1y - normalY},
-                   springDataMod.bottomLeft});
-    vertices.push({color,
-                   {p1x - normalX, p1y - normalY},
-                   springDataMod.bottomLeft});
-    vertices.push({color,
-                   {p0x - normalX, p0y - normalY},
-                   springDataMod.topLeft});
-    vertices.push({color,
-                   {p0x + normalX, p0y + normalY},
-                   springDataMod.topRight});
-}
-
 void GameRenderer::renderGrid(SDL_Renderer *renderer, Game &game, float scale, float lineWidth, SDL_FColor color)
 {
     for (int i = 0; i < 200; i++)
@@ -649,27 +677,100 @@ static ShapeStyle getShapeStyle(const Shape &shape)
     return ShapeStyle::Body;
 }
 
-static void addTriangle(Array<GameVertex> &vertices, Vector2 p0, Vector2 p1, Vector2 p2, SDL_FColor c0, SDL_FColor c1, SDL_FColor c2)
+static void addTriangle(GeometryLayer &layer, Vector2 p0, Vector2 p1, Vector2 p2, SDL_FColor c0, SDL_FColor c1, SDL_FColor c2)
 {
-    vertices.push({c0, p0, solidUv});
-    vertices.push({c1, p1, solidUv});
-    vertices.push({c2, p2, solidUv});
+    const int base = layer.vertices.size();
+    layer.vertices.push({c0, p0, solidUv});
+    layer.vertices.push({c1, p1, solidUv});
+    layer.vertices.push({c2, p2, solidUv});
+    layer.indices.push(base);
+    layer.indices.push(base + 1);
+    layer.indices.push(base + 2);
 }
 
 // Disc with a world space radius, drawn with the antialiased circle sprite from the atlas
-static void addDisc(Array<GameVertex> &vertices, Vector2 center, float radius, SDL_FColor color)
+static void addDisc(GeometryLayer &layer, Vector2 center, float radius, SDL_FColor color)
 {
     float x0 = center.x - radius;
     float y0 = center.y - radius;
     float x1 = center.x + radius;
     float y1 = center.y + radius;
 
-    vertices.push({color, {x0, y0}, circle.topLeft});
-    vertices.push({color, {x1, y0}, circle.topRight});
-    vertices.push({color, {x1, y1}, circle.bottomRight});
-    vertices.push({color, {x1, y1}, circle.bottomRight});
-    vertices.push({color, {x0, y1}, circle.bottomLeft});
-    vertices.push({color, {x0, y0}, circle.topLeft});
+    addQuad(layer,
+            {color, {x0, y0}, circle.topLeft},
+            {color, {x1, y0}, circle.topRight},
+            {color, {x1, y1}, circle.bottomRight},
+            {color, {x0, y1}, circle.bottomLeft});
+}
+
+// A closed outline lineWidthPixels wide, as one strip around the shape. Each corner is mitered and
+// shared by the two edges meeting there, so the edges join without gaps. With anti-aliasing both
+// sides fade out over one screen pixel, like addLine.
+static void addOutlineRing(GeometryLayer &layer, const Array<Vector2> &points, float lineWidthPixels, SDL_FColor color)
+{
+    const int numPoints = points.size();
+
+    if (numPoints < 3)
+    {
+        return;
+    }
+
+    const float pixel = worldUnitsPerPixel;
+    const float halfWidth = lineWidthPixels * pixel * 0.5f;
+    const Vector2 uv = solidUv;
+
+    // Offsets from the outline, outward first. Without anti-aliasing there is just the solid band.
+    SDL_FColor edge = color;
+    edge.a = 0.0f;
+    const float aaOffsets[4] = {halfWidth + pixel * 0.5f, max(halfWidth - pixel * 0.5f, 0.0f), -max(halfWidth - pixel * 0.5f, 0.0f), -(halfWidth + pixel * 0.5f)};
+    const SDL_FColor aaColors[4] = {edge, color, color, edge};
+    const float solidOffsets[2] = {halfWidth, -halfWidth};
+    const int columns = antiAliasLines ? 4 : 2;
+    const float *offsets = antiAliasLines ? aaOffsets : solidOffsets;
+    const int base = layer.vertices.size();
+
+    for (int k = 0; k < numPoints; k++)
+    {
+        const Vector2 prev = points[(k + numPoints - 1) % numPoints];
+        const Vector2 cur = points[k];
+        const Vector2 next = points[(k + 1) % numPoints];
+        const Vector2 inDir = (cur - prev).normalized();
+        const Vector2 outDir = (next - cur).normalized();
+        const Vector2 inNormal(-inDir.y, inDir.x);
+        const Vector2 outNormal(-outDir.y, outDir.x);
+
+        // The miter points between the two edge normals, lengthened so the band keeps its width.
+        // Limited for very sharp corners, which would otherwise spike far out.
+        Vector2 miter = (inNormal + outNormal).normalized();
+
+        if (miter.lengthSquared() < 0.5f)
+        {
+            miter = outNormal;
+        }
+
+        const float miterScale = 1.0f / max(miter.dot(outNormal), 0.4f);
+
+        for (int c = 0; c < columns; c++)
+        {
+            layer.vertices.push({antiAliasLines ? aaColors[c] : color, cur + miter * (offsets[c] * miterScale), uv});
+        }
+    }
+
+    for (int k = 0; k < numPoints; k++)
+    {
+        const int a = base + k * columns;
+        const int b = base + ((k + 1) % numPoints) * columns;
+
+        for (int c = 0; c + 1 < columns; c++)
+        {
+            const int quad[6] = {a + c, a + c + 1, b + c + 1, b + c + 1, b + c, a + c};
+
+            for (int i = 0; i < 6; i++)
+            {
+                layer.indices.push(quad[i]);
+            }
+        }
+    }
 }
 
 static Vector2 catmullRom(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
@@ -679,7 +780,7 @@ static Vector2 catmullRom(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float 
     return (p1 * 2.0f + (p2 - p0) * t + (p0 * 2.0f - p1 * 5.0f + p2 * 4.0f - p3) * t2 + (p1 * 3.0f - p0 - p2 * 3.0f + p3) * t3) * 0.5f;
 }
 
-static void addJointDot(Array<GameVertex> &vertices, Vector2 pos, float pixel, SDL_FColor outline)
+static void addJointDot(GeometryLayer &vertices, Vector2 pos, float pixel, SDL_FColor outline)
 {
     addDisc(vertices, pos, 5.5f * pixel, outline);
     addDisc(vertices, pos, 3.8f * pixel, {1.0f, 1.0f, 1.0f, 1.0f});
@@ -851,18 +952,7 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
             }
         }
 
-        // Outline. Sharp corners get a disc to round off the join; on round bodies the corners are too shallow to show.
-        for (int k = 0; k < numOutlinePoints; k++)
-        {
-            Vector2 p0 = outlinePoints[k];
-            Vector2 p1 = outlinePoints[(k + 1) % numOutlinePoints];
-            addLine(m->outlineVertices, p0.x, p0.y, p1.x, p1.y, scale, outline, 2.5f);
-
-            if (!roundBody)
-            {
-                addDisc(m->outlineVertices, p0, 1.25f * pixel, outline);
-            }
-        }
+        addOutlineRing(m->outlineVertices, outlinePoints, 2.5f, outline);
 
         if (style == ShapeStyle::Structure)
         {

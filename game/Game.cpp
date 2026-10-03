@@ -70,6 +70,7 @@ struct Game::Impl
     int simulationSpeed = 100;
     bool paused = false;
     bool debugDraw = false;
+    bool antiAliasing = true;
     const char *currentSceneName = nullptr;
     Vector2 offset;
     float scale = 1.0f;
@@ -950,6 +951,11 @@ void Game::setRenderSettings(const GameRenderSettings &settings)
 bool &Game::debugDraw()
 {
     return m->debugDraw;
+}
+
+bool &Game::antiAliasing()
+{
+    return m->antiAliasing;
 }
 
 double Game::lastElapsedTimeMilliseconds() const

@@ -164,6 +164,7 @@ struct Editor::Impl
     bool showConsole = false;
     bool showProfiler = false;
     bool debugDraw = false;
+    bool antiAliasing = true;
 };
 
 Editor::Editor(const char *appPath)
@@ -261,6 +262,11 @@ void Editor::readIniValue(const char *section, const char *name, const char *val
         if (strcmp(name, "ShowConsole") == 0)
         {
             m->showConsole = strcmp(value, "1") == 0;
+        }
+
+        if (strcmp(name, "AntiAliasing") == 0)
+        {
+            m->antiAliasing = strcmp(value, "1") == 0;
         }
 
         if (strcmp(name, "DebugDraw") == 0)
@@ -651,6 +657,7 @@ void Editor::saveState()
     writeIniProperty(stateFile, "ShowConsole", m->showConsole ? "1" : "0");
     writeIniProperty(stateFile, "ShowProfiler", m->showProfiler ? "1" : "0");
     writeIniProperty(stateFile, "DebugDraw", m->debugDraw ? "1" : "0");
+    writeIniProperty(stateFile, "AntiAliasing", m->antiAliasing ? "1" : "0");
 
     StringBuffer<2048> openedFiles;
 
@@ -747,8 +754,9 @@ void Editor::renderToolbar(Game &game, ImFont *titleFont)
     const float barHeight = toolbarHeight;
     ImVec2 displaySize = ImGui::GetIO().DisplaySize;
 
-    // A view setting, so it follows the editor rather than the scene or level that is open
+    // View settings, so they follow the editor rather than the scene or level that is open
     game.debugDraw() = m->debugDraw;
+    game.antiAliasing() = m->antiAliasing;
 
     if (m->fitViewPending)
     {
@@ -986,6 +994,17 @@ void Editor::renderSettings(Game &game)
     {
         ImGui::SetTooltip("Draw the simulation's debug view: points, edges and\n"
                           "shape matching targets, instead of the styled look.");
+    }
+
+    if (ImGui::Checkbox("Anti-aliasing", &m->antiAliasing))
+    {
+        game.antiAliasing() = m->antiAliasing;
+        saveState();
+    }
+
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("Smooth edges on lines and outlines.");
     }
 
     if (ImGui::Checkbox("Show profiler", &m->showProfiler))
