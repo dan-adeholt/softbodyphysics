@@ -172,6 +172,17 @@ if(EMSCRIPTEN)
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/web/public/generated"
     )
 
+    # The pre-js and the preloaded files are only read at link time, so relink when they change
+    file(GLOB_RECURSE WEB_PRELOAD_FILES CONFIGURE_DEPENDS
+        "${CMAKE_SOURCE_DIR}/data/*"
+        "${CMAKE_SOURCE_DIR}/levels/*"
+        "${CMAKE_SOURCE_DIR}/scenedefs/*"
+    )
+    set_property(TARGET SoftBodyPhysicsWeb PROPERTY LINK_DEPENDS
+        "${CMAKE_SOURCE_DIR}/web/pre.js"
+        ${WEB_PRELOAD_FILES}
+    )
+
     target_link_options(SoftBodyPhysicsWeb PRIVATE
         "SHELL:-sUSE_SDL=3"
         "SHELL:-sALLOW_MEMORY_GROWTH=1"
