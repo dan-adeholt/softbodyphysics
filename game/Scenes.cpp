@@ -851,6 +851,11 @@ SceneDefinition gameScenes[] = {
              Shape s = Shapes::createCircle(space, 440.0f + static_cast<float>(i) * 55.0f, 50.0f, 40.0f, 1.0f);
          }
      }},
+    {"Playground", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/playground.txt");
+     }},
 };
 
 SceneDefinition vehicleScenes[] = {
