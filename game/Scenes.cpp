@@ -813,9 +813,9 @@ SceneDefinition collectionScenes[] = {
          PhysicsSpace &space = game->physicsSpace();
          float size = 15.0f;
          float spacing = (size + 4.0f) * 2.0f;
-         for (int y = 0; y < 35; y++)
+         for (int y = 0; y < 20; y++)
          {
-             for (int x = 0; x < 35; x++)
+             for (int x = 0; x < 20; x++)
              {
                  float xf = static_cast<float>(x);
                  float yf = static_cast<float>(y);
