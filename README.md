@@ -2,7 +2,7 @@
 
 A 2D soft-body physics engine and level editor, written from scratch in C++ without the standard library. It runs natively on macOS and in the browser through WebAssembly.
 
-![The Bridge scene: soft circles resting on a sagging bridge, with the editor's scene list on the left and the console below](docs/screenshot.png)
+![The Bridge scene in the web demo: colored soft balls resting on a sagging teal bridge between two posts](docs/screenshot.png)
 
 It is heavily inspired by [this video](https://www.youtube.com/watch?v=3OmkehAJoyo) from the author of JellyCar. I usually do full stack web development these days, but I have a background in fairly low-level C++, and this is where I keep that up.
 
@@ -26,9 +26,9 @@ It is heavily inspired by [this video](https://www.youtube.com/watch?v=3OmkehAJo
 
 * Scene browser, play/pause, single-stepping, and rewind through the last 1000 simulation states.
 * Drag points with the mouse, pan and zoom the view.
-* Profiler tab with per-phase timings (springs, bounding boxes, collision detection and response, rendering).
+* Floating profiler with per-phase timings (springs, bounding boxes, collision detection and response, rendering).
 * Scenes and prefabs saved and loaded as plain text files.
-* Textured shapes, triangulated for rendering.
+* Two ways to draw the simulation: a styled look with shading, outlines and drop shadows, and a debug draw mode showing the points, edges and shape matching targets.
 
 ## Engineering goals
 

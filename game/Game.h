@@ -96,6 +96,9 @@ public:
     GameRenderSettings renderSettings();
     void setRenderSettings(const GameRenderSettings &settings);
 
+    // Draw the debug view (points, edges, shape matching) instead of the styled one
+    bool &debugDraw();
+
     const char *title() const;
 
     const AddSubShapeData &addSubShapeData() const;

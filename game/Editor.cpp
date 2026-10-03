@@ -15,7 +15,6 @@
 #include "../physics/PhysicsSpaceStorage.h"
 #include "../physics/ShapeUtils.h"
 #include "../physics/CollisionSolver.h"
-#include "../physics/PhysicsTests.h"
 #include "../fontawesome/IconsFontAwesome4.h"
 #include "../utils/MinMax.h"
 #include "ShapeResources.h"
@@ -31,7 +30,6 @@ const char *bridgePopup = "Bridge";
 #endif
 
 const char *levelsDirectory = "levels";
-PhysicsTestDefinition *curTestCase = nullptr;
 
 #define MAX_FILENAME_LENGTH 256
 #define MAX_FILES 100
@@ -158,11 +156,14 @@ struct Editor::Impl
     const char *appPath = nullptr;
     Array<Game *> games;
     int currentGameIndex = 0;
-    Array<bool> closeTabStates;
     char newFileName[MAX_FILENAME_LENGTH] = {};
     Array<FileEntry> openedBuffers;
-    int gameTabIndex = -1;
     BridgePopup bridgePopup;
+    bool fitViewPending = true;
+    bool openAddLevelPopup = false;
+    bool showConsole = false;
+    bool showProfiler = false;
+    bool debugDraw = false;
 };
 
 Editor::Editor(const char *appPath)
@@ -252,6 +253,21 @@ void Editor::readIniValue(const char *section, const char *name, const char *val
             m->currentGameIndex = atoi(value);
         }
 
+        if (strcmp(name, "ShowProfiler") == 0)
+        {
+            m->showProfiler = strcmp(value, "1") == 0;
+        }
+
+        if (strcmp(name, "ShowConsole") == 0)
+        {
+            m->showConsole = strcmp(value, "1") == 0;
+        }
+
+        if (strcmp(name, "DebugDraw") == 0)
+        {
+            m->debugDraw = strcmp(value, "1") == 0;
+        }
+
         if (strcmp(name, "OpenedBuffers") == 0)
         {
             m->openedBuffers.clear();
@@ -302,285 +318,173 @@ Editor::~Editor()
     delete m;
 }
 
-bool ImGuiBeginTallerMenu(const char *menuName)
+// The toolbar floats at the top of the window; the editor panels are laid out below it
+static const float toolbarMargin = 14.0f;
+static const float toolbarHeight = 60.0f;
+static const float toolbarBottom = toolbarMargin + toolbarHeight;
+static const float levelTabsHeight = 46.0f;
+static const float consoleHeight = 250.0f;
+
+static const ImVec4 overlayWhite(1.0f, 1.0f, 1.0f, 1.0f);
+static const ImVec4 overlayGreen(0.30f, 0.69f, 0.48f, 1.0f);
+
+// Look shared by the toolbar and the floating overlays: white rounded panels with a warm border
+static void pushOverlayStyle()
 {
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 18.0f));
-    bool ret = ImGui::BeginMenu(menuName);
-    ImGui::PopStyleVar();
-    return ret;
+    const ImVec4 white = overlayWhite;
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 14.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(18.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(14.0f, 9.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10.0f, 6.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 10.0f);
+
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, white);
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, white);
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.90f, 0.88f, 0.84f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.13f, 0.19f, 0.25f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Button, white);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.96f, 0.94f, 0.91f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.92f, 0.90f, 0.86f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, white);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.96f, 0.94f, 0.91f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.87f, 0.93f, 0.98f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.93f, 0.96f, 0.99f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.87f, 0.93f, 0.98f, 1.0f));
 }
 
-void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
+static void popOverlayStyle()
 {
-    const float editorSidebarWidth = 380.0f;
-    const float sceneWindowOffsetX = editorSidebarWidth - 4.0f;
-    bool triggerBridgePopup = false;
-    bool triggerOpenPopup = false;
-    int deleteGameIndex = -1;
+    ImGui::PopStyleColor(12);
+    ImGui::PopStyleVar(8);
+}
+
+void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo, ImFont *titleFont, ImFont *boldFont)
+{
+    renderToolbar(game, titleFont);
+    renderLevelTabs();
+
+    // The tabs can switch level or close the one that was current
+    Game &currentGame = *getCurrentGame();
+    renderCanvasPopups(currentGame);
+    renderProfilerOverlay(currentGame, profileInfo);
+
+    if (m->showConsole)
+    {
+        ImVec2 displaySize = ImGui::GetIO().DisplaySize;
+        pushOverlayStyle();
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16.0f, 12.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 5.0f));
+        Console::drawWindow(toolbarMargin, displaySize.y - toolbarMargin - consoleHeight, displaySize.x - toolbarMargin * 2.0f, consoleHeight, boldFont);
+        ImGui::PopStyleVar(2);
+        popOverlayStyle();
+    }
+}
+
+// Opened levels as a row of tabs below the toolbar. Only shown when a level file is open next to the scene.
+void Editor::renderLevelTabs()
+{
+    if (m->games.size() < 2)
+    {
+        return;
+    }
+
+    int closeIndex = -1;
+
+    pushOverlayStyle();
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 6.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 7.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 0.0f));
+    ImGui::SetNextWindowPos(ImVec2(toolbarMargin, toolbarBottom + 8.0f));
+
+    if (ImGui::Begin("Level tabs", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        for (int i = 0; i < m->games.size(); i++)
+        {
+            ImGui::PushID(i);
+            const bool isCurrent = i == m->currentGameIndex;
+
+            if (isCurrent)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.87f, 0.93f, 0.98f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.62f, 0.78f, 0.93f, 1.0f));
+            }
+
+            StringBuffer<256> tabName;
+            tabName.append("%s  %s", i == 0 ? ICON_FA_FLASK : ICON_FA_FILE_TEXT_O, m->games[i]->title());
+
+            if (ImGui::Button(tabName.data) && !isCurrent)
+            {
+                setCurrentGameIndex(i);
+                saveState();
+            }
+
+            // The scene is always open, only level files can be closed
+            if (i != 0)
+            {
+                ImGui::SameLine(0.0f, 2.0f);
+
+                if (ImGui::Button(ICON_FA_TIMES))
+                {
+                    closeIndex = i;
+                }
+            }
+
+            if (isCurrent)
+            {
+                ImGui::PopStyleColor(2);
+            }
+
+            ImGui::PopID();
+            ImGui::SameLine(0.0f, 10.0f);
+        }
+
+        ImGui::NewLine();
+    }
+
+    ImGui::End();
+    ImGui::PopStyleVar(3);
+    popOverlayStyle();
+
+    if (closeIndex != -1)
+    {
+        delete m->games[closeIndex];
+        m->games.remove(closeIndex);
+        m->openedBuffers.remove(closeIndex - 1);
+
+        if (m->currentGameIndex >= closeIndex)
+        {
+            setCurrentGameIndex(max(m->currentGameIndex - 1, 0));
+        }
+
+        saveState();
+    }
+}
+
+// The right click menu for adding shapes, and the dialogs it and the File menu open
+void Editor::renderCanvasPopups(Game &game)
+{
     ImGuiIO &io = ImGui::GetIO();
-    ImVec2 displaySize = io.DisplaySize;
 
     if (ImGui::IsKeyPressed(ImGuiKey_N) && (io.KeyMods & ImGuiMod_Ctrl) != 0)
     {
-        triggerOpenPopup = true;
+        m->openAddLevelPopup = true;
     }
 
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.85f, 0.85f, 0.85f, 1.0f)); // Menu bar background color
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));     // Menu bar background color
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4.0f, 9.0f));
+    const bool openAddLevel = m->openAddLevelPopup;
+    m->openAddLevelPopup = false;
 
-    ImGui::SetNextWindowSizeConstraints(ImVec2(editorSidebarWidth, displaySize.y - 283), ImVec2(editorSidebarWidth, displaySize.y - 283));
-    ImGui::SetNextWindowPos(ImVec2(editorSidebarWidth, 22), ImGuiCond_Always, ImVec2(1, 0));
+    pushOverlayStyle();
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.0f, 12.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 6.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10.0f, 8.0f));
+    ImGui::PushStyleColor(ImGuiCol_TitleBg, ImVec4(0.97f, 0.96f, 0.93f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_TitleBgActive, ImVec4(0.97f, 0.96f, 0.93f, 1.0f));
 
-    if (ImGui::Begin("Editor", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize))
-    {
-        ImVec2 buttonSize(32.0f, 35.0f);
-        ImGui::PushButtonRepeat(true);
-
-        float buttonVerticalMargin = 30.0f;
-        const char *currentSceneName = game.currentSceneName();
-
-        if (ImGui::Button(ICON_FA_STEP_BACKWARD, buttonSize) && currentSceneName != nullptr)
-        {
-            const SceneDefinition *scene = SceneDefinition::getDefinitionFromName(currentSceneName);
-            game.init(*scene);
-        }
-        ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_BACKWARD, buttonSize))
-        {
-            game.setPaused();
-
-            game.rewindHistory();
-        }
-
-        ImGui::SameLine();
-
-        if (ImGui::Button(game.paused() ? ICON_FA_PLAY : ICON_FA_PAUSE, buttonSize))
-        {
-            game.togglePaused();
-        }
-
-        ImGui::SameLine();
-
-        if (ImGui::Button(ICON_FA_STEP_FORWARD, buttonSize))
-        {
-            game.update(1000.0 / 120.0, true, profileInfo);
-        }
-
-        ImGui::SameLine();
-
-        if (ImGui::Button(ICON_FA_FORWARD, buttonSize))
-        {
-            game.setPaused();
-            game.forwardHistory();
-        }
-
-        ImGui::Dummy(ImVec2(10.0f, 0.0f));
-        ImGui::PopButtonRepeat();
-
-        ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
-
-        if (ImGui::BeginTabBar("EditorTabs", tab_bar_flags))
-        {
-
-            if (ImGui::BeginTabItem("Scenes"))
-            {
-                for (int i = 0; i < SceneDefinitionFolder::numFolders; i++)
-                {
-                    const SceneDefinitionFolder &folder = SceneDefinitionFolder::allFolders[i];
-#ifdef __EMSCRIPTEN__
-                    if (folder.hiddenInWebDemo)
-                    {
-                        continue;
-                    }
-#endif
-                    if (ImGui::TreeNode(folder.name))
-                    {
-                        ImGui::Unindent(ImGui::GetTreeNodeToLabelSpacing());
-                        for (int j = 0; j < folder.numScenes; j++)
-                        {
-                            const SceneDefinition &scene = folder.scenes[j];
-
-                            const bool isSelected = currentSceneName != nullptr && strcmp(scene.name, currentSceneName) == 0;
-                            ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
-                            if (isSelected)
-                            {
-                                node_flags |= ImGuiTreeNodeFlags_Selected;
-                            }
-
-                            ImGui::TreeNodeEx((void *)(intptr_t)j, node_flags, "%s %s", ICON_FA_FILE_CODE_O, scene.name);
-                            if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
-                            {
-                                setCurrentGameIndex(0);
-                                Console::log("Loading scene: %s", scene.name);
-                                m->lastScene.clear();
-                                m->lastScene.append(scene.name);
-                                m->games[0]->init(scene);
-                                saveState();
-                                Console::clearFrame();
-                            }
-                        }
-                        ImGui::Indent(ImGui::GetTreeNodeToLabelSpacing());
-                        ImGui::TreePop();
-                    }
-                }
-
-                ImGui::EndTabItem();
-            }
-
-            if (ImGui::BeginTabItem("Profiler"))
-            {
-                ImGui::Text("FPS: %.1lf", profileInfo.displayedFps);
-                ImGui::Text("Raw frame time: %.2lf ms", profileInfo.rawFrameTimeMillis);
-                ImGui::Text("Displayed frame time: %.2lf ms", profileInfo.displayedFrameTimeMillis);
-                if (profileInfo.frameTimeSnappingEnabled)
-                {
-                    ImGui::Text("Tick mode: fixed target");
-                    ImGui::Text("Tick target: %.1lf Hz", profileInfo.targetTickRate);
-                    ImGui::Text("Tick frame time: %.2lf ms", profileInfo.targetFrameTimeMillis);
-                }
-                else
-                {
-                    ImGui::Text("Tick mode: display refresh");
-                    ImGui::Text("Tick target: raw requestAnimationFrame delta");
-                }
-
-                ImGui::Text("Frame snap: %s", profileInfo.frameTimeSnappingEnabled ? "enabled" : "disabled");
-                ImGui::Text("Slowdown factor: %.1lf", profileInfo.slowdownFactor);
-                ImGui::Text("Total Physics time: %.1lf ms", profileInfo.totalPhysicsTimeMillis);
-                ImGui::Text("Elapsed step time: %.1lf ms", profileInfo.elapsedStepTimeMillis);
-                ImGui::Text("Physics iterations: %d", profileInfo.numPhysicsSteps);
-                ImGui::Text("Physics time: %.1lf ms", profileInfo.physicsTimeMillis);
-                ImGui::Text("Render time: %.1lf ms", profileInfo.renderTimeMillis);
-                ImGui::Text("Swap time: %.1lf ms", profileInfo.swapTimeMillis);
-                ImGui::Text("Springs time: %.1lf ms", profileInfo.springsTimeMillis);
-                ImGui::Text("Bounding box time: %.1lf ms", profileInfo.boundingBoxTimeMillis);
-                ImGui::Text("Num bboxes: %d", profileInfo.numBboxes);
-                ImGui::Text("Num bbox checks: %d", profileInfo.numBbboxChecks);
-                ImGui::Text("Num bbox overlaps: %d", profileInfo.numBboxOverlaps);
-                ImGui::Text("Num circle rejections: %d", profileInfo.numCircleRejections);
-                ImGui::Text("Num intersections: %d", profileInfo.numIntersections);
-                ImGui::Text("Num collisions: %d", profileInfo.numCollisions);
-                ImGui::Text("Collisions time: %.1lf ms", profileInfo.collisionTimeMillis);
-                ImGui::Text("Collision resolve: %.1lf ms", profileInfo.collisionHandlingTimeMillis);
-                ImGui::Text("Collision grid: %.1lf ms", profileInfo.collisionGridUpdateTimeMillis);
-
-                PhysicsSpace &space = game.physicsSpace();
-                int groundedWheelMotors = 0;
-                for (int i = 0; i < space.wheelMotors.size(); i++)
-                {
-                    if (space.wheelMotors[i].groundedThisStep)
-                    {
-                        groundedWheelMotors++;
-                    }
-                }
-
-                ImGui::Separator();
-                ImGui::Text("Wheel motors: %d", space.wheelMotors.size());
-                ImGui::Text("Grounded motors: %d", groundedWheelMotors);
-
-                for (int i = 0; i < space.wheelMotors.size(); i++)
-                {
-                    const WheelMotor &wheelMotor = space.wheelMotors[i];
-                    if (wheelMotor.shapeIndex < 0 || wheelMotor.shapeIndex >= space.shapes.size())
-                    {
-                        continue;
-                    }
-
-                    const Shape &shape = space.shapes[wheelMotor.shapeIndex];
-                    float radiusRatio = wheelRadiusRatio(space, shape);
-
-                    ImGui::Text("Wheel %d: cmd %.1f mode %s grounded %s (%d)",
-                                wheelMotor.shapeIndex,
-                                wheelMotor.command,
-                                wheelMotorModeName(wheelMotor.lastMode),
-                                wheelMotor.groundedThisStep ? "yes" : "no",
-                                wheelMotor.groundedContactCount);
-                    ImGui::Text("surface %.3f err %.3f radius %.2f impulse %.3f",
-                                wheelMotor.lastSurfaceSpeed,
-                                wheelMotor.lastSurfaceSpeedError,
-                                radiusRatio,
-                                wheelMotor.lastAppliedImpulse);
-                    ImGui::Text("parent %.3f ground %.3f rel %.3f",
-                                wheelMotor.lastParentForwardSpeed,
-                                wheelMotor.lastGroundSpeed,
-                                wheelMotor.lastRelativeForwardSpeed);
-                    ImGui::Text("cmd-space %.3f clamp %.3f band %.3f",
-                                wheelMotor.lastCommandSpaceSpeed,
-                                wheelMotor.lastAuthorityClamp,
-                                wheelMotor.lastHandoverBand);
-                }
-                ImGui::EndTabItem();
-            }
-
-            if (ImGui::BeginTabItem("Shape"))
-            {
-                int selectedShapeIndex = game.selectedShapeIndex();
-                PhysicsSpace &space = game.physicsSpace();
-
-                if (space.mouseJoint.pointIndex != -1)
-                {
-                    ImGui::Text("Mouse joint: %d", space.mouseJoint.pointIndex);
-                    ImGui::Text("Position: %.2f, %.2f", space.points.pos[space.mouseJoint.pointIndex].x, space.points.pos[space.mouseJoint.pointIndex].y);
-                    ImGui::Text("Velocity: %.2f, %.2f", space.points.velocity[space.mouseJoint.pointIndex].x, space.points.velocity[space.mouseJoint.pointIndex].y);
-                    ImGui::Text("Mass: %.2f", space.points.mass[space.mouseJoint.pointIndex]);
-                }
-
-                if (selectedShapeIndex != -1)
-                {
-
-                    if (space.shapes.size() > selectedShapeIndex)
-                    {
-                        Shape &shape = space.shapes[selectedShapeIndex];
-                        ImGui::Text("Selected shape: %d [%d]", selectedShapeIndex, shape.parentId);
-
-                        ImGui::Checkbox("Static", &shape.isStatic);
-
-                        const char *currentResourceName = shapeResourceName(shape.resourceId);
-                        if (ImGui::BeginCombo("ID", currentResourceName))
-                        {
-                            for (int i = 0; i < NUM_SHAPE_RESOURCES; i++)
-                            {
-                                const char *resourceName = shapeResourceName(i);
-                                bool isSelected = (shape.resourceId == i);
-                                if (ImGui::Selectable(resourceName, isSelected))
-                                {
-                                    shape.resourceId = i;
-                                }
-                                if (isSelected)
-                                {
-                                    ImGui::SetItemDefaultFocus();
-                                }
-                            }
-                            ImGui::EndCombo();
-                        }
-
-                        if (ImGui::Button("Snap to grid"))
-                        {
-                            Shapes::snapToGrid(space, selectedShapeIndex);
-                        }
-
-                        if (ImGui::Button("Update original position"))
-                        {
-                            Shapes::updateOriginalPos(space, selectedShapeIndex);
-                            space.triangulate();
-                        }
-                    }
-                }
-                ImGui::EndTabItem();
-            }
-
-            ImGui::EndTabBar();
-        }
-
-        ImGui::End();
-    }
-
-    ImGui::PopStyleColor(2);
-    ImGui::PopStyleVar(2);
-    // Detect right-click anywhere on the canvas
-    if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+    // Right click on the canvas, but not on the toolbar or other panels
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
     {
         ImGui::OpenPopup(contextMenu);
     }
@@ -676,217 +580,54 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo)
         ImGui::EndPopup();
     }
 
-    if (ImGui::BeginMainMenuBar())
+    if (openAddLevel)
     {
-        if (ImGuiBeginTallerMenu("File"))
-        {
-            if (ImGui::MenuItem("New", "Ctrl+N/Meta+N"))
-            {
-                triggerOpenPopup = true;
-            }
-
-            if (ImGui::BeginMenu("Open"))
-            {
-                for (int i = 0; i < m->fileList.size(); i++)
-                {
-                    if (ImGui::MenuItem(m->fileList[i].name.data))
-                    {
-                        m->lastOpenedFile.clear();
-                        m->lastOpenedFile.append(m->fileList[i].name.data);
-
-                        Game *newGame = new Game(m->appPath, m->lastOpenedFile.data);
-                        m->games.push(newGame);
-                        setCurrentGameIndex(m->games.size() - 1);
-                        m->openedBuffers.push({m->lastOpenedFile});
-                        saveState();
-                        StringBuffer<512> fullPath;
-                        fullPath.append("%s/%s", m->appPath, m->lastOpenedFile.data);
-                        PhysicsSpaceStorage::loadFromFile(newGame->physicsSpace(), fullPath.data);
-                    }
-                }
-                ImGui::EndMenu();
-            }
-
-            if (ImGui::MenuItem("Save", "Ctrl+S/Meta+S"))
-            {
-                game.saveToFile();
-            }
-
-            if (ImGui::MenuItem("Dump to unit test"))
-            {
-                PhysicsSpaceStorage::dumpToUnitTest(game.physicsSpace(), game.scale(), game.offset());
-            }
-            ImGui::EndMenu();
-        }
-
-        if (ImGuiBeginTallerMenu("Settings"))
-        {
-            ImGui::Checkbox("Gravity", &game.physicsSpace().gravityEnabled);
-            ImGui::Checkbox("Collisions", &game.physicsSpace().collisionsEnabled);
-            ImGui::Checkbox("Shape matching", &game.physicsSpace().shapeMatchingEnabled);
-            ImGui::Checkbox("Springs", &game.physicsSpace().springsEnabled);
-            ImGui::Checkbox("Depenetrate along normal", &depenetrateAlongNormal);
-            if (ImGui::IsItemHovered())
-            {
-                ImGui::SetTooltip("Off restores the legacy normalize(v - 2n) push-out, which\n"
-                                  "inverts above |v| = 2. Compare with \"Falling box with shelf\".");
-            }
-            ImGui::DragInt("Speed", &game.simulationSpeed(), 1.0, 1, 100, "%d", ImGuiSliderFlags_AlwaysClamp);
-            ImGui::EndMenu();
-        }
-
-        if (ImGuiBeginTallerMenu("Tests"))
-        {
-            for (int i = 0; i < PhysicsTestDefinition::numTests; i++)
-            {
-                PhysicsTestDefinition *testCase = &PhysicsTestDefinition::allTests[i];
-                const bool isSelected = curTestCase == testCase;
-                if (ImGui::Selectable(testCase->name, isSelected))
-                {
-                    curTestCase = testCase;
-                    curTestCase->start(&game);
-                }
-
-                // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
-                if (isSelected)
-                {
-                    ImGui::SetItemDefaultFocus();
-                }
-            }
-
-            if (curTestCase != nullptr)
-            {
-                ImGui::SeparatorText("Test executor");
-                ImGui::Text("Test progress: %d / %d", curTestCase->time, curTestCase->duration);
-                ImGui::Text("Failed: %s", curTestCase->invariantResult != nullptr ? curTestCase->invariantResult : "false");
-            }
-
-            ImGui::EndMenu();
-        }
-
-        ImGui::EndMainMenuBar();
+        ImGui::OpenPopup("Add level");
     }
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
-    ImGui::SetNextWindowSizeConstraints(ImVec2(displaySize.x - sceneWindowOffsetX, 29), ImVec2(displaySize.x - sceneWindowOffsetX, 29));
-    ImGui::SetNextWindowPos(ImVec2(sceneWindowOffsetX, 23), ImGuiCond_Always, ImVec2(0, 0));
-
-    if (ImGui::Begin("Scenes window", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoDecoration))
+    if (ImGui::BeginPopupModal("Add level", NULL, ImGuiWindowFlags_AlwaysAutoResize))
     {
-        if (triggerOpenPopup)
+        if (openAddLevel)
         {
-            ImGui::OpenPopup("Add level");
+            m->newFileName[0] = '\0';
+            ImGui::SetKeyboardFocusHere();
         }
 
-        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        ImGui::InputText("Level name", m->newFileName, sizeof(m->newFileName));
 
-        if (ImGui::BeginPopupModal("Add level", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+        if (ImGui::Button("OK", ImVec2(120, 0)))
         {
-            if (triggerOpenPopup)
+            Console::log("Closing popup");
+            if (strlen(m->newFileName) > 0)
             {
-                m->newFileName[0] = '\0';
-                ImGui::SetKeyboardFocusHere();
+                StringBuffer<256> newFileNameWithExtension;
+                newFileNameWithExtension.append("%s.txt", m->newFileName);
+                Game *newGame = new Game(m->appPath, newFileNameWithExtension.data);
+                m->games.push(newGame);
+                m->openedBuffers.push({newFileNameWithExtension});
+
+                setCurrentGameIndex(m->games.size() - 1);
+                saveState();
             }
-
-            ImGui::InputText("Level name", m->newFileName, sizeof(m->newFileName));
-
-            if (ImGui::Button("OK", ImVec2(120, 0)))
-            {
-                Console::log("Closing popup");
-                if (strlen(m->newFileName) > 0)
-                {
-                    StringBuffer<256> newFileNameWithExtension;
-                    newFileNameWithExtension.append("%s.txt", m->newFileName);
-                    Game *newGame = new Game(m->appPath, newFileNameWithExtension.data);
-                    m->games.push(newGame);
-                    m->openedBuffers.push({newFileNameWithExtension});
-
-                    setCurrentGameIndex(m->games.size() - 1);
-                    saveState();
-                }
-                ImGui::CloseCurrentPopup();
-            }
-
-            ImGui::SameLine();
-            if (ImGui::Button("Cancel", ImVec2(120, 0)))
-            {
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndPopup();
-        }
-        m->closeTabStates.fill(true, m->games.size());
-
-        if (ImGui::BeginTabBar("Scenes", ImGuiTabBarFlags_FittingPolicyResizeDown))
-        {
-            bool setSelectedTabState = m->currentGameIndex != m->gameTabIndex;
-
-            for (int i = 0; i < m->closeTabStates.size(); i++)
-            {
-                StringBuffer<256> tabName;
-                tabName.append(" %s %s ", ICON_FA_FILE_CODE_O, m->games[i]->title());
-
-                if (m->closeTabStates[i] && ImGui::BeginTabItem(tabName.data, i == 0 ? nullptr : &m->closeTabStates[i], i == m->currentGameIndex && setSelectedTabState ? ImGuiTabItemFlags_SetSelected : 0))
-                {
-                    if (ImGui::IsItemActive() && i != m->currentGameIndex)
-                    {
-                        setCurrentGameIndex(i);
-                        saveState();
-                    }
-
-                    ImGui::EndTabItem();
-                }
-            }
-
-            m->gameTabIndex = m->currentGameIndex;
-
-            if (ImGui::TabItemButton("...", ImGuiTabItemFlags_Trailing | ImGuiTabItemFlags_NoTooltip))
-            {
-                // m->games.push(new Game(m->appPath));
-                // m->closeTabStates.push(true);
-                ImGui::EndTabItem();
-            }
-            ImGui::EndTabBar();
+            ImGui::CloseCurrentPopup();
         }
 
-        for (int i = 0; i < m->closeTabStates.size(); i++)
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0)))
         {
-            if (!m->closeTabStates[i])
-            {
-                deleteGameIndex = i;
-                break;
-            }
+            ImGui::CloseCurrentPopup();
         }
-
-        ImGui::End();
+        ImGui::EndPopup();
     }
-    ImGui::PopStyleVar(1);
 
     m->bridgePopup.render(game);
 
-    if (deleteGameIndex != -1)
-    {
-        Game *g = m->games[deleteGameIndex];
-        delete g;
-        m->games.remove(deleteGameIndex);
-        m->openedBuffers.remove(deleteGameIndex - 1);
-        m->closeTabStates.remove(deleteGameIndex);
-
-        if (m->currentGameIndex >= deleteGameIndex)
-        {
-            int newGameIndex = m->currentGameIndex - 1;
-
-            if (newGameIndex < 0)
-            {
-                newGameIndex = 0;
-            }
-
-            setCurrentGameIndex(newGameIndex);
-        }
-
-        saveState();
-    }
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(3);
+    popOverlayStyle();
 }
 
 void Editor::saveState()
@@ -907,6 +648,9 @@ void Editor::saveState()
     StringBuffer<24> currentGameIndexStr;
     currentGameIndexStr.append("%d", m->currentGameIndex);
     writeIniProperty(stateFile, "CurrentGameIndex", currentGameIndexStr.data);
+    writeIniProperty(stateFile, "ShowConsole", m->showConsole ? "1" : "0");
+    writeIniProperty(stateFile, "ShowProfiler", m->showProfiler ? "1" : "0");
+    writeIniProperty(stateFile, "DebugDraw", m->debugDraw ? "1" : "0");
 
     StringBuffer<2048> openedFiles;
 
@@ -929,15 +673,660 @@ const char *Editor::lastSceneName()
     return m->lastScene.data;
 }
 
-bool Editor::executingTest()
+void Editor::loadScene(const SceneDefinition &scene)
 {
-    return curTestCase != nullptr && curTestCase->time < curTestCase->duration && curTestCase->invariantResult == nullptr;
+    setCurrentGameIndex(0);
+    Console::log("Loading scene: %s", scene.name);
+    m->lastScene.clear();
+    m->lastScene.append(scene.name);
+    m->games[0]->init(scene);
+    saveState();
+    Console::clearFrame();
+    m->fitViewPending = true;
 }
 
-void Editor::stepTest(Game *game, double elapsedMilliseconds, ConsoleProfileInfo &profileInfo)
+// Zoom and center the view so the whole scene fits in the area not covered by the toolbar or panels
+void Editor::fitViewToScene(Game &game)
 {
-    if (curTestCase != nullptr)
+    PhysicsSpace &space = game.physicsSpace();
+    Vector2 minPos(1e9f, 1e9f);
+    Vector2 maxPos(-1e9f, -1e9f);
+    bool hasPoints = false;
+
+    for (int i = 0; i < space.points.size(); i++)
     {
-        curTestCase->step(game, elapsedMilliseconds, profileInfo);
+        Vector2 pos = space.points.pos[i];
+
+        if (isnan(pos.x) || isnan(pos.y))
+        {
+            continue;
+        }
+
+        minPos = Vector2(min(minPos.x, pos.x), min(minPos.y, pos.y));
+        maxPos = Vector2(max(maxPos.x, pos.x), max(maxPos.y, pos.y));
+        hasPoints = true;
     }
+
+    if (!hasPoints)
+    {
+        return;
+    }
+
+    float left = 0.0f;
+    float top = toolbarBottom;
+    float bottom = 0.0f;
+
+    if (m->games.size() > 1)
+    {
+        top += levelTabsHeight;
+    }
+
+    if (m->showConsole)
+    {
+        bottom = consoleHeight + toolbarMargin;
+    }
+
+    const float padding = 40.0f;
+    ImVec2 displaySize = ImGui::GetIO().DisplaySize;
+    float availableWidth = displaySize.x - left - padding * 2.0f;
+    float availableHeight = displaySize.y - top - bottom - padding * 2.0f;
+    Vector2 size = maxPos - minPos;
+
+    float scale = min(availableWidth / max(size.x, 1.0f), availableHeight / max(size.y, 1.0f));
+    scale = clamp(scale, 0.25f, 1.5f);
+
+    game.scale() = scale;
+    game.offset() = Vector2(left + padding + (availableWidth - size.x * scale) * 0.5f - minPos.x * scale,
+                            top + padding + (availableHeight - size.y * scale) * 0.5f - minPos.y * scale);
+}
+
+
+void Editor::renderToolbar(Game &game, ImFont *titleFont)
+{
+    const float margin = toolbarMargin;
+    const float barHeight = toolbarHeight;
+    ImVec2 displaySize = ImGui::GetIO().DisplaySize;
+
+    // A view setting, so it follows the editor rather than the scene or level that is open
+    game.debugDraw() = m->debugDraw;
+
+    if (m->fitViewPending)
+    {
+        fitViewToScene(game);
+        m->fitViewPending = false;
+    }
+
+    const ImVec4 white = overlayWhite;
+    const ImVec4 green = overlayGreen;
+
+    pushOverlayStyle();
+
+    ImGui::SetNextWindowPos(ImVec2(margin, margin));
+    ImGui::SetNextWindowSize(ImVec2(displaySize.x - margin * 2.0f, barHeight));
+
+    if (ImGui::Begin("Demo toolbar", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollWithMouse))
+    {
+        ImGuiStyle &style = ImGui::GetStyle();
+        const float frameTop = (barHeight - ImGui::GetFrameHeight()) * 0.5f;
+        const char *currentSceneName = game.currentSceneName();
+
+        ImGui::SetCursorPosY((barHeight - ImGui::GetTextLineHeight()) * 0.5f);
+        ImGui::TextColored(ImVec4(0.95f, 0.65f, 0.18f, 1.0f), ICON_FA_FLASK);
+        ImGui::SameLine();
+        ImGui::PushFont(titleFont);
+        ImGui::SetCursorPosY((barHeight - ImGui::GetTextLineHeight()) * 0.5f);
+        ImGui::TextUnformatted("Physics Sandbox");
+        ImGui::PopFont();
+
+        ImGui::SameLine(0.0f, 28.0f);
+        ImGui::SetCursorPosY(frameTop);
+        ImGui::SetNextItemWidth(240.0f);
+
+        // The toolbar has no vertical padding, but the dropdown list should
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 10.0f));
+        const bool comboOpen = ImGui::BeginCombo("##scene", currentSceneName != nullptr ? currentSceneName : "Choose a scene", ImGuiComboFlags_HeightLargest);
+        ImGui::PopStyleVar();
+
+        if (comboOpen)
+        {
+            for (int i = 0; i < SceneDefinitionFolder::numFolders; i++)
+            {
+                const SceneDefinitionFolder &folder = SceneDefinitionFolder::allFolders[i];
+
+#ifdef __EMSCRIPTEN__
+                if (folder.hiddenInWebDemo)
+                {
+                    continue;
+                }
+#endif
+
+                ImGui::SeparatorText(folder.name);
+
+                for (int j = 0; j < folder.numScenes; j++)
+                {
+                    const SceneDefinition &scene = folder.scenes[j];
+                    const bool isSelected = currentSceneName != nullptr && strcmp(scene.name, currentSceneName) == 0;
+
+                    if (ImGui::Selectable(scene.name, isSelected))
+                    {
+                        loadScene(scene);
+                    }
+
+                    if (isSelected)
+                    {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+
+        renderFileMenu(frameTop, game);
+
+        // Console, settings and playback controls, right aligned
+        const char *consoleLabel = ICON_FA_TERMINAL "  Console";
+        const char *settingsLabel = ICON_FA_COG "  Settings";
+        const char *playLabel = ICON_FA_PLAY "  Play";
+        const char *pauseLabel = ICON_FA_PAUSE "  Pause";
+        const char *resetLabel = ICON_FA_REFRESH "  Reset";
+        const float consoleWidth = ImGui::CalcTextSize(consoleLabel).x + style.FramePadding.x * 2.0f;
+        const float settingsWidth = ImGui::CalcTextSize(settingsLabel).x + style.FramePadding.x * 2.0f;
+        const float playWidth = max(ImGui::CalcTextSize(playLabel).x, ImGui::CalcTextSize(pauseLabel).x) + style.FramePadding.x * 2.0f;
+        const float resetWidth = ImGui::CalcTextSize(resetLabel).x + style.FramePadding.x * 2.0f;
+
+        ImGui::SameLine(ImGui::GetWindowWidth() - style.WindowPadding.x - consoleWidth - settingsWidth - playWidth - resetWidth - style.ItemSpacing.x * 3.0f);
+        ImGui::SetCursorPosY(frameTop);
+
+        // Highlighted while the console is shown
+        const bool consoleShown = m->showConsole;
+
+        if (consoleShown)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.87f, 0.93f, 0.98f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.62f, 0.78f, 0.93f, 1.0f));
+        }
+
+        if (ImGui::Button(consoleLabel, ImVec2(consoleWidth, 0.0f)))
+        {
+            m->showConsole = !m->showConsole;
+            m->fitViewPending = true;
+            saveState();
+        }
+
+        if (consoleShown)
+        {
+            ImGui::PopStyleColor(2);
+        }
+
+        ImGui::SameLine();
+        ImGui::SetCursorPosY(frameTop);
+
+        if (ImGui::Button(settingsLabel, ImVec2(settingsWidth, 0.0f)))
+        {
+            ImGui::OpenPopup("Settings");
+        }
+
+        // Open the settings below the button, right aligned with it
+        const ImVec2 settingsButtonMax = ImGui::GetItemRectMax();
+        ImGui::SetNextWindowPos(ImVec2(settingsButtonMax.x, settingsButtonMax.y + 8.0f), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16.0f, 14.0f));
+        const bool settingsOpen = ImGui::BeginPopup("Settings");
+        ImGui::PopStyleVar();
+
+        if (settingsOpen)
+        {
+            // Compact controls, the toolbar's frame padding is sized for its buttons
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 4.0f));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10.0f, 8.0f));
+            renderSettings(game);
+            ImGui::PopStyleVar(3);
+            ImGui::EndPopup();
+        }
+
+        ImGui::SameLine();
+        ImGui::SetCursorPosY(frameTop);
+        ImGui::PushStyleColor(ImGuiCol_Button, green);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.26f, 0.63f, 0.43f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.22f, 0.56f, 0.38f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Border, green);
+        ImGui::PushStyleColor(ImGuiCol_Text, white);
+
+        if (ImGui::Button(game.paused() ? playLabel : pauseLabel, ImVec2(playWidth, 0.0f)))
+        {
+            game.togglePaused();
+        }
+
+        ImGui::PopStyleColor(5);
+        ImGui::SameLine();
+        ImGui::SetCursorPosY(frameTop);
+
+        if (ImGui::Button(resetLabel, ImVec2(resetWidth, 0.0f)) && currentSceneName != nullptr)
+        {
+            const SceneDefinition *scene = SceneDefinition::getDefinitionFromName(currentSceneName);
+
+            if (scene != nullptr)
+            {
+                loadScene(*scene);
+            }
+        }
+    }
+
+    ImGui::End();
+    popOverlayStyle();
+}
+
+void Editor::renderSettings(Game &game)
+{
+    PhysicsSpace &space = game.physicsSpace();
+
+    ImGui::SeparatorText("Simulation");
+    ImGui::Checkbox("Gravity", &space.gravityEnabled);
+    ImGui::Checkbox("Collisions", &space.collisionsEnabled);
+    ImGui::Checkbox("Shape matching", &space.shapeMatchingEnabled);
+    ImGui::Checkbox("Springs", &space.springsEnabled);
+    ImGui::Checkbox("Depenetrate along normal", &depenetrateAlongNormal);
+
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("Off restores the legacy normalize(v - 2n) push-out, which\n"
+                          "inverts above |v| = 2. Compare with \"Falling box with shelf\".");
+    }
+
+    ImGui::SetNextItemWidth(160.0f);
+    ImGui::DragInt("Speed", &game.simulationSpeed(), 1.0, 1, 100, "%d", ImGuiSliderFlags_AlwaysClamp);
+
+    ImGui::SeparatorText("View");
+
+    if (ImGui::Checkbox("Debug draw", &m->debugDraw))
+    {
+        game.debugDraw() = m->debugDraw;
+        saveState();
+    }
+
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("Draw the simulation's debug view: points, edges and\n"
+                          "shape matching targets, instead of the styled look.");
+    }
+
+    if (ImGui::Checkbox("Show profiler", &m->showProfiler))
+    {
+        saveState();
+    }
+
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("Frame timings and the step, rewind and forward controls.");
+    }
+
+    renderShapeSettings(game);
+}
+
+// Properties of the selected shape and the point being dragged
+void Editor::renderShapeSettings(Game &game)
+{
+    PhysicsSpace &space = game.physicsSpace();
+    const int selectedShapeIndex = game.selectedShapeIndex();
+    const bool hasSelection = selectedShapeIndex >= 0 && selectedShapeIndex < space.shapes.size();
+    const bool dragging = space.mouseJoint.pointIndex != -1;
+
+    if (!hasSelection && !dragging)
+    {
+        return;
+    }
+
+    ImGui::SeparatorText("Selected shape");
+
+    if (dragging)
+    {
+        const int pointIndex = space.mouseJoint.pointIndex;
+        ImGui::Text("Dragged point: %d", pointIndex);
+        ImGui::Text("Position: %.2f, %.2f", space.points.pos[pointIndex].x, space.points.pos[pointIndex].y);
+        ImGui::Text("Velocity: %.2f, %.2f", space.points.velocity[pointIndex].x, space.points.velocity[pointIndex].y);
+        ImGui::Text("Mass: %.2f", space.points.mass[pointIndex]);
+    }
+
+    if (!hasSelection)
+    {
+        return;
+    }
+
+    Shape &shape = space.shapes[selectedShapeIndex];
+    ImGui::TextDisabled("Shape %d, parent %d", selectedShapeIndex, shape.parentId);
+    ImGui::Checkbox("Static", &shape.isStatic);
+
+    ImGui::SetNextItemWidth(160.0f);
+
+    if (ImGui::BeginCombo("Resource", shapeResourceName(shape.resourceId)))
+    {
+        for (int i = 0; i < NUM_SHAPE_RESOURCES; i++)
+        {
+            const bool isSelected = shape.resourceId == i;
+
+            if (ImGui::Selectable(shapeResourceName(i), isSelected))
+            {
+                shape.resourceId = i;
+            }
+
+            if (isSelected)
+            {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+
+    if (ImGui::Button("Snap to grid"))
+    {
+        Shapes::snapToGrid(space, selectedShapeIndex);
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::Button("Update original position"))
+    {
+        Shapes::updateOriginalPos(space, selectedShapeIndex);
+        space.triangulate();
+    }
+}
+
+// Restart, rewind, play/pause, single step and forward. Held buttons repeat.
+void Editor::renderStepperButtons(Game &game, ConsoleProfileInfo &profileInfo, ImVec2 buttonSize)
+{
+    const char *currentSceneName = game.currentSceneName();
+    ImGui::PushButtonRepeat(true);
+
+    // Mirrored around play/pause: history rewind and forward next to it, restart and single step at the ends
+    if (ImGui::Button(ICON_FA_STEP_BACKWARD, buttonSize) && currentSceneName != nullptr)
+    {
+        const SceneDefinition *scene = SceneDefinition::getDefinitionFromName(currentSceneName);
+        game.init(*scene);
+    }
+
+    ImGui::SetItemTooltip("Restart the scene");
+    ImGui::SameLine();
+
+    if (ImGui::Button(ICON_FA_BACKWARD, buttonSize))
+    {
+        game.setPaused();
+        game.rewindHistory();
+    }
+
+    ImGui::SetItemTooltip("Rewind through history");
+    ImGui::SameLine();
+
+    if (ImGui::Button(game.paused() ? ICON_FA_PLAY : ICON_FA_PAUSE, buttonSize))
+    {
+        game.togglePaused();
+    }
+
+    ImGui::SetItemTooltip(game.paused() ? "Play" : "Pause");
+    ImGui::SameLine();
+
+    if (ImGui::Button(ICON_FA_FORWARD, buttonSize))
+    {
+        game.setPaused();
+        game.forwardHistory();
+    }
+
+    ImGui::SetItemTooltip("Forward through history");
+    ImGui::SameLine();
+
+    if (ImGui::Button(ICON_FA_STEP_FORWARD, buttonSize))
+    {
+        game.update(1000.0 / 120.0, true, profileInfo);
+    }
+
+    ImGui::SetItemTooltip("Simulate a single step");
+
+    ImGui::PopButtonRepeat();
+}
+
+void Editor::renderProfilerStats(Game &game, const ConsoleProfileInfo &profileInfo)
+{
+    ImGui::Text("FPS: %.1lf", profileInfo.displayedFps);
+    ImGui::Text("Raw frame time: %.2lf ms", profileInfo.rawFrameTimeMillis);
+    ImGui::Text("Displayed frame time: %.2lf ms", profileInfo.displayedFrameTimeMillis);
+    if (profileInfo.frameTimeSnappingEnabled)
+    {
+        ImGui::Text("Tick mode: fixed target");
+        ImGui::Text("Tick target: %.1lf Hz", profileInfo.targetTickRate);
+        ImGui::Text("Tick frame time: %.2lf ms", profileInfo.targetFrameTimeMillis);
+    }
+    else
+    {
+        ImGui::Text("Tick mode: display refresh");
+        ImGui::Text("Tick target: raw requestAnimationFrame delta");
+    }
+
+    ImGui::Text("Frame snap: %s", profileInfo.frameTimeSnappingEnabled ? "enabled" : "disabled");
+    ImGui::Text("Slowdown factor: %.1lf", profileInfo.slowdownFactor);
+    ImGui::Text("Total Physics time: %.1lf ms", profileInfo.totalPhysicsTimeMillis);
+    ImGui::Text("Elapsed step time: %.1lf ms", profileInfo.elapsedStepTimeMillis);
+    ImGui::Text("Physics iterations: %d", profileInfo.numPhysicsSteps);
+    ImGui::Text("Physics time: %.1lf ms", profileInfo.physicsTimeMillis);
+    ImGui::Text("Render time: %.1lf ms", profileInfo.renderTimeMillis);
+    ImGui::Text("Swap time: %.1lf ms", profileInfo.swapTimeMillis);
+    ImGui::Text("Springs time: %.1lf ms", profileInfo.springsTimeMillis);
+    ImGui::Text("Bounding box time: %.1lf ms", profileInfo.boundingBoxTimeMillis);
+    ImGui::Text("Num bboxes: %d", profileInfo.numBboxes);
+    ImGui::Text("Num bbox checks: %d", profileInfo.numBbboxChecks);
+    ImGui::Text("Num bbox overlaps: %d", profileInfo.numBboxOverlaps);
+    ImGui::Text("Num circle rejections: %d", profileInfo.numCircleRejections);
+    ImGui::Text("Num intersections: %d", profileInfo.numIntersections);
+    ImGui::Text("Num collisions: %d", profileInfo.numCollisions);
+    ImGui::Text("Collisions time: %.1lf ms", profileInfo.collisionTimeMillis);
+    ImGui::Text("Collision resolve: %.1lf ms", profileInfo.collisionHandlingTimeMillis);
+    ImGui::Text("Collision grid: %.1lf ms", profileInfo.collisionGridUpdateTimeMillis);
+
+    PhysicsSpace &space = game.physicsSpace();
+    int groundedWheelMotors = 0;
+    for (int i = 0; i < space.wheelMotors.size(); i++)
+    {
+        if (space.wheelMotors[i].groundedThisStep)
+        {
+            groundedWheelMotors++;
+        }
+    }
+
+    ImGui::Separator();
+    ImGui::Text("Wheel motors: %d", space.wheelMotors.size());
+    ImGui::Text("Grounded motors: %d", groundedWheelMotors);
+
+    for (int i = 0; i < space.wheelMotors.size(); i++)
+    {
+        const WheelMotor &wheelMotor = space.wheelMotors[i];
+        if (wheelMotor.shapeIndex < 0 || wheelMotor.shapeIndex >= space.shapes.size())
+        {
+            continue;
+        }
+
+        const Shape &shape = space.shapes[wheelMotor.shapeIndex];
+        float radiusRatio = wheelRadiusRatio(space, shape);
+
+        ImGui::Text("Wheel %d: cmd %.1f mode %s grounded %s (%d)",
+                    wheelMotor.shapeIndex,
+                    wheelMotor.command,
+                    wheelMotorModeName(wheelMotor.lastMode),
+                    wheelMotor.groundedThisStep ? "yes" : "no",
+                    wheelMotor.groundedContactCount);
+        ImGui::Text("surface %.3f err %.3f radius %.2f impulse %.3f",
+                    wheelMotor.lastSurfaceSpeed,
+                    wheelMotor.lastSurfaceSpeedError,
+                    radiusRatio,
+                    wheelMotor.lastAppliedImpulse);
+        ImGui::Text("parent %.3f ground %.3f rel %.3f",
+                    wheelMotor.lastParentForwardSpeed,
+                    wheelMotor.lastGroundSpeed,
+                    wheelMotor.lastRelativeForwardSpeed);
+        ImGui::Text("cmd-space %.3f clamp %.3f band %.3f",
+                    wheelMotor.lastCommandSpaceSpeed,
+                    wheelMotor.lastAuthorityClamp,
+                    wheelMotor.lastHandoverBand);
+    }
+}
+
+void Editor::renderProfilerOverlay(Game &game, ConsoleProfileInfo &profileInfo)
+{
+    if (!m->showProfiler)
+    {
+        return;
+    }
+
+    const float width = 340.0f;
+    ImVec2 displaySize = ImGui::GetIO().DisplaySize;
+
+    pushOverlayStyle();
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16.0f, 14.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 6.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 6.0f));
+
+    // Starts at the top right below the toolbar and can be dragged anywhere
+    ImGui::SetNextWindowPos(ImVec2(displaySize.x - toolbarMargin, toolbarBottom + 10.0f), ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(width, 0.0f), ImVec2(width, displaySize.y - toolbarBottom - toolbarMargin * 2.0f));
+
+    if (ImGui::Begin("Profiler overlay", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings))
+    {
+        const ImGuiStyle &style = ImGui::GetStyle();
+        const float closeWidth = ImGui::GetFrameHeight();
+
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(ICON_FA_TACHOMETER "  Profiler");
+        ImGui::SameLine(ImGui::GetContentRegionMax().x - closeWidth);
+
+        if (ImGui::Button(ICON_FA_TIMES, ImVec2(closeWidth, 0.0f)))
+        {
+            m->showProfiler = false;
+            saveState();
+        }
+
+        // Five equal buttons across the panel
+        const float buttonWidth = (ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 4.0f) / 5.0f;
+        renderStepperButtons(game, profileInfo, ImVec2(buttonWidth, 34.0f));
+
+        ImGui::Spacing();
+
+        if (ImGui::BeginTable("Profiler summary", 2, ImGuiTableFlags_SizingStretchProp))
+        {
+            const char *labels[] = {"FPS", "Frame time", "Physics", "Collisions", "Render"};
+            const double values[] = {profileInfo.displayedFps,
+                                     profileInfo.displayedFrameTimeMillis,
+                                     profileInfo.physicsTimeMillis,
+                                     profileInfo.collisionTimeMillis,
+                                     profileInfo.renderTimeMillis};
+
+            for (int i = 0; i < 5; i++)
+            {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TextDisabled("%s", labels[i]);
+                ImGui::TableNextColumn();
+
+                if (i == 0)
+                {
+                    ImGui::Text("%.1lf", values[i]);
+                }
+                else
+                {
+                    ImGui::Text("%.2lf ms", values[i]);
+                }
+            }
+
+            ImGui::EndTable();
+        }
+
+        // A quiet header, the blue selection color is too strong for a section toggle
+        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.97f, 0.96f, 0.93f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.95f, 0.93f, 0.89f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.93f, 0.90f, 0.86f, 1.0f));
+        const bool detailsOpen = ImGui::CollapsingHeader("Details");
+        ImGui::PopStyleColor(3);
+
+        if (detailsOpen)
+        {
+            renderProfilerStats(game, profileInfo);
+        }
+    }
+
+    ImGui::End();
+    ImGui::PopStyleVar(3);
+    popOverlayStyle();
+}
+
+// File dropdown in the toolbar
+void Editor::renderFileMenu(float frameTop, Game &game)
+{
+    const char *id = "File";
+    ImGui::SameLine();
+    ImGui::SetCursorPosY(frameTop);
+
+    if (ImGui::Button(ICON_FA_FOLDER_OPEN_O "  File"))
+    {
+        ImGui::OpenPopup(id);
+    }
+
+    const ImVec2 buttonMin = ImGui::GetItemRectMin();
+    const ImVec2 buttonMax = ImGui::GetItemRectMax();
+    ImGui::SetNextWindowPos(ImVec2(buttonMin.x, buttonMax.y + 8.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 10.0f));
+    const bool open = ImGui::BeginPopup(id);
+    ImGui::PopStyleVar();
+
+    if (!open)
+    {
+        return;
+    }
+
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 4.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10.0f, 10.0f));
+
+    if (ImGui::MenuItem("New", "Ctrl+N/Meta+N"))
+    {
+        m->openAddLevelPopup = true;
+    }
+
+    // The submenu is a window of its own and would get the toolbar's zero vertical padding
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 10.0f));
+    const bool openMenu = ImGui::BeginMenu("Open");
+    ImGui::PopStyleVar();
+
+    if (openMenu)
+    {
+        for (int i = 0; i < m->fileList.size(); i++)
+        {
+            if (ImGui::MenuItem(m->fileList[i].name.data))
+            {
+                m->lastOpenedFile.clear();
+                m->lastOpenedFile.append(m->fileList[i].name.data);
+
+                Game *newGame = new Game(m->appPath, m->lastOpenedFile.data);
+                m->games.push(newGame);
+                setCurrentGameIndex(m->games.size() - 1);
+                m->openedBuffers.push({m->lastOpenedFile});
+                saveState();
+                StringBuffer<512> fullPath;
+                fullPath.append("%s/%s", m->appPath, m->lastOpenedFile.data);
+                PhysicsSpaceStorage::loadFromFile(newGame->physicsSpace(), fullPath.data);
+                m->fitViewPending = true;
+            }
+        }
+
+        ImGui::EndMenu();
+    }
+
+    if (ImGui::MenuItem("Save", "Ctrl+S/Meta+S"))
+    {
+        game.saveToFile();
+    }
+
+    if (ImGui::MenuItem("Dump to unit test"))
+    {
+        PhysicsSpaceStorage::dumpToUnitTest(game.physicsSpace(), game.scale(), game.offset());
+    }
+
+    ImGui::PopStyleVar(2);
+    ImGui::EndPopup();
 }

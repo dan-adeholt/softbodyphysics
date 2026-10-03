@@ -78,13 +78,11 @@ set(SOURCE_FILES
     game/Game.cpp
     game/Editor.cpp
     game/Scenes.cpp
-    game/Textures.cpp
     utils/Console.cpp
     utils/UnitTestUtil.cpp
     containers/ContainerPlatform.cpp
     game/Shapes.cpp
     physics/Physics.cpp
-    physics/PhysicsTests.cpp
     imgui/imgui.cpp
     imgui/imgui_demo.cpp
     imgui/imgui_draw.cpp
@@ -116,12 +114,10 @@ set(SOURCE_FILES
     physics/PhysicsSpaceStorage.h
     physics/PhysicsSpaceStorage.cpp
     utils/CustomFont.cpp
-    physics/PhysicsTests.h
     math/Vector2.h
     math/Vector2.cpp
     game/Scenes.h
     game/Editor.h
-    game/Textures.h
     tasks/Scheduler.h
     stb_image/stb_image.cpp
     stb_sprintf/stb_sprintf.cpp

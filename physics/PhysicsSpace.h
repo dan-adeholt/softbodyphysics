@@ -46,7 +46,6 @@ struct PhysicsSpace
     Array<WheelMotor> wheelMotors;
 
     Array<int> triangleIndices;
-    Array<Vector2> uvCoordinates;
 
     StaticJoint mouseJoint;
     bool gravityEnabled;

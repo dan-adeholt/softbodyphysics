@@ -50,6 +50,7 @@ struct GameApp
     Editor *editor = nullptr;
     GameRenderer *gameRenderer = nullptr;
     ImFont *boldFont = nullptr;
+    ImFont *titleFont = nullptr;
     uint64_t startNanos = 0;
     bool pausedDueToFocus = false;
     bool showDemoWindow = false;
@@ -286,7 +287,7 @@ static float queryDisplayContentScale()
     return contentScale;
 }
 
-static void configureFonts(ImGuiIO &io, ImFont *&boldFont, float contentScale)
+static void configureFonts(ImGuiIO &io, ImFont *&boldFont, ImFont *&titleFont, float contentScale)
 {
     ImFontConfig baseFontConfig;
     ImFontConfig iconFontConfig;
@@ -305,6 +306,7 @@ static void configureFonts(ImGuiIO &io, ImFont *&boldFont, float contentScale)
     io.Fonts->AddFontFromFileTTF("data/fontawesome-webfont.ttf", 16.0f, &iconFontConfig, icon_ranges);
 
     boldFont = io.Fonts->AddFontFromFileTTF("data/JetBrainsMono-ExtraBold.ttf", 15.0f, &baseFontConfig);
+    titleFont = io.Fonts->AddFontFromFileTTF("data/JetBrainsMono-ExtraBold.ttf", 21.0f, &baseFontConfig);
     if (contentScale < 2.0f)
     {
         CustomFontEntry fonts[2] = {};
@@ -348,7 +350,7 @@ GameApp *createGameApp(SDL_Window *window, SDL_Renderer *renderer, bool vsync, d
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
 
-    configureFonts(io, app->boldFont, queryDisplayContentScale());
+    configureFonts(io, app->boldFont, app->titleFont, queryDisplayContentScale());
 
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
@@ -585,16 +587,9 @@ bool tickGameApp(GameApp *app)
 
     if (!game->paused())
     {
-        if (app->editor->executingTest())
-        {
-            app->editor->stepTest(game, elapsedMilliseconds, app->profileInfo);
-        }
-        else
-        {
-            Timer totalPhysicsTimer;
-            game->update(elapsedMilliseconds, false, app->profileInfo);
-            app->profileInfo.totalPhysicsTimeMillis = totalPhysicsTimer.elapsedMillis();
-        }
+        Timer totalPhysicsTimer;
+        game->update(elapsedMilliseconds, false, app->profileInfo);
+        app->profileInfo.totalPhysicsTimeMillis = totalPhysicsTimer.elapsedMillis();
     }
     else if (game->renderSettings().clearDebugGeometryWhenPaused)
     {
@@ -622,8 +617,12 @@ bool tickGameApp(GameApp *app)
     averageProfileInfo.targetTickRate = app->profileInfo.targetTickRate;
     averageProfileInfo.frameTimeSnappingEnabled = app->profileInfo.frameTimeSnappingEnabled;
 
-    Console::draw(app->profileInfo, game->scale(), game->offset(), app->boldFont);
-    app->editor->renderUI(*game, averageProfileInfo);
+    if (game->debugDraw())
+    {
+        Console::drawDebugGeometry(game->scale(), game->offset());
+    }
+
+    app->editor->renderUI(*game, averageProfileInfo, app->titleFont, app->boldFont);
     game = app->editor->getCurrentGame();
 
     ImGui::Render();

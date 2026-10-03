@@ -1,3 +1,4 @@
+#include "../fontawesome/IconsFontAwesome4.h"
 #include "Console.h"
 #include "../game/Scenes.h"
 #include "../physics/Physics.h"
@@ -265,22 +266,24 @@ void Console::logCollisionIntersectionTest(const Vector2 &v0, const Vector2 &v1,
     state->numCollisionIntersections++;
 }
 
-void Console::draw(ConsoleProfileInfo profileInfo, float scale, const Vector2 &offset, ImFont *boldFont)
+void Console::drawWindow(float x, float y, float width, float height, ImFont *boldFont)
 {
-    ImGuiIO &io = ImGui::GetIO();
-    ImVec2 displaySize = io.DisplaySize;
+    ImGui::SetNextWindowPos(ImVec2(x, y));
+    ImGui::SetNextWindowSize(ImVec2(width, height));
+    ImGui::Begin("Console", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings);
 
-    ImGui::SetNextWindowSizeConstraints(ImVec2(displaySize.x, 250), ImVec2(displaySize.x, 250));
-    ImGui::SetNextWindowPos(ImVec2(displaySize.x, displaySize.y - 250), ImGuiCond_Always, ImVec2(1, 0));
-    ImGui::Begin("Console");
-    ImGuiWindowFlags window_flags = ImGuiWindowFlags_AlwaysVerticalScrollbar;
-    ImGui::BeginChild("ChildL", ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y), ImGuiChildFlags_None,
-                      window_flags);
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(ICON_FA_TERMINAL "  Console");
+    ImGui::SameLine(ImGui::GetContentRegionMax().x - ImGui::CalcTextSize("Clear").x - ImGui::GetStyle().FramePadding.x * 2.0f);
 
     if (ImGui::Button("Clear"))
     {
         clear();
     }
+
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_AlwaysVerticalScrollbar;
+    ImGui::BeginChild("ChildL", ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y), ImGuiChildFlags_None,
+                      window_flags);
 
     int startIndex = state->numLines >= BUFFER_SIZE ? state->numLines % BUFFER_SIZE : 0;
     int numLinesToDraw = state->numLines < BUFFER_SIZE ? state->numLines : BUFFER_SIZE;
@@ -313,7 +316,10 @@ void Console::draw(ConsoleProfileInfo profileInfo, float scale, const Vector2 &o
     }
     ImGui::EndChild();
     ImGui::End();
+}
 
+void Console::drawDebugGeometry(float scale, const Vector2 &offset)
+{
     ImDrawList *foreground = ImGui::GetForegroundDrawList();
 
     for (int i = 0; i < state->numCollisionIntersections; i++)

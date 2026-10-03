@@ -57,7 +57,11 @@ public:
 
     static void clearCollisionFrame();
     static void logCollisionIntersectionTest(const Vector2 &v0, const Vector2 &v1, const char *format, ...);
-    static void draw(ConsoleProfileInfo profileInfo, float scale, const Vector2 &offset, ImFont *boldFont);
+    // The log as a floating panel at the given position and size, in screen pixels
+    static void drawWindow(float x, float y, float width, float height, ImFont *boldFont);
+
+    // Collision lines, labels and other debug geometry drawn on top of the simulation
+    static void drawDebugGeometry(float scale, const Vector2 &offset);
 
     static void drawPoint(const Vector2 &point, unsigned int color);
     static void drawBoundingBox(const ShapeBoundingBox &box, unsigned int color);
@@ -65,9 +69,6 @@ public:
     static void drawSegment(const Vector2 &v0, const Vector2 &v1, unsigned int color);
     static void drawVelocityVector(const Vector2 &position, const Vector2 &vector, unsigned int color);
     static void drawVector(const Vector2 &position, const Vector2 &vector, unsigned int color);
-
-    static bool executingTest();
-    static void stepTest(Game *game, double elapsedTimeMillis, ConsoleProfileInfo &profileInfo);
 
     static void printToStandardOut();
 };

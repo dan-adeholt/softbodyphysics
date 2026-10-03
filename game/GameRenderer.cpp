@@ -16,7 +16,6 @@
 #include "../physics/CollisionSolver.h"
 #include "Game.h"
 #include <math.h>
-#include "./Textures.h"
 
 float MIN_LINE_POS = -100000;
 float MAX_LINE_POS = 1000000;
@@ -105,22 +104,19 @@ struct GameRenderer::Impl
         SDL_Surface *surface = loadImage("./data/atlas.png");
         texture = SDL_CreateTextureFromSurface(renderer, surface);
         SDL_DestroySurface(surface);
-
-        for (int i = 0; i < TextureType::NUM_TEXTURE_TYPES; i++)
-        {
-            SDL_Surface *surfaceTexture = loadImage(textureLookup[i].path);
-            textures[i] = SDL_CreateTextureFromSurface(renderer, surfaceTexture);
-            SDL_SetTextureBlendMode(textures[i], SDL_BLENDMODE_BLEND);
-            SDL_DestroySurface(surfaceTexture);
-        }
     }
 
     SDL_Texture *texture;
 
-    SDL_Texture *textures[TextureType::NUM_TEXTURE_TYPES];
     Array<GameVertex> foregroundVertices;
     Array<GameVertex> backgroundVertices;
-    Array<GameVertex> verticesByTex[TextureType::NUM_TEXTURE_TYPES];
+
+    // Styled rendering layers, drawn back to front
+    Array<GameVertex> shadowVertices;
+    Array<GameVertex> fillVertices;
+    Array<GameVertex> outlineVertices;
+    Array<GameVertex> detailVertices;
+    Array<Vector2> outlinePoints;
 };
 
 GameRenderer::GameRenderer(SDL_Renderer *renderer) : m(new Impl(renderer))
@@ -155,7 +151,6 @@ struct AtlasCoordinate
 AtlasCoordinate whiteColor(0, 0, 15, 15);
 AtlasCoordinate circle(17, 1, 13, 13);
 AtlasCoordinate springData(50, 0, 3, 512);
-AtlasCoordinate fabricData(64, 0, 128, 128);
 
 void addCircle(Array<GameVertex> &vertices, float x, float y, float scale, SDL_FColor color)
 {
@@ -232,7 +227,14 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
     Vector2 translatedMousePos = (mousePos - game.offset()) / game.scale();
     Vector2 &offset = game.offset();
     float &scale = game.scale();
-    renderGrid(renderer, game, scale);
+
+    if (!game.debugDraw())
+    {
+        renderStyled(renderer, game);
+        return;
+    }
+
+    renderGrid(renderer, game, scale, 2.0f, {0.941f, 0.941f, 0.941f, 1.0f});
     // renderCollisionGrid(renderer, game, scale);
 
     PhysicsSpace &physicsSpace = game.physicsSpace();
@@ -259,39 +261,6 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
             addLine(m->foregroundVertices, p0Pos.x, p0Pos.y, p1Pos.x, p1Pos.y, scaleForGeometry, {0, 0, 0, 255}, 1.0f);
             addLine(m->foregroundVertices, p1Pos.x, p1Pos.y, p2Pos.x, p2Pos.y, scaleForGeometry, {0, 0, 0, 255}, 1.0f);
             addLine(m->foregroundVertices, p2Pos.x, p2Pos.y, p0Pos.x, p0Pos.y, scaleForGeometry, {0, 0, 0, 255}, 1.0f);
-        }
-    }
-    else
-    {
-        for (int i = 0; i < physicsSpace.shapes.size(); i++)
-        {
-            const Shape &shape = physicsSpace.shapes[i];
-            SDL_FColor color = {1.0f, 1.0f, 1.0f, 1.0f};
-
-            for (int i = shape.triangleStart; i < shape.triangleEnd; i += 3)
-            {
-                int p0 = physicsSpace.triangleIndices[i];
-                int p1 = physicsSpace.triangleIndices[i + 1];
-                int p2 = physicsSpace.triangleIndices[i + 2];
-
-                Vector2 p0Pos = points.pos[p0];
-                Vector2 p1Pos = points.pos[p1];
-                Vector2 p2Pos = points.pos[p2];
-
-                Vector2 uv0 = physicsSpace.uvCoordinates[i];
-                Vector2 uv1 = physicsSpace.uvCoordinates[i + 1];
-                Vector2 uv2 = physicsSpace.uvCoordinates[i + 2];
-
-                m->verticesByTex[shape.texture].push({color,
-                                                      {p0Pos.x, p0Pos.y},
-                                                      uv0});
-                m->verticesByTex[shape.texture].push({color,
-                                                      {p1Pos.x, p1Pos.y},
-                                                      uv1});
-                m->verticesByTex[shape.texture].push({color,
-                                                      {p2Pos.x, p2Pos.y},
-                                                      uv2});
-            }
         }
     }
 
@@ -412,13 +381,6 @@ void GameRenderer::renderGame(SDL_Renderer *renderer, Game &game, ConsoleProfile
     PointMassesRange lastCollisionPoints = physicsSpace.points.range();
 
     renderVertices(renderer, m->backgroundVertices, offset, scale, m->texture);
-
-    for (int i = 0; i < TextureType::NUM_TEXTURE_TYPES; i++)
-    {
-        renderVertices(renderer, m->verticesByTex[i], offset, scale, m->textures[i]);
-        m->verticesByTex[i].clear();
-    }
-
     renderVertices(renderer, m->foregroundVertices, offset, scale, m->texture);
 }
 
@@ -564,21 +526,18 @@ inline void addSpring(Array<GameVertex> &vertices, float p0x, float p0y, float p
                    springDataMod.topRight});
 }
 
-void GameRenderer::renderGrid(SDL_Renderer *renderer, Game &game, float scale)
+void GameRenderer::renderGrid(SDL_Renderer *renderer, Game &game, float scale, float lineWidth, SDL_FColor color)
 {
-    float gray = 0.941f;
-    SDL_FColor color = {gray, gray, gray, 1.0f};
-
     for (int i = 0; i < 200; i++)
     {
         float x = -2000.0f + static_cast<float>(i) * gridSize;
-        addLine(m->backgroundVertices, x, -10000, x, 10000, scale, color);
+        addLine(m->backgroundVertices, x, -10000, x, 10000, scale, color, lineWidth);
     }
 
     for (int i = 0; i < 200; i++)
     {
         float y = -2000.0f + static_cast<float>(i) * gridSize;
-        addLine(m->backgroundVertices, -10000, y, 10000, y, scale, color);
+        addLine(m->backgroundVertices, -10000, y, 10000, y, scale, color, lineWidth);
     }
 }
 
@@ -637,4 +596,316 @@ void GameRenderer::renderCollisionGrid(SDL_Renderer *renderer, Game &game, float
             }
         }
     }
+}
+
+// Styled rendering, used unless debug draw is on
+
+static SDL_FColor hexColor(uint32_t hex, float alpha = 1.0f)
+{
+    return {static_cast<float>((hex >> 16) & 0xFF) / 255.0f,
+            static_cast<float>((hex >> 8) & 0xFF) / 255.0f,
+            static_cast<float>(hex & 0xFF) / 255.0f,
+            alpha};
+}
+
+static SDL_FColor mixColor(SDL_FColor a, SDL_FColor b, float t)
+{
+    return {a.r + (b.r - a.r) * t,
+            a.g + (b.g - a.g) * t,
+            a.b + (b.b - a.b) * t,
+            a.a + (b.a - a.a) * t};
+}
+
+static const uint32_t backgroundColor = 0xF8F5EF;
+static const uint32_t gridColor = 0xECE6DC;
+static const uint32_t outlineColor = 0x22303F;
+static const uint32_t staticFillColor = 0x4B5D73;
+static const uint32_t structureFillColor = 0x5BA8AE;
+static const uint32_t bodyColors[] = {0xE85D4F, 0xF39A33, 0x4F8FE0, 0x6BBE5E, 0xF4C542};
+static const int numBodyColors = sizeof(bodyColors) / sizeof(bodyColors[0]);
+
+// A texel inside the solid white square of the atlas
+static const Vector2 solidUv(7.5f / 512.0f, 7.5f / 512.0f);
+
+enum class ShapeStyle
+{
+    Static,    // Walls and posts
+    Structure, // Shapes built from connected parts, like the bridge
+    Body       // Free-moving bodies such as balls and boxes
+};
+
+static ShapeStyle getShapeStyle(const Shape &shape)
+{
+    if (shape.isStatic)
+    {
+        return ShapeStyle::Static;
+    }
+
+    if (shape.hasIndices() || shape.parentId != -1)
+    {
+        return ShapeStyle::Structure;
+    }
+
+    return ShapeStyle::Body;
+}
+
+static void addTriangle(Array<GameVertex> &vertices, Vector2 p0, Vector2 p1, Vector2 p2, SDL_FColor c0, SDL_FColor c1, SDL_FColor c2)
+{
+    vertices.push({c0, p0, solidUv});
+    vertices.push({c1, p1, solidUv});
+    vertices.push({c2, p2, solidUv});
+}
+
+// Disc with a world space radius, drawn with the antialiased circle sprite from the atlas
+static void addDisc(Array<GameVertex> &vertices, Vector2 center, float radius, SDL_FColor color)
+{
+    float x0 = center.x - radius;
+    float y0 = center.y - radius;
+    float x1 = center.x + radius;
+    float y1 = center.y + radius;
+
+    vertices.push({color, {x0, y0}, circle.topLeft});
+    vertices.push({color, {x1, y0}, circle.topRight});
+    vertices.push({color, {x1, y1}, circle.bottomRight});
+    vertices.push({color, {x1, y1}, circle.bottomRight});
+    vertices.push({color, {x0, y1}, circle.bottomLeft});
+    vertices.push({color, {x0, y0}, circle.topLeft});
+}
+
+static Vector2 catmullRom(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
+{
+    float t2 = t * t;
+    float t3 = t2 * t;
+    return (p1 * 2.0f + (p2 - p0) * t + (p0 * 2.0f - p1 * 5.0f + p2 * 4.0f - p3) * t2 + (p1 * 3.0f - p0 - p2 * 3.0f + p3) * t3) * 0.5f;
+}
+
+static void addJointDot(Array<GameVertex> &vertices, Vector2 pos, float pixel, SDL_FColor outline)
+{
+    addDisc(vertices, pos, 5.5f * pixel, outline);
+    addDisc(vertices, pos, 3.8f * pixel, {1.0f, 1.0f, 1.0f, 1.0f});
+}
+
+void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
+{
+    const float scale = game.scale();
+    const Vector2 offset = game.offset();
+    PhysicsSpace &space = game.physicsSpace();
+    PointMassesRange points = space.points.range();
+
+    m->shadowVertices.clear();
+    m->fillVertices.clear();
+    m->outlineVertices.clear();
+    m->detailVertices.clear();
+
+    SDL_FColor background = hexColor(backgroundColor);
+    SDL_SetRenderDrawColorFloat(renderer, background.r, background.g, background.b, 1.0f);
+    SDL_RenderClear(renderer);
+    renderGrid(renderer, game, scale, 1.0f, hexColor(gridColor));
+
+    // Sizes given in screen pixels are converted to world units, so they stay the same when zooming
+    const float pixel = 1.0f / scale;
+    const Vector2 shadowOffset(3.0f * pixel, 7.0f * pixel);
+    const SDL_FColor shadow = {0.0f, 0.0f, 0.0f, 0.10f};
+    const SDL_FColor outline = hexColor(outlineColor);
+    const SDL_FColor white = {1.0f, 1.0f, 1.0f, 1.0f};
+    const SDL_FColor black = {0.0f, 0.0f, 0.0f, 1.0f};
+
+    for (int i = 0; i < space.shapes.size(); i++)
+    {
+        const Shape &shape = space.shapes[i];
+        ShapeIndexedRange range(shape);
+        const int numPoints = range.size();
+
+        // Two point shapes have no area, so draw them as a beam
+        if (numPoints == 2)
+        {
+            Vector2 p0 = points.pos[range[0]];
+            Vector2 p1 = points.pos[range[1]];
+
+            if (!isnan(p0.x) && !isnan(p0.y) && !isnan(p1.x) && !isnan(p1.y))
+            {
+                addLine(m->shadowVertices, p0.x + shadowOffset.x, p0.y + shadowOffset.y, p1.x + shadowOffset.x, p1.y + shadowOffset.y, scale, shadow, 9.0f);
+                addLine(m->outlineVertices, p0.x, p0.y, p1.x, p1.y, scale, outline, 9.0f);
+                addLine(m->outlineVertices, p0.x, p0.y, p1.x, p1.y, scale, hexColor(structureFillColor), 5.0f);
+                addJointDot(m->detailVertices, p0, pixel, outline);
+                addJointDot(m->detailVertices, p1, pixel, outline);
+            }
+
+            continue;
+        }
+
+        if (numPoints < 3)
+        {
+            continue;
+        }
+
+        Vector2 centroid;
+        bool valid = true;
+
+        for (int k = 0; k < numPoints; k++)
+        {
+            Vector2 pos = points.pos[range[k]];
+            valid = valid && !isnan(pos.x) && !isnan(pos.y);
+            centroid += pos;
+        }
+
+        if (!valid)
+        {
+            continue;
+        }
+
+        centroid /= static_cast<float>(numPoints);
+
+        const ShapeStyle style = getShapeStyle(shape);
+        SDL_FColor fill = hexColor(staticFillColor);
+
+        if (style == ShapeStyle::Structure)
+        {
+            fill = hexColor(structureFillColor);
+        }
+        else if (style == ShapeStyle::Body)
+        {
+            fill = hexColor(bodyColors[(i * 7 + 3) % numBodyColors]);
+        }
+
+        // Round bodies are drawn through a spline of their points, so they don't look faceted.
+        // Only as finely as their size on screen needs: a long edge gets up to four segments, a short one stays as is.
+        Array<Vector2> &outlinePoints = m->outlinePoints;
+        outlinePoints.clear();
+        const bool roundBody = style == ShapeStyle::Body && numPoints >= 8;
+        const float edgeLengthPixels = (points.pos[range[1]] - points.pos[range[0]]).length() * scale;
+        const int subdivisions = roundBody ? clamp(static_cast<int>(ceilf(edgeLengthPixels / 6.0f)), 1, 4) : 1;
+        const bool smooth = subdivisions > 1;
+
+        for (int k = 0; k < numPoints; k++)
+        {
+            Vector2 p1 = points.pos[range[k]];
+
+            if (!smooth)
+            {
+                outlinePoints.push(p1);
+                continue;
+            }
+
+            Vector2 p0 = points.pos[range[(k + numPoints - 1) % numPoints]];
+            Vector2 p2 = points.pos[range[(k + 1) % numPoints]];
+            Vector2 p3 = points.pos[range[(k + 2) % numPoints]];
+
+            for (int step = 0; step < subdivisions; step++)
+            {
+                outlinePoints.push(catmullRom(p0, p1, p2, p3, static_cast<float>(step) / static_cast<float>(subdivisions)));
+            }
+        }
+
+        const int numOutlinePoints = outlinePoints.size();
+
+        if (style == ShapeStyle::Body)
+        {
+            // Shade from a light spot at the upper left, so bodies look lit and slightly glossy
+            float radius = 0.0f;
+
+            for (int k = 0; k < numPoints; k++)
+            {
+                radius += (points.pos[range[k]] - centroid).length();
+            }
+
+            radius /= static_cast<float>(numPoints);
+
+            const Vector2 lightPos = centroid + Vector2(-0.30f, -0.35f) * radius;
+            const SDL_FColor lightColor = mixColor(fill, white, 0.35f);
+            const SDL_FColor rimColor = mixColor(fill, black, 0.10f);
+
+            for (int k = 0; k < numOutlinePoints; k++)
+            {
+                Vector2 p0 = outlinePoints[k];
+                Vector2 p1 = outlinePoints[(k + 1) % numOutlinePoints];
+                addTriangle(m->fillVertices, lightPos, p0, p1, lightColor, rimColor, rimColor);
+                addTriangle(m->shadowVertices, centroid + shadowOffset, p0 + shadowOffset, p1 + shadowOffset, shadow, shadow, shadow);
+            }
+
+            // Specular highlight on round bodies, unless too small on screen to see
+            if (roundBody && radius * scale >= 6.0f)
+            {
+                addDisc(m->detailVertices, centroid + Vector2(-0.38f, -0.42f) * radius, 0.16f * radius, {1.0f, 1.0f, 1.0f, 0.55f});
+            }
+        }
+        else if (shape.triangleStart >= 0)
+        {
+            for (int t = shape.triangleStart; t < shape.triangleEnd; t += 3)
+            {
+                Vector2 p0 = points.pos[space.triangleIndices[t]];
+                Vector2 p1 = points.pos[space.triangleIndices[t + 1]];
+                Vector2 p2 = points.pos[space.triangleIndices[t + 2]];
+                addTriangle(m->fillVertices, p0, p1, p2, fill, fill, fill);
+                addTriangle(m->shadowVertices, p0 + shadowOffset, p1 + shadowOffset, p2 + shadowOffset, shadow, shadow, shadow);
+            }
+        }
+        else
+        {
+            for (int k = 0; k < numOutlinePoints; k++)
+            {
+                Vector2 p0 = outlinePoints[k];
+                Vector2 p1 = outlinePoints[(k + 1) % numOutlinePoints];
+                addTriangle(m->fillVertices, centroid, p0, p1, fill, fill, fill);
+                addTriangle(m->shadowVertices, centroid + shadowOffset, p0 + shadowOffset, p1 + shadowOffset, shadow, shadow, shadow);
+            }
+        }
+
+        // Outline. Sharp corners get a disc to round off the join; on round bodies the corners are too shallow to show.
+        for (int k = 0; k < numOutlinePoints; k++)
+        {
+            Vector2 p0 = outlinePoints[k];
+            Vector2 p1 = outlinePoints[(k + 1) % numOutlinePoints];
+            addLine(m->outlineVertices, p0.x, p0.y, p1.x, p1.y, scale, outline, 2.5f);
+
+            if (!roundBody)
+            {
+                addDisc(m->outlineVertices, p0, 1.25f * pixel, outline);
+            }
+        }
+
+        if (style == ShapeStyle::Structure)
+        {
+            for (int k = 0; k < numPoints; k++)
+            {
+                addJointDot(m->detailVertices, points.pos[range[k]], pixel, outline);
+            }
+        }
+
+        // Rivets inset from each corner of static quads
+        if (style == ShapeStyle::Static && numPoints == 4)
+        {
+            const float inset = 13.0f;
+            const SDL_FColor rivetCenter = mixColor(fill, outline, 0.45f);
+
+            for (int k = 0; k < numPoints; k++)
+            {
+                Vector2 corner = points.pos[range[k]];
+                Vector2 toNext = points.pos[range[(k + 1) % numPoints]] - corner;
+                Vector2 toPrev = points.pos[range[(k + numPoints - 1) % numPoints]] - corner;
+                float nextLength = toNext.length();
+                float prevLength = toPrev.length();
+
+                if (min(nextLength, prevLength) < inset * 3.0f)
+                {
+                    continue;
+                }
+
+                Vector2 rivetPos = corner + toNext * (inset / nextLength) + toPrev * (inset / prevLength);
+                addDisc(m->detailVertices, rivetPos, 5.0f, outline);
+                addDisc(m->detailVertices, rivetPos, 3.0f, rivetCenter);
+            }
+        }
+    }
+
+    for (int i = 0; i < space.staticJoints.size(); i++)
+    {
+        addJointDot(m->detailVertices, points.pos[space.staticJoints[i].pointIndex], pixel, outline);
+    }
+
+    renderVertices(renderer, m->backgroundVertices, offset, scale, m->texture);
+    renderVertices(renderer, m->shadowVertices, offset, scale, m->texture);
+    renderVertices(renderer, m->fillVertices, offset, scale, m->texture);
+    renderVertices(renderer, m->outlineVertices, offset, scale, m->texture);
+    renderVertices(renderer, m->detailVertices, offset, scale, m->texture);
 }

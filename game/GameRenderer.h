@@ -2,6 +2,7 @@
 #define __GAME_RENDERER_H
 
 struct SDL_Renderer;
+struct SDL_FColor;
 class Game;
 struct ConsoleProfileInfo;
 
@@ -37,7 +38,8 @@ private:
     void renderSprings(SDL_Renderer *renderer, Range<Spring> springs, const PointMassesRange &points, float scale);
 
     void drawSubshape(SDL_Renderer *renderer, const AddSubShapeData &addSubshapeData, float scale, const Vector2 &offset);
-    void renderGrid(SDL_Renderer *renderer, Game &game, float scale);
+    void renderGrid(SDL_Renderer *renderer, Game &game, float scale, float lineWidth, SDL_FColor color);
+    void renderStyled(SDL_Renderer *renderer, Game &game);
 
     void renderCollisionGrid(SDL_Renderer *renderer, Game &game, float scale);
     // Disable copy constructor and assignment

@@ -1,5 +1,4 @@
 #include "PhysicsSpace.h"
-#include "../game/Textures.h" // TODO: remove this
 #include "../utils/Console.h"
 #include "ShapeUtils.h"
 #include "../utils/MinMax.h"
@@ -20,7 +19,6 @@ PhysicsSpace::PhysicsSpace() : gravityEnabled(true), collisionsEnabled(true), sh
     mouseJoint.pointIndex = -1;
     mouseJoint.position = Vector2::zero();
     triangleIndices.reserve(NUM_POINTS * 3);
-    uvCoordinates.reserve(NUM_POINTS * 3);
 }
 
 void PhysicsSpace::assign(PhysicsSpace &other)
@@ -30,7 +28,6 @@ void PhysicsSpace::assign(PhysicsSpace &other)
     staticJoints.replace(other.staticJoints);
     shapeJoints.replace(other.shapeJoints);
     triangleIndices.replace(other.triangleIndices);
-    uvCoordinates.replace(other.uvCoordinates);
     radialAccelerators.replace(other.radialAccelerators);
     wheelMotors.replace(other.wheelMotors);
 }
@@ -82,7 +79,6 @@ void PhysicsSpace::clear()
     points.clear();
     staticJoints.clear();
     triangleIndices.clear();
-    uvCoordinates.clear();
     mouseJoint.pointIndex = -1;
     gravityEnabled = true;
     shapeJoints.clear();
@@ -436,7 +432,6 @@ static float restPoseWindingSign(const PointMasses &points, const Shape &shape)
 void PhysicsSpace::triangulate()
 {
     triangleIndices.clear();
-    uvCoordinates.clear();
 
     static Array<int> curIndices;
 
@@ -450,21 +445,10 @@ void PhysicsSpace::triangulate()
         ShapeIndexedRange range(shape);
         curIndices.clear();
 
-        Vector2 minPos(__FLT_MAX__, __FLT_MAX__);
-        Vector2 maxPos(-__FLT_MAX__, -__FLT_MAX__);
-
         for (int j = 0; j < range.size(); j++)
         {
             curIndices.push(range[j]);
-            Vector2 pos = points.shapeOriginalPos[range[j]];
-            minPos.x = min(minPos.x, pos.x);
-            minPos.y = min(minPos.y, pos.y);
-            maxPos.x = max(maxPos.x, pos.x);
-            maxPos.y = max(maxPos.y, pos.y);
         }
-
-        const TextureData &textureData = textureLookup[shape.texture];
-        Vector2 size = Vector2(textureData.width, textureData.height);
 
         // Clip ears until only one triangle remains
         while (curIndices.size() > 3)
@@ -507,14 +491,6 @@ void PhysicsSpace::triangulate()
                 if (anyInside)
                     continue;
 
-                Vector2 uvA = (A - minPos) / size;
-                Vector2 uvB = (B - minPos) / size;
-                Vector2 uvC = (C - minPos) / size;
-
-                uvCoordinates.push(uvA);
-                uvCoordinates.push(uvB);
-                uvCoordinates.push(uvC);
-
                 // Found an ear: record its indices and remove B
                 triangleIndices.push(idxA);
                 triangleIndices.push(idxB);
@@ -535,22 +511,9 @@ void PhysicsSpace::triangulate()
         // Add the final triangle (moved outside of the while loop)
         if (curIndices.size() == 3)
         {
-
-            const Vector2 &A = points.shapeOriginalPos[curIndices[0]];
-            const Vector2 &B = points.shapeOriginalPos[curIndices[1]];
-            const Vector2 &C = points.shapeOriginalPos[curIndices[2]];
-
             triangleIndices.push(curIndices[0]);
             triangleIndices.push(curIndices[1]);
             triangleIndices.push(curIndices[2]);
-
-            Vector2 uvA = (A - minPos) / size;
-            Vector2 uvB = (B - minPos) / size;
-            Vector2 uvC = (C - minPos) / size;
-
-            uvCoordinates.push(uvA);
-            uvCoordinates.push(uvB);
-            uvCoordinates.push(uvC);
         }
 
         shape.triangleEnd = triangleIndices.size();

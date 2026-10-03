@@ -69,6 +69,7 @@ struct Game::Impl
     int iterationNumber = 0;
     int simulationSpeed = 100;
     bool paused = false;
+    bool debugDraw = false;
     const char *currentSceneName = nullptr;
     Vector2 offset;
     float scale = 1.0f;
@@ -944,6 +945,11 @@ GameRenderSettings Game::renderSettings()
 void Game::setRenderSettings(const GameRenderSettings &settings)
 {
     m->renderSettings = settings;
+}
+
+bool &Game::debugDraw()
+{
+    return m->debugDraw;
 }
 
 double Game::lastElapsedTimeMilliseconds() const
