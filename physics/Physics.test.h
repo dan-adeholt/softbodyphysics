@@ -9,6 +9,41 @@
 #include "../utils/UnitTestUtil.h"
 #include "CollisionSolver.h"
 #include "CollisionSolverInternal.h"
+#include "../game/Game.h"
+#include "../game/Scenes.h"
+
+// Ray casting point in polygon, for checking where points ended up after collisions were resolved
+static bool pointInsideShape(const PointMasses &points, const Shape &shape, Vector2 point)
+{
+    ShapeIndexedRange range(shape);
+    bool inside = false;
+
+    for (int i = 0, j = range.size() - 1; i < range.size(); j = i++)
+    {
+        Vector2 a = points.pos[range[i]];
+        Vector2 b = points.pos[range[j]];
+
+        if ((a.y > point.y) != (b.y > point.y) && point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x)
+        {
+            inside = !inside;
+        }
+    }
+
+    return inside;
+}
+
+static int pointsInsideShape(const PointMasses &points, const Shape &shape, const Shape &other)
+{
+    ShapeIndexedRange range(other);
+    int count = 0;
+
+    for (int i = 0; i < range.size(); i++)
+    {
+        count += pointInsideShape(points, shape, points.pos[range[i]]) ? 1 : 0;
+    }
+
+    return count;
+}
 
 void testCase(Shape &shape1, Shape &shape2, PointMasses &points, int expectedCollisions)
 {
@@ -27,7 +62,14 @@ void testCase(Shape &shape1, Shape &shape2, PointMasses &points, int expectedCol
 
     PointMassesRange range = points.range();
 
-    testExpectInt(CollisionSolver::calculateCollisions(range, shape1, shape2, boundingBoxes[0], boundingBoxes[1]), expectedCollisions);
+    {
+        testExpectInt(CollisionSolver::calculateCollisions(range, shape1, shape2, boundingBoxes[0], boundingBoxes[1]), expectedCollisions);
+    }
+
+    // Whatever was found inside has been moved out
+    {
+        testExpectInt(pointsInsideShape(points, shape1, shape2), 0);
+    }
 }
 
 UNIT_TEST(PhysicsTestfindEntryEdge)
@@ -76,13 +118,14 @@ UNIT_TEST(PhysicsTestCollisions)
 
     testCase(shape1, shape2, space.points, 4);
 
-    // One quad is completely inside a parallelogram
+    // One quad is completely inside a parallelogram. All four corners start inside, but the parallelogram
+    // shares each correction by mass, and after three of them it has moved clear of the fourth corner.
     shape1 = Shapes::createParallelogram(space, 0.0f, 0.0f, 32.0f, 32.0f, 10.0f, 1.0f);
     shape2 = Shapes::createQuad(space, 16.0f, 16.0f, 4.0f, 4.0f, 1.0f);
     setVelocity(space.points, shape1, 1.0f, 0.0f);
     setVelocity(space.points, shape2, -2.0f, 0.0f);
 
-    testCase(shape1, shape2, space.points, 4);
+    testCase(shape1, shape2, space.points, 3);
 
     // One corner of a triangle is inside another triangle
     shape1 = Shapes::createTriangle(space, false, 10.0f, 0.0f, 16.0f, 5.0f, 5.0f, 10.0f, 1.0f);
@@ -174,6 +217,78 @@ UNIT_TEST(PhysicsTestDepenetrationDirection)
     Shape reversed = reversedSpace.shapes[0];
     reversed.windingSign = -1.0f;
     checkPushOutSeparates(reversedSpace, reversed, "reversed winding");
+}
+
+// Drops a circle of the given mass onto the Bridge scene, lets everything settle and measures jitter:
+// how much each point's velocity changes from one collision pass to the next, averaged over a stretch
+// once the scene has settled. Smooth motion, like the bridge slowly swaying, changes velocity little
+// between passes; jitter keeps flipping it. Reported for the dropped circle and for the whole scene.
+struct SettleJitter
+{
+    float circle;
+    float scene;
+};
+
+static SettleJitter settleJitterOnBridge(float circleMass)
+{
+    Game game("levels", nullptr);
+    game.init("Bridge");
+    PhysicsSpace &space = game.physicsSpace();
+    Shape circle = Shapes::createCircle(space, 655.0f, 150.0f, gridSize, circleMass);
+    game.updateBoundingBoxes();
+
+    ConsoleProfileInfo profileInfo;
+    const int settleSteps = 6000;
+    const int measureSteps = 2000;
+    // Collisions are resolved every second step, so compare velocities two steps apart
+    const int passLength = 2;
+    Array<Vector2> previousVelocity;
+    double circleJitter = 0.0;
+    double sceneJitter = 0.0;
+    int samples = 0;
+
+    for (int step = 0; step < settleSteps + measureSteps; step++)
+    {
+        game.update(0.0, true, profileInfo);
+
+        if (step < settleSteps - passLength || step % passLength != 0)
+        {
+            continue;
+        }
+
+        if (previousVelocity.size() == space.points.size())
+        {
+            ShapeIndexedRange range(space.shapes[circle.index]);
+
+            for (int i = 0; i < range.size(); i++)
+            {
+                circleJitter += (space.points.velocity[range[i]] - previousVelocity[range[i]]).length() / static_cast<double>(range.size());
+            }
+
+            for (int i = 0; i < space.points.size(); i++)
+            {
+                sceneJitter += (space.points.velocity[i] - previousVelocity[i]).length() / static_cast<double>(space.points.size());
+            }
+
+            samples++;
+        }
+
+        previousVelocity.replace(space.points.velocity);
+    }
+
+    return {static_cast<float>(circleJitter / samples), static_cast<float>(sceneJitter / samples)};
+}
+
+// A circle six times as heavy as the rest, as added from the right click menu, used to keep being
+// pushed fully out of the light balls it rested on and sinking back in. That measured about 0.013 for
+// the circle and 0.0024 for the scene; sharing the collision correction by mass brings them down to
+// about 0.0002 and 0.0011.
+UNIT_TEST(PhysicsTestHeavyCircleSettles)
+{
+    SettleJitter heavy = settleJitterOnBridge(12.0f);
+    Console::log("Jitter with a heavy circle on the bridge: circle %.5f, scene %.5f", heavy.circle, heavy.scene);
+    testAssert(heavy.circle < 0.002f);
+    testAssert(heavy.scene < 0.0018f);
 }
 
 #endif

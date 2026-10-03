@@ -807,6 +807,35 @@ void reduceOverlapStatic(ShapeBoundingBox &box1, ShapeBoundingBox &staticBox)
     }
 }
 
+// Moves a point that has entered a moving shape back out through the edge edgeIndex0 -> edgeIndex1,
+// to closestPoint plus pushOut. The point and the edge share the correction by inverse mass, with the
+// edge's share at the contact taken as (1 - t)^2 / m0 + t^2 / m1. A light body yields to a heavy one;
+// before, the point always moved the whole way, so a heavy body resting on light ones was pushed all
+// the way out every step, sank back in under its weight and jittered. pointIndices move together.
+static void separatePointFromEdge(PointMassesRange points, const int *pointIndices, int numPointIndices, Vector2 pointPos, float pointInverseMass,
+                                  int edgeIndex0, int edgeIndex1, float t, Vector2 closestPoint, Vector2 pushOut)
+{
+    const float edgeInverseMass0 = 1.0f / points.mass[edgeIndex0];
+    const float edgeInverseMass1 = 1.0f / points.mass[edgeIndex1];
+    const float edgeInverseMass = (1.0f - t) * (1.0f - t) * edgeInverseMass0 + t * t * edgeInverseMass1;
+    const float totalInverseMass = pointInverseMass + edgeInverseMass;
+
+    if (totalInverseMass <= 0.0f)
+    {
+        return;
+    }
+
+    const Vector2 share = ((closestPoint + pushOut) - pointPos) / totalInverseMass;
+
+    for (int i = 0; i < numPointIndices; i++)
+    {
+        points.pos[pointIndices[i]] += share * pointInverseMass;
+    }
+
+    points.pos[edgeIndex0] -= share * ((1.0f - t) * edgeInverseMass0);
+    points.pos[edgeIndex1] -= share * (t * edgeInverseMass1);
+}
+
 static int calculateCollisionsMidPointInternal(
     PhysicsSpace *space,
     PointMassesRange points,
@@ -923,20 +952,13 @@ static int calculateCollisionsMidPointInternal(
 
             if (!movingShape.isStatic)
             {
-                float totalMass = pm0Mass + pm1Mass + pointMass;
-                Vector2 splitOffset = result.closestPoint0 - pointPos;
-
                 Vector2 pushOutDirection = depenetrationDirection(pointVelocity, segmentNormal, collisionShape.windingSign);
 
-                Vector2 avgDir = (pm1Pos - pm0Pos).normalized();
+                // The two points move together, so they count as one body of twice their average mass
+                const int movingPoints[2] = {pointIndex, nextPointIndex};
+                separatePointFromEdge(points, movingPoints, 2, pointPos, 0.5f / pointMass,
+                                      collisionIndex0, collisionIndex1, result.entryTime0, result.closestPoint0, pushOutDirection * 0.2f);
 
-                Vector2 A = result.closestPoint0 - avgDir * 100.0f;
-                Vector2 B = result.closestPoint0 + avgDir * 100.0f;
-
-                points.pos[collisionIndex0] = closestPointToAxis(A, B, pm0Pos);
-                points.pos[collisionIndex1] = closestPointToAxis(A, B, pm1Pos);
-                points.pos[pointIndex] = closestPointToAxis(A, B, points.pos[pointIndex]) + pushOutDirection * 0.2f;
-                points.pos[nextPointIndex] = closestPointToAxis(A, B, points.pos[nextPointIndex]) + pushOutDirection * 0.2f;
                 points.velocity[pointIndex] += (impulse / pointMass) * 0.5f;
                 points.velocity[nextPointIndex] += (impulse / pointMass) * 0.5f;
                 applyWheelMotorImpulseDynamic(space, movingShape, result.closestPoint0, pointIndex, nextPointIndex, pointMass, collisionIndex0, collisionIndex1, pm0Mass, pm0Vel, pm1Mass, pm1Vel, result.entryTime0, segmentNormal, points);
@@ -1069,14 +1091,11 @@ static int calculateCollisionsInternal(
 
             if (!movingShape.isStatic)
             {
-                float totalMass = pm0Mass + pm1Mass + pointMass;
                 Vector2 pushOutDirection = depenetrationDirection(pointVelocity, segmentNormal, collisionShape.windingSign);
 
-                points.pos[collisionIndex0] = pm0Pos;
-                points.pos[collisionIndex1] = pm1Pos;
-                Vector2 oldPos = points.pos[pointIndex];
-                points.pos[pointIndex] = result.closestPoint0 + pushOutDirection * 0.1f;
-                float distance = (points.pos[pointIndex] - oldPos).length();
+                const int movingPoint = pointIndex;
+                separatePointFromEdge(points, &movingPoint, 1, points.pos[pointIndex], 1.0f / pointMass,
+                                      collisionIndex0, collisionIndex1, result.entryTime0, result.closestPoint0, pushOutDirection * 0.1f);
 
                 points.velocity[pointIndex] += impulse / pointMass;
                 applyWheelMotorImpulseDynamic(space, movingShape, result.closestPoint0, pointIndex, -1, pointMass, collisionIndex0, collisionIndex1, pm0Mass, pm0Vel, pm1Mass, pm1Vel, result.entryTime0, segmentNormal, points);
