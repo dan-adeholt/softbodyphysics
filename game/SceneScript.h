@@ -54,18 +54,6 @@ public:
 
     // A fill colour for a shape instead of its usual one, as 0xRRGGBB
     virtual bool shapeFill(int shapeIndex, uint32_t &color) { return false; }
-
-    // A line of status, such as a score, shown above the canvas. nullptr for none.
-    virtual const char *statusText() { return nullptr; }
-
-    // Hide the mouse cursor over empty canvas, for scripts that draw their own
-    virtual bool hidesCursor() { return false; }
-
-    // Whether clicking a shape drags it. Off for scripts that use every click themselves.
-    virtual bool allowsDragging() { return true; }
-
-    // Whether the script uses the right mouse button, instead of it opening the editor's menu
-    virtual bool usesRightClick() { return false; }
 };
 
 #endif

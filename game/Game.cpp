@@ -147,9 +147,6 @@ struct Game::Impl
     Vector2 mousePos;
     AddSubShapeData addSubshapeData;
     int hoveredShapeIndex = -1;
-    bool mouseOverCanvas = false;
-    bool clickedButtons[4] = {}; // By SDL button number: 1 left, 3 right
-    Vector2 viewSize = Vector2(1280.0f, 720.0f);
     SceneScript *script = nullptr;
 };
 
@@ -435,11 +432,6 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
     {
         m->keyPressedState[i] = false;
     }
-
-    for (int i = 0; i < 4; i++)
-    {
-        m->clickedButtons[i] = false;
-    }
 }
 
 void Game::onMouseDown(int button, float x, float y, bool shiftDown)
@@ -455,17 +447,6 @@ void Game::onMouseDown(int button, float x, float y, bool shiftDown)
     {
         m->addSubshapeData.sourcePos = m->translatedMousePos();
         m->addSubshapeData.mouseDown = true;
-        return;
-    }
-
-    // Scene scripts that use every click, such as a game aimed with the mouse, can turn dragging off
-    if (m->script != nullptr && !m->script->allowsDragging())
-    {
-        if (button >= 0 && button < 4)
-        {
-            m->clickedButtons[button] = true;
-        }
-
         return;
     }
 
@@ -499,10 +480,6 @@ void Game::onMouseDown(int button, float x, float y, bool shiftDown)
         m->selectedShapeIndex = shapeIndex;
         m->shapeMatchDragData.dragShapeIndex = shapeIndex;
         m->shapeMatchDragData.center = translatedPos;
-    }
-    else if (button >= 0 && button < 4)
-    {
-        m->clickedButtons[button] = true;
     }
 }
 
@@ -862,16 +839,6 @@ bool Game::keyWasPressed(GameKeyCode keyCode)
     return m->keyPressedState[(size_t)keyCode];
 }
 
-bool Game::mouseWasClicked(int button)
-{
-    return button >= 0 && button < 4 && m->clickedButtons[button];
-}
-
-Vector2 Game::mouseWorldPos() const
-{
-    return m->translatedMousePos();
-}
-
 bool Game::keyIsPressed(GameKeyCode keyCode)
 {
     return m->keyState[(size_t)keyCode];
@@ -1009,8 +976,8 @@ int Game::shapeUnderMouse()
         return m->shapeMatchDragData.dragShapeIndex;
     }
 
-    // Panning and placing subshapes don't drag anything, and neither do scenes that turn dragging off
-    if (m->panning || m->addSubshapeData.active || (m->script != nullptr && !m->script->allowsDragging()))
+    // Panning and placing subshapes don't drag anything
+    if (m->panning || m->addSubshapeData.active)
     {
         return -1;
     }
@@ -1029,26 +996,6 @@ int Game::hoveredShapeIndex() const
 void Game::setHoveredShapeIndex(int index)
 {
     m->hoveredShapeIndex = index;
-}
-
-bool Game::mouseOverCanvas() const
-{
-    return m->mouseOverCanvas;
-}
-
-void Game::setMouseOverCanvas(bool overCanvas)
-{
-    m->mouseOverCanvas = overCanvas;
-}
-
-Vector2 Game::viewSize() const
-{
-    return m->viewSize;
-}
-
-void Game::setViewSize(Vector2 size)
-{
-    m->viewSize = size;
 }
 
 void Game::setScript(SceneScript *script)

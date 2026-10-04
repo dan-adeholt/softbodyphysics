@@ -1,5 +1,5 @@
 #include "Scenes.h"
-#include "CannonScenes.h"
+#include "DownpourScene.h"
 #include <stdio.h>
 #include "Shapes.h"
 #include "Game.h"
@@ -826,7 +826,6 @@ SceneDefinition otherScenes[] = {
 
 SceneDefinition gameScenes[] = {
     {"Downpour", initDownpourScene},
-    {"Fortress", initFortressScene},
     {"Chains", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();
@@ -856,11 +855,6 @@ SceneDefinition gameScenes[] = {
          {
              Shape s = Shapes::createCircle(space, 440.0f + static_cast<float>(i) * 55.0f, 50.0f, 40.0f, 1.0f);
          }
-     }},
-    {"Playground", [](Game *game)
-     {
-         PhysicsSpace &space = game->physicsSpace();
-         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/playground.txt");
      }},
 };
 

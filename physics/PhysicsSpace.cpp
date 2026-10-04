@@ -81,7 +81,6 @@ void PhysicsSpace::clear()
     triangleIndices.clear();
     mouseJoint.pointIndex = -1;
     gravityEnabled = true;
-    gravity = defaultGravity;
     shapeJoints.clear();
     radialAccelerators.clear();
     wheelMotors.clear();
