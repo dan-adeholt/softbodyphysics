@@ -74,10 +74,13 @@ void RK4Integrator::prepareRK4Step(PhysicsSpace &space, float dt, Array<PointDer
         PointDerivative derivative = *inDerivative++;
         Vector2 originalVelocity = *velIn++;
         Vector2 originalPos = *posIn++;
-        outDerivativeOut->velocity = originalVelocity;
+        const Vector2 stageVelocity = originalVelocity + derivative.acceleration * dt;
+
+        // The position derivative at this stage is the stage's own velocity, not the step's starting one
+        outDerivativeOut->velocity = stageVelocity;
         outDerivativeOut++;
         *posOut++ = originalPos + derivative.velocity * dt;
-        *velOut++ = originalVelocity + derivative.acceleration * dt;
+        *velOut++ = stageVelocity;
     }
 }
 
