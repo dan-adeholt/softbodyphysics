@@ -40,6 +40,7 @@ private:
 
     // Floating profiler with the step, rewind and forward controls, toggled in the settings
     void renderProfilerOverlay(Game &game, ConsoleProfileInfo &profileInfo);
+    void renderSceneControls(Game &game);
     void renderStepperButtons(Game &game, ConsoleProfileInfo &profileInfo, ImVec2 buttonSize);
     void renderProfilerStats(Game &game, const ConsoleProfileInfo &profileInfo);
 

@@ -18,6 +18,7 @@
 #include "../fontawesome/IconsFontAwesome4.h"
 #include "../utils/MinMax.h"
 #include "ShapeResources.h"
+#include "SceneScript.h"
 #include <stdlib.h>
 
 const char *contextMenu = "Context menu";
@@ -163,6 +164,7 @@ struct Editor::Impl
     bool openAddLevelPopup = false;
     bool showConsole = false;
     bool showProfiler = false;
+    bool sceneControlsCollapsed = true;
     bool debugDraw = false;
     bool antiAliasing = true;
     bool hasDragged = false;
@@ -377,6 +379,7 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo, ImFont *title
     Game &currentGame = *getCurrentGame();
     renderCanvasPopups(currentGame);
     renderProfilerOverlay(currentGame, profileInfo);
+    renderSceneControls(currentGame);
     updateCanvasHover(currentGame);
     renderDragHint(currentGame);
 
@@ -1266,6 +1269,71 @@ void Editor::renderProfilerStats(Game &game, const ConsoleProfileInfo &profileIn
                     wheelMotor.lastAuthorityClamp,
                     wheelMotor.lastHandoverBand);
     }
+}
+
+// The current scene's own controls, if it has any, in a panel that starts out folded to its title at the top
+// left below the toolbar and can be dragged anywhere
+void Editor::renderSceneControls(Game &game)
+{
+    SceneScript *script = game.script();
+
+    if (script == nullptr || !script->hasControls())
+    {
+        return;
+    }
+
+    const float width = 360.0f;
+    const float top = toolbarBottom + 10.0f + (m->games.size() > 1 ? levelTabsHeight : 0.0f);
+
+    pushOverlayStyle();
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16.0f, 14.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, 5.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 6.0f));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab, overlayGreen);
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, overlayGreen);
+
+    ImGui::SetNextWindowPos(ImVec2(toolbarMargin, top), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(width, 0.0f), ImVec2(width, ImGui::GetIO().DisplaySize.y - top - toolbarMargin));
+
+    if (ImGui::Begin("Scene controls", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings))
+    {
+        const float toggleWidth = ImGui::GetFrameHeight();
+
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(ICON_FA_SLIDERS "  Scene settings");
+        ImGui::SameLine(ImGui::GetContentRegionMax().x - toggleWidth);
+
+        const bool toggled = ImGui::Button("##toggle scene controls", ImVec2(toggleWidth, toggleWidth));
+
+        // A chevron drawn with lines, as the icon font's is too big for the button
+        {
+            const ImVec2 center((ImGui::GetItemRectMin().x + ImGui::GetItemRectMax().x) * 0.5f, (ImGui::GetItemRectMin().y + ImGui::GetItemRectMax().y) * 0.5f);
+            const float halfWidth = toggleWidth * 0.17f;
+            const float halfHeight = halfWidth * 0.5f;
+            const float pointing = m->sceneControlsCollapsed ? 1.0f : -1.0f; // Down when folded, up when open
+            const ImVec2 points[3] = {ImVec2(center.x - halfWidth, center.y - halfHeight * pointing),
+                                      ImVec2(center.x, center.y + halfHeight * pointing),
+                                      ImVec2(center.x + halfWidth, center.y - halfHeight * pointing)};
+            ImGui::GetWindowDrawList()->AddPolyline(points, 3, ImGui::GetColorU32(ImGuiCol_Text), ImDrawFlags_None, 2.0f);
+        }
+
+        if (toggled)
+        {
+            m->sceneControlsCollapsed = !m->sceneControlsCollapsed;
+        }
+
+        if (!m->sceneControlsCollapsed)
+        {
+            ImGui::PushItemWidth(width * 0.5f);
+            script->drawControls(game);
+            ImGui::PopItemWidth();
+        }
+    }
+
+    ImGui::End();
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(3);
+    popOverlayStyle();
 }
 
 void Editor::renderProfilerOverlay(Game &game, ConsoleProfileInfo &profileInfo)

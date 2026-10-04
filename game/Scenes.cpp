@@ -1,5 +1,6 @@
 #include "Scenes.h"
 #include "ChaosScene.h"
+#include "BoidsScene.h"
 #include <stdio.h>
 #include "Shapes.h"
 #include "Game.h"
@@ -826,6 +827,7 @@ SceneDefinition otherScenes[] = {
 
 SceneDefinition gameScenes[] = {
     {"Chaos", initChaosScene},
+    {"Boids", initBoidsScene},
     {"Chains", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();
