@@ -33,6 +33,9 @@ private:
     void renderFileMenu(float frameTop, Game &game);
     void renderLevelTabs();
     void renderCanvasPopups(Game &game);
+    void updateCanvasHover(Game &game);
+    void renderDragHint(Game &game);
+    void renderStatusText(Game &game);
     void renderSettings(Game &game);
     void renderShapeSettings(Game &game);
 

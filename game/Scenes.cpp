@@ -1,4 +1,5 @@
 #include "Scenes.h"
+#include "CannonScenes.h"
 #include <stdio.h>
 #include "Shapes.h"
 #include "Game.h"
@@ -622,14 +623,6 @@ SceneDefinition collisionScenes[] = {
 };
 
 SceneDefinition shapeScenes[] = {
-    {"Bridge loose", [](Game *game)
-     {
-         PhysicsSpace &space = game->physicsSpace();
-         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_31.txt");
-         game->scale() = 1.00f;
-         game->offset() = Vector2(-109.00f, 69.00f);
-     }},
-
     {"Mesh", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();
@@ -640,72 +633,6 @@ SceneDefinition shapeScenes[] = {
          Shapes::createStaticQuad(space, 149.0f, 690.0f, 1000.0f, 650.0f, 1.0f);
          Shapes::createStaticQuad(space, 149.0f, 40.0f, 1000.0f, 50.0f, 1.0f);
          space.gravityEnabled = true;
-     }},
-    {"Circle", [](Game *game)
-     {
-         PhysicsSpace &space = game->physicsSpace();
-         Shapes::createCircle(space, 600.0f, 350.0f, 110.0f, 0.2f);
-
-         Shapes::createStaticQuad(space, 149.0f, 91.0f, 50.0f, 598.0f, 1.0f);
-         Shapes::createStaticQuad(space, 1099.0f, 91.0f, 50.0f, 598.0f, 1.0f);
-         Shapes::createStaticQuad(space, 149.0f, 690.0f, 1000.0f, 50.0f, 1.0f);
-         Shapes::createStaticQuad(space, 149.0f, 40.0f, 1000.0f, 50.0f, 1.0f);
-         space.gravityEnabled = false;
-     }},
-    {"Rounded rect", [](Game *game)
-     {
-         PhysicsSpace &space = game->physicsSpace();
-         Shapes::createRoundedQuad(space, 600.0f, 350.0f, 110.0f, 110.0f, 0.2f);
-
-         Shapes::createStaticQuad(space, 149.0f, 91.0f, 50.0f, 598.0f, 1.0f);
-         Shapes::createStaticQuad(space, 1099.0f, 91.0f, 50.0f, 598.0f, 1.0f);
-         Shapes::createStaticQuad(space, 149.0f, 690.0f, 1000.0f, 50.0f, 1.0f);
-         Shapes::createStaticQuad(space, 149.0f, 40.0f, 1000.0f, 50.0f, 1.0f);
-         space.gravityEnabled = false;
-     }},
-    {"Box", [](Game *game)
-     {
-         PhysicsSpace &space = game->physicsSpace();
-         Shapes::createQuad(space, 400.0f, 140.0f, 100.0f, 100.0f, 1.0f);
-
-         StaticJoint joint = {0, Vector2(400.0f, 140.0f)};
-         space.staticJoints.push(joint);
-         StaticJoint joint2 = {1, Vector2(500.0f, 140.0f)};
-         space.staticJoints.push(joint2);
-     }},
-    {"Line spring", [](Game *game)
-     {
-         PhysicsSpace &space = game->physicsSpace();
-         Shapes::createLine(space, 400.0f, 100.0f, 700.0f, 500.0f, 1.0f);
-         StaticJoint joint = {0, Vector2(400.0f, 100.0f)};
-         space.staticJoints.push(joint);
-     }},
-    {"Falling box with shelf", [](Game *game)
-     {
-         PhysicsSpace &space = game->physicsSpace();
-         Shapes::createQuad(space, 400.0f, 40.0f, 100.0f, 100.0f, 1.0f);
-         Shape shelf = Shapes::createTriangle(space, true, 50.0f, 700.0f, 800.0f, 500.0f, 800.0f, 700.0f, 0.0f);
-
-         ShapeIndexedRange range(shelf);
-         for (int i = 0; i < range.size(); i++)
-         {
-             space.points.mass[range[i]] = 10000000.0f;
-         }
-     }},
-    {"Crusher", [](Game *game)
-     {
-         float size = 170.0f;
-         float spacing = (size + 1.0f) * 2.0f;
-         PhysicsSpace &space = game->physicsSpace();
-
-         Shapes::createQuad(space, 400.0f, 460.0f, 480.0f, 80.0f, 15.0f);
-         Shapes::createQuad(space, 600.0f, 660.0f, 80.0f, 80.0f, 0.25f);
-
-         space.gravityEnabled = true;
-
-         Shapes::createStaticQuad(space, -36.0f, 0.0f, 40.0f, 755.0f, 30.0f);
-         Shapes::createStaticQuad(space, 1214.0f, 0.0f, 40.0f, 755.0f, 30.0f);
-         Shapes::createStaticQuad(space, 1.0f, 755.0f, 1217.0f, 80.0f, 30.0f);
      }},
 };
 
@@ -735,28 +662,6 @@ SceneDefinition collectionScenes[] = {
          //  game->scale() = 4.14f;
          game->offset() = Vector2(400.0f, -400.0f);
          //  game->runFor(2430, true);
-     }},
-    {"Rounded rect grid", [](Game *game)
-     {
-         float size = 25.0f;
-         float spacing = (size + 1.0f) * 1.5f;
-         PhysicsSpace &space = game->physicsSpace();
-         Shapes::createStaticQuad(space, -50.0f, 755.0f, 1317.0f, 80.0f, 1.0f);
-
-         for (int y = 0; y < 20; y++)
-         {
-             for (int x = 0; x < 30; x++)
-             {
-                 float xf = static_cast<float>(x);
-                 float yf = static_cast<float>(y);
-                 Shapes::createRoundedQuad(space, spacing + xf * spacing + yf * 2.0f, spacing + yf * spacing + xf * 0.01f - 900.0f, size, size, 1.0f);
-             }
-         }
-
-         Shapes::createStaticQuad(space, -36.0f, 0.0f, 40.0f, 755.0f, 1.0f);
-         Shapes::createStaticQuad(space, 1214.0f, 0.0f, 40.0f, 755.0f, 1.0f);
-
-         //   space.gravityEnabled = false;
      }},
     {"Falling boxes", [](Game *game)
      {
@@ -827,7 +732,108 @@ SceneDefinition collectionScenes[] = {
      }},
 };
 
+// Scenes that work but are left out of the curated web demo list
+SceneDefinition otherScenes[] = {
+    {"Circle", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         Shapes::createCircle(space, 600.0f, 350.0f, 110.0f, 0.2f);
+
+         Shapes::createStaticQuad(space, 149.0f, 91.0f, 50.0f, 598.0f, 1.0f);
+         Shapes::createStaticQuad(space, 1099.0f, 91.0f, 50.0f, 598.0f, 1.0f);
+         Shapes::createStaticQuad(space, 149.0f, 690.0f, 1000.0f, 50.0f, 1.0f);
+         Shapes::createStaticQuad(space, 149.0f, 40.0f, 1000.0f, 50.0f, 1.0f);
+         space.gravityEnabled = false;
+     }},
+    {"Rounded rect", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         Shapes::createRoundedQuad(space, 600.0f, 350.0f, 110.0f, 110.0f, 0.2f);
+
+         Shapes::createStaticQuad(space, 149.0f, 91.0f, 50.0f, 598.0f, 1.0f);
+         Shapes::createStaticQuad(space, 1099.0f, 91.0f, 50.0f, 598.0f, 1.0f);
+         Shapes::createStaticQuad(space, 149.0f, 690.0f, 1000.0f, 50.0f, 1.0f);
+         Shapes::createStaticQuad(space, 149.0f, 40.0f, 1000.0f, 50.0f, 1.0f);
+         space.gravityEnabled = false;
+     }},
+    {"Box", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         Shapes::createQuad(space, 400.0f, 140.0f, 100.0f, 100.0f, 1.0f);
+
+         StaticJoint joint = {0, Vector2(400.0f, 140.0f)};
+         space.staticJoints.push(joint);
+         StaticJoint joint2 = {1, Vector2(500.0f, 140.0f)};
+         space.staticJoints.push(joint2);
+     }},
+    {"Line spring", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         Shapes::createLine(space, 400.0f, 100.0f, 700.0f, 500.0f, 1.0f);
+         StaticJoint joint = {0, Vector2(400.0f, 100.0f)};
+         space.staticJoints.push(joint);
+     }},
+    {"Falling box with shelf", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         Shapes::createQuad(space, 400.0f, 40.0f, 100.0f, 100.0f, 1.0f);
+         Shape shelf = Shapes::createTriangle(space, true, 50.0f, 700.0f, 800.0f, 500.0f, 800.0f, 700.0f, 0.0f);
+
+         ShapeIndexedRange range(shelf);
+         for (int i = 0; i < range.size(); i++)
+         {
+             space.points.mass[range[i]] = 10000000.0f;
+         }
+     }},
+    {"Crusher", [](Game *game)
+     {
+         float size = 170.0f;
+         float spacing = (size + 1.0f) * 2.0f;
+         PhysicsSpace &space = game->physicsSpace();
+
+         Shapes::createQuad(space, 400.0f, 460.0f, 480.0f, 80.0f, 15.0f);
+         Shapes::createQuad(space, 600.0f, 660.0f, 80.0f, 80.0f, 0.25f);
+
+         space.gravityEnabled = true;
+
+         Shapes::createStaticQuad(space, -36.0f, 0.0f, 40.0f, 755.0f, 30.0f);
+         Shapes::createStaticQuad(space, 1214.0f, 0.0f, 40.0f, 755.0f, 30.0f);
+         Shapes::createStaticQuad(space, 1.0f, 755.0f, 1217.0f, 80.0f, 30.0f);
+     }},
+    {"Rounded rect grid", [](Game *game)
+     {
+         float size = 25.0f;
+         float spacing = (size + 1.0f) * 1.5f;
+         PhysicsSpace &space = game->physicsSpace();
+         Shapes::createStaticQuad(space, -50.0f, 755.0f, 1317.0f, 80.0f, 1.0f);
+
+         for (int y = 0; y < 20; y++)
+         {
+             for (int x = 0; x < 30; x++)
+             {
+                 float xf = static_cast<float>(x);
+                 float yf = static_cast<float>(y);
+                 Shapes::createRoundedQuad(space, spacing + xf * spacing + yf * 2.0f, spacing + yf * spacing + xf * 0.01f - 900.0f, size, size, 1.0f);
+             }
+         }
+
+         Shapes::createStaticQuad(space, -36.0f, 0.0f, 40.0f, 755.0f, 1.0f);
+         Shapes::createStaticQuad(space, 1214.0f, 0.0f, 40.0f, 755.0f, 1.0f);
+
+         //   space.gravityEnabled = false;
+     }},
+};
+
 SceneDefinition gameScenes[] = {
+    {"Downpour", initDownpourScene},
+    {"Fortress", initFortressScene},
+    {"Chains", [](Game *game)
+     {
+         PhysicsSpace &space = game->physicsSpace();
+         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_31.txt");
+         game->scale() = 1.00f;
+         game->offset() = Vector2(-109.00f, 69.00f);
+     }},
     {"Bridge", [](Game *game)
      {
          int numSegments = 13;
@@ -1037,15 +1043,17 @@ SceneDefinitionFolder makeFolder(const char *name, SceneDefinition (&arr)[N], bo
     return folder;
 }
 
-// Folders hidden in the web demo are regression, debugging and work-in-progress scenes.
+// The folders shown in the web demo are a curated list of the best scenes. Hidden folders hold the
+// rest: regression, debugging and work-in-progress scenes, and scenes that are not worth showing off.
 // They are left out of the scene list there but can still be loaded by name, e.g. by the editor tests.
 SceneDefinitionFolder folders[] = {
     makeFolder("Shapes", shapeScenes),
     makeFolder("Collisions", collisionScenes, true),
     makeFolder("Collections", collectionScenes),
     makeFolder("Deformed shapes", deformedScenes, true),
-    makeFolder("Game", gameScenes),
+    makeFolder("Scenes", gameScenes),
     makeFolder("Vehicles", vehicleScenes, true),
+    makeFolder("Other", otherScenes, true),
 };
 
 const char *SceneDefinition::defaultSceneName = "Bridge";

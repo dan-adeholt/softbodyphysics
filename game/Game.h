@@ -1,8 +1,10 @@
 #ifndef __GAME_H
 #define __GAME_H
 
+
 struct CollisionGridSimple;
 struct SceneDefinition;
+class SceneScript;
 struct PhysicsSpace;
 struct ConsoleProfileInfo;
 struct ShapeBoundingBox;
@@ -57,6 +59,12 @@ public:
     void keyUp(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profileInfo);
 
     bool keyWasPressed(GameKeyCode keyCode);
+
+    // A click this frame that didn't grab a point or a shape, by SDL button number: 1 left, 3 right
+    bool mouseWasClicked(int button = 1);
+
+    // The mouse position in world coordinates
+    Vector2 mouseWorldPos() const;
     bool keyIsPressed(GameKeyCode keyCode);
 
     Array<ShapeBoundingBox> &shapeBoundingBoxes();
@@ -88,6 +96,28 @@ public:
 
     int selectedShapeIndex() const;
     void setSelectedShapeIndex(int index);
+
+    // Whether a point or a shape is being dragged with the mouse
+    bool dragging() const;
+
+    // The shape a click at the mouse would drag, or the one being dragged, or -1
+    int shapeUnderMouse();
+
+    // Drawn highlighted, to show that it can be dragged. Set by the editor, which knows whether the mouse is over its UI.
+    int hoveredShapeIndex() const;
+    void setHoveredShapeIndex(int index);
+
+    // Whether the mouse is over the canvas rather than the UI or outside the window. Set by the editor.
+    bool mouseOverCanvas() const;
+    void setMouseOverCanvas(bool overCanvas);
+
+    // Size of the canvas in screen pixels, for scenes that move the camera themselves. Set by the editor.
+    Vector2 viewSize() const;
+    void setViewSize(Vector2 size);
+
+    // The current scene's own code, if it has any. Game takes ownership and deletes it when another scene loads.
+    void setScript(SceneScript *script);
+    SceneScript *script() const;
 
     void runFor(int timeMillis, bool pauseAfter = false);
 

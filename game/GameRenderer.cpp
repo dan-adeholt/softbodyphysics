@@ -15,6 +15,7 @@
 #include "../physics/ShapeUtils.h"
 #include "../physics/CollisionSolver.h"
 #include "Game.h"
+#include "SceneScript.h"
 #include <math.h>
 
 float MIN_LINE_POS = -100000;
@@ -832,11 +833,78 @@ static void addRoundedCorner(Array<Vector2> &outlinePoints, Vector2 p0, Vector2 
     }
 }
 
+// Even-odd test against a closed outline
+static bool isInsideOutline(const Array<Vector2> &outline, Vector2 point)
+{
+    bool inside = false;
+    const int count = outline.size();
+
+    for (int i = 0, j = count - 1; i < count; j = i++)
+    {
+        const Vector2 a = outline[i];
+        const Vector2 b = outline[j];
+
+        if ((a.y > point.y) != (b.y > point.y) && point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x)
+        {
+            inside = !inside;
+        }
+    }
+
+    return inside;
+}
+
 static Vector2 catmullRom(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
 {
     float t2 = t * t;
     float t3 = t2 * t;
     return (p1 * 2.0f + (p2 - p0) * t + (p0 * 2.0f - p1 * 5.0f + p2 * 4.0f - p3) * t2 + (p1 * 3.0f - p0 - p2 * 3.0f + p3) * t3) * 0.5f;
+}
+
+CanvasColor CanvasColor::hex(uint32_t rgb, float alpha)
+{
+    return {static_cast<float>((rgb >> 16) & 0xFF) / 255.0f,
+            static_cast<float>((rgb >> 8) & 0xFF) / 255.0f,
+            static_cast<float>(rgb & 0xFF) / 255.0f,
+            alpha};
+}
+
+static SDL_FColor toSdlColor(CanvasColor color)
+{
+    return {color.r, color.g, color.b, color.a};
+}
+
+SceneCanvas::SceneCanvas(GeometryLayer &layer, float scale) : layer(layer), scale(scale)
+{
+}
+
+float SceneCanvas::pixel() const
+{
+    return 1.0f / scale;
+}
+
+void SceneCanvas::disc(Vector2 center, float radius, CanvasColor color)
+{
+    addDisc(layer, center, radius, toSdlColor(color));
+}
+
+void SceneCanvas::ring(Vector2 center, float radius, float widthPixels, CanvasColor color)
+{
+    // Enough points that the ring looks round at its size on screen
+    const int numPoints = clamp(static_cast<int>(radius * scale * 0.5f), 16, 64);
+    ringPoints.clear();
+
+    for (int k = 0; k < numPoints; k++)
+    {
+        const float angle = static_cast<float>(k) * 2.0f * PI_F / static_cast<float>(numPoints);
+        ringPoints.push(center + Vector2(cosf(angle), sinf(angle)) * radius);
+    }
+
+    addOutlineRing(layer, ringPoints, widthPixels, toSdlColor(color));
+}
+
+void SceneCanvas::line(Vector2 from, Vector2 to, float widthPixels, CanvasColor color)
+{
+    addLine(layer, from.x, from.y, to.x, to.y, scale, toSdlColor(color), widthPixels);
 }
 
 static void addJointDot(GeometryLayer &vertices, Vector2 pos, float pixel, SDL_FColor outline)
@@ -928,6 +996,23 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
             fill = hexColor(bodyColors[(i * 7 + 3) % numBodyColors]);
         }
 
+        uint32_t scriptFill = 0;
+
+        if (game.script() != nullptr && game.script()->shapeFill(i, scriptFill))
+        {
+            fill = hexColor(scriptFill);
+        }
+
+        // The shape under the mouse, or being dragged, is drawn lighter, with its outline tinted by its own colour
+        const bool hovered = i == game.hoveredShapeIndex();
+        SDL_FColor shapeOutline = outline;
+
+        if (hovered)
+        {
+            shapeOutline = mixColor(outline, fill, 0.4f);
+            fill = mixColor(fill, white, 0.2f);
+        }
+
         // Round bodies are drawn through a spline of their points, so they don't look faceted.
         // Only as finely as their size on screen needs: a long edge gets up to four segments, a short one stays as is.
         Array<Vector2> &outlinePoints = m->outlinePoints;
@@ -996,7 +1081,16 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
 
             radius /= static_cast<float>(numPoints);
 
-            const Vector2 lightPos = centroid + Vector2(-0.30f, -0.35f) * radius;
+            // The fill is a fan around the light spot, so the spot has to be inside the shape. On long thin
+            // shapes like planks the usual offset lands outside, so move it towards the middle until it fits.
+            Vector2 lightOffset = Vector2(-0.30f, -0.35f) * radius;
+
+            for (int attempt = 0; attempt < 6 && !isInsideOutline(outlinePoints, centroid + lightOffset); attempt++)
+            {
+                lightOffset *= 0.5f;
+            }
+
+            const Vector2 lightPos = centroid + lightOffset;
             const SDL_FColor lightColor = mixColor(fill, white, 0.35f);
             const SDL_FColor rimColor = mixColor(fill, black, 0.10f);
 
@@ -1036,7 +1130,7 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
             }
         }
 
-        addOutlineRing(m->outlineVertices, outlinePoints, 2.5f, outline);
+        addOutlineRing(m->outlineVertices, outlinePoints, 2.5f, shapeOutline);
 
         if (style == ShapeStyle::Structure)
         {
@@ -1075,6 +1169,12 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
     for (int i = 0; i < space.staticJoints.size(); i++)
     {
         addJointDot(m->detailVertices, points.pos[space.staticJoints[i].pointIndex], pixel, outline);
+    }
+
+    if (game.script() != nullptr)
+    {
+        SceneCanvas canvas(m->detailVertices, scale);
+        game.script()->drawOverlay(game, canvas);
     }
 
     renderVertices(renderer, m->backgroundVertices, offset, scale, m->texture);

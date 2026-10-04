@@ -516,7 +516,8 @@ bool tickGameApp(GameApp *app)
             }
             break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            if (processInput)
+            // Clicks on the toolbar and panels are for them, not for the shapes underneath
+            if (processInput && !ImGui::GetIO().WantCaptureMouse)
             {
                 game->onMouseDown(
                     event.button.button,

@@ -53,7 +53,7 @@ void RK4Integrator::prepareRK4Step(PhysicsSpace &space, float dt, Array<PointDer
 
     if (space.gravityEnabled)
     {
-        outDerivative.acceleration = Vector2(0.0f, 0.00015f); // Gravity
+        outDerivative.acceleration = Vector2(0.0f, space.gravity);
     }
 
     outDerivatives.fill(outDerivative, space.points.size());

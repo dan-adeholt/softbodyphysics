@@ -49,11 +49,15 @@ struct PhysicsSpace
 
     StaticJoint mouseJoint;
     bool gravityEnabled;
+    // Downward acceleration in world units per millisecond squared
+    float gravity = defaultGravity;
     bool collisionsEnabled;
     bool shapeMatchingEnabled;
     bool springsEnabled;
 
     bool isPrefab = false;
+
+    static constexpr float defaultGravity = 0.00015f;
 
 private:
     void removeShapeWithoutPoints(int shapeIndex);

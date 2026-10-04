@@ -18,6 +18,7 @@
 #include "../fontawesome/IconsFontAwesome4.h"
 #include "../utils/MinMax.h"
 #include "ShapeResources.h"
+#include "SceneScript.h"
 #include <stdlib.h>
 
 const char *contextMenu = "Context menu";
@@ -165,6 +166,7 @@ struct Editor::Impl
     bool showProfiler = false;
     bool debugDraw = false;
     bool antiAliasing = true;
+    bool hasDragged = false;
 };
 
 Editor::Editor(const char *appPath)
@@ -376,6 +378,9 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo, ImFont *title
     Game &currentGame = *getCurrentGame();
     renderCanvasPopups(currentGame);
     renderProfilerOverlay(currentGame, profileInfo);
+    updateCanvasHover(currentGame);
+    renderDragHint(currentGame);
+    renderStatusText(currentGame);
 
     if (m->showConsole)
     {
@@ -387,6 +392,76 @@ void Editor::renderUI(Game &game, ConsoleProfileInfo &profileInfo, ImFont *title
         ImGui::PopStyleVar(2);
         popOverlayStyle();
     }
+}
+
+// Highlights the shape under the mouse, with a hand cursor, to show that it can be dragged.
+// Not while the mouse is over the UI or outside the window. Over empty space, a scene script can
+// hide the cursor to draw its own, such as a crosshair.
+void Editor::updateCanvasHover(Game &game)
+{
+    const bool overCanvas = ImGui::IsMousePosValid() && !ImGui::GetIO().WantCaptureMouse;
+    const int hovered = game.dragging() || overCanvas ? game.shapeUnderMouse() : -1;
+    game.setHoveredShapeIndex(hovered);
+    game.setMouseOverCanvas(overCanvas);
+    game.setViewSize(Vector2(ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y));
+
+    if (hovered != -1)
+    {
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+    }
+    else if (overCanvas && game.script() != nullptr && game.script()->hidesCursor())
+    {
+        // The scene's script draws its own, such as a crosshair
+        ImGui::SetMouseCursor(ImGuiMouseCursor_None);
+    }
+}
+
+// Web visitors don't know that shapes can be dragged, so tell them until they have dragged one
+void Editor::renderDragHint(Game &game)
+{
+#ifdef __EMSCRIPTEN__
+    m->hasDragged = m->hasDragged || game.dragging();
+
+    if (m->hasDragged)
+    {
+        return;
+    }
+
+    const char *hint = "Drag shapes to move them.";
+    const ImVec2 displaySize = ImGui::GetIO().DisplaySize;
+    const ImVec2 textSize = ImGui::CalcTextSize(hint);
+    const ImVec2 padding(16.0f, 9.0f);
+    const ImVec2 topLeft((displaySize.x - textSize.x) * 0.5f - padding.x, displaySize.y - toolbarMargin - textSize.y - padding.y * 2.0f);
+    const ImVec2 bottomRight(topLeft.x + textSize.x + padding.x * 2.0f, topLeft.y + textSize.y + padding.y * 2.0f);
+
+    // Drawn behind the UI windows, so the console covers it when open
+    ImDrawList *drawList = ImGui::GetBackgroundDrawList();
+    drawList->AddRectFilled(topLeft, bottomRight, IM_COL32(255, 255, 255, 230), (bottomRight.y - topLeft.y) * 0.5f);
+    drawList->AddRect(topLeft, bottomRight, IM_COL32(34, 48, 63, 60), (bottomRight.y - topLeft.y) * 0.5f);
+    drawList->AddText(ImVec2(topLeft.x + padding.x, topLeft.y + padding.y), IM_COL32(34, 48, 63, 255), hint);
+#endif
+}
+
+// The scene script's status line, such as a score, centered below the toolbar
+void Editor::renderStatusText(Game &game)
+{
+    const char *text = game.script() != nullptr ? game.script()->statusText() : nullptr;
+
+    if (text == nullptr || text[0] == '\0')
+    {
+        return;
+    }
+
+    const ImVec2 displaySize = ImGui::GetIO().DisplaySize;
+    const ImVec2 textSize = ImGui::CalcTextSize(text);
+    const ImVec2 padding(16.0f, 9.0f);
+    const ImVec2 topLeft((displaySize.x - textSize.x) * 0.5f - padding.x, toolbarBottom + 12.0f);
+    const ImVec2 bottomRight(topLeft.x + textSize.x + padding.x * 2.0f, topLeft.y + textSize.y + padding.y * 2.0f);
+
+    ImDrawList *drawList = ImGui::GetBackgroundDrawList();
+    drawList->AddRectFilled(topLeft, bottomRight, IM_COL32(255, 255, 255, 230), (bottomRight.y - topLeft.y) * 0.5f);
+    drawList->AddRect(topLeft, bottomRight, IM_COL32(34, 48, 63, 60), (bottomRight.y - topLeft.y) * 0.5f);
+    drawList->AddText(ImVec2(topLeft.x + padding.x, topLeft.y + padding.y), IM_COL32(34, 48, 63, 255), text);
 }
 
 // Opened levels as a row of tabs below the toolbar. Only shown when a level file is open next to the scene.
@@ -489,8 +564,10 @@ void Editor::renderCanvasPopups(Game &game)
     ImGui::PushStyleColor(ImGuiCol_TitleBg, ImVec4(0.97f, 0.96f, 0.93f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_TitleBgActive, ImVec4(0.97f, 0.96f, 0.93f, 1.0f));
 
-    // Right click on the canvas, but not on the toolbar or other panels
-    if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
+    // Right click on the canvas, but not on the toolbar or other panels, unless the scene's script uses it
+    const bool scriptUsesRightClick = game.script() != nullptr && game.script()->usesRightClick();
+
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) && !scriptUsesRightClick)
     {
         ImGui::OpenPopup(contextMenu);
     }

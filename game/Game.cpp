@@ -10,6 +10,7 @@
 #include "../physics/ShapeUtils.h"
 #include "../physics/CollisionSolver.h"
 #include "../containers/StringBuffer.h"
+#include "SceneScript.h"
 #include <stdio.h>
 #include <math.h>
 #include "Shapes.h"
@@ -55,6 +56,58 @@ struct Game::Impl
         return (mousePos - offset) / scale;
     }
 
+    // The point within a few pixels of pos, which a click grabs on its own, or -1
+    int pointAt(Vector2 pos)
+    {
+        for (int i = 0; i < physicsSpace.points.size(); i++)
+        {
+            Vector2 pointPos = physicsSpace.points.pos[i];
+            if (Vector2::vec2distance(pos.x, pos.y, pointPos.x, pointPos.y) < (4.0f / scale))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    int shapeOfPoint(int pointIndex)
+    {
+        for (int j = 0; j < physicsSpace.shapes.size(); j++)
+        {
+            const Shape &shape = physicsSpace.shapes[j];
+
+            if (pointIndex >= shape.start && pointIndex < shape.end)
+            {
+                return j;
+            }
+        }
+
+        return -1;
+    }
+
+    // The shape that pos is inside, which a click drags as a whole, or -1
+    int shapeAt(Vector2 pos)
+    {
+        Array<ShapeBoundingBox> &boxes = collisionSolver.boundingBoxes();
+
+        for (int i = 0; i < boxes.size(); i++)
+        {
+            ShapeBoundingBox &box = boxes[i];
+            if (box.includes(pos))
+            {
+                Shape &shape = physicsSpace.shapes[box.shapeIndex];
+
+                if (!CollisionSolver::isPointOutsideShape(-1, pos.x, pos.y, box, physicsSpace.points.range(), shape))
+                {
+                    return box.shapeIndex;
+                }
+            }
+        }
+
+        return -1;
+    }
+
     PhysicsSpace history[NUM_HISTORICAL_STATES];
     int historicalIndex = 0;
     int historyRewindIndex = 0;
@@ -93,6 +146,11 @@ struct Game::Impl
     int copyShapeIndex = -1;
     Vector2 mousePos;
     AddSubShapeData addSubshapeData;
+    int hoveredShapeIndex = -1;
+    bool mouseOverCanvas = false;
+    bool clickedButtons[4] = {}; // By SDL button number: 1 left, 3 right
+    Vector2 viewSize = Vector2(1280.0f, 720.0f);
+    SceneScript *script = nullptr;
 };
 
 Game::Game(const char *appPath, const char *filePath) : m(new Game::Impl(appPath, filePath))
@@ -115,6 +173,8 @@ void Game::init(const SceneDefinition &scene)
     m->renderSettings = GameRenderSettings();
     m->stopPointWhenDragging = true;
     m->frameCallbacks.clear();
+    delete m->script;
+    m->script = nullptr;
     m->scale = 1.0f;
     m->offset = Vector2(400, 0);
     m->historicalIndex = 0;
@@ -140,6 +200,7 @@ void Game::init(const char *sceneType)
 
 Game::~Game()
 {
+    delete m->script;
     delete m;
 }
 
@@ -365,9 +426,19 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
         callback.function(this, callback.args);
     }
 
+    if (m->script != nullptr)
+    {
+        m->script->update(*this, (float)elapsedTimeMilliseconds);
+    }
+
     for (int i = 0; i < (int)GameKeyCode::NUM_KEY_CODES; i++)
     {
         m->keyPressedState[i] = false;
+    }
+
+    for (int i = 0; i < 4; i++)
+    {
+        m->clickedButtons[i] = false;
     }
 }
 
@@ -387,58 +458,51 @@ void Game::onMouseDown(int button, float x, float y, bool shiftDown)
         return;
     }
 
-    Vector2 translatedPos = m->translatedMousePos();
-
-    for (int i = 0; i < m->physicsSpace.points.size(); i++)
+    // Scene scripts that use every click, such as a game aimed with the mouse, can turn dragging off
+    if (m->script != nullptr && !m->script->allowsDragging())
     {
-        Vector2 pos = m->physicsSpace.points.pos[i];
-        if (Vector2::vec2distance(translatedPos.x, translatedPos.y, pos.x, pos.y) < (4.0f / m->scale))
+        if (button >= 0 && button < 4)
         {
-            if (shiftDown)
-            {
-                for (int j = 0; j < m->physicsSpace.shapes.size(); j++)
-                {
-                    const Shape &shape = m->physicsSpace.shapes[j];
-
-                    if (i >= shape.start && i < shape.end)
-                    {
-                        m->selectedShapeIndex = j;
-                        break;
-                    }
-                }
-            }
-            else
-            {
-
-                m->physicsSpace.mouseJoint.pointIndex = i;
-                m->physicsSpace.mouseJoint.position = translatedPos;
-            }
-
-            return;
+            m->clickedButtons[button] = true;
         }
+
+        return;
     }
 
-    Array<ShapeBoundingBox> &boxes = m->collisionSolver.boundingBoxes();
-    int test = boxes.size();
+    Vector2 translatedPos = m->translatedMousePos();
+    int pointIndex = m->pointAt(translatedPos);
 
-    int testedBoxes = 0;
-    for (int i = 0; i < boxes.size(); i++)
+    if (pointIndex != -1)
     {
-        ShapeBoundingBox &box = boxes[i];
-        if (box.includes(translatedPos))
+        if (shiftDown)
         {
-            Shape &shape = m->physicsSpace.shapes[box.shapeIndex];
+            int shapeIndex = m->shapeOfPoint(pointIndex);
 
-            if (!CollisionSolver::isPointOutsideShape(-1, translatedPos.x, translatedPos.y, box, m->physicsSpace.points.range(), shape))
+            if (shapeIndex != -1)
             {
-                m->selectedShapeIndex = box.shapeIndex;
-                m->shapeMatchDragData.dragShapeIndex = box.shapeIndex;
-                m->shapeMatchDragData.center = translatedPos;
-                break;
+                m->selectedShapeIndex = shapeIndex;
             }
         }
+        else
+        {
+            m->physicsSpace.mouseJoint.pointIndex = pointIndex;
+            m->physicsSpace.mouseJoint.position = translatedPos;
+        }
 
-        testedBoxes++;
+        return;
+    }
+
+    int shapeIndex = m->shapeAt(translatedPos);
+
+    if (shapeIndex != -1)
+    {
+        m->selectedShapeIndex = shapeIndex;
+        m->shapeMatchDragData.dragShapeIndex = shapeIndex;
+        m->shapeMatchDragData.center = translatedPos;
+    }
+    else if (button >= 0 && button < 4)
+    {
+        m->clickedButtons[button] = true;
     }
 }
 
@@ -787,14 +851,25 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
 
 void Game::keyUp(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profileInfo)
 {
+    // keyPressedState is left for keyWasPressed until the end of the update, so a tap
+    // that goes down and up within one frame isn't lost
     m->keyState[(size_t)keyCode] = false;
-    m->keyPressedState[(size_t)keyCode] = false;
     m->modKeyState = modState;
 }
 
 bool Game::keyWasPressed(GameKeyCode keyCode)
 {
     return m->keyPressedState[(size_t)keyCode];
+}
+
+bool Game::mouseWasClicked(int button)
+{
+    return button >= 0 && button < 4 && m->clickedButtons[button];
+}
+
+Vector2 Game::mouseWorldPos() const
+{
+    return m->translatedMousePos();
 }
 
 bool Game::keyIsPressed(GameKeyCode keyCode)
@@ -915,6 +990,76 @@ int Game::selectedShapeIndex() const
 void Game::setSelectedShapeIndex(int index)
 {
     m->selectedShapeIndex = index;
+}
+
+bool Game::dragging() const
+{
+    return m->physicsSpace.mouseJoint.pointIndex != -1 || m->shapeMatchDragData.dragShapeIndex != -1;
+}
+
+int Game::shapeUnderMouse()
+{
+    if (m->physicsSpace.mouseJoint.pointIndex != -1)
+    {
+        return m->shapeOfPoint(m->physicsSpace.mouseJoint.pointIndex);
+    }
+
+    if (m->shapeMatchDragData.dragShapeIndex != -1)
+    {
+        return m->shapeMatchDragData.dragShapeIndex;
+    }
+
+    // Panning and placing subshapes don't drag anything, and neither do scenes that turn dragging off
+    if (m->panning || m->addSubshapeData.active || (m->script != nullptr && !m->script->allowsDragging()))
+    {
+        return -1;
+    }
+
+    Vector2 translatedPos = m->translatedMousePos();
+    int pointIndex = m->pointAt(translatedPos);
+
+    return pointIndex != -1 ? m->shapeOfPoint(pointIndex) : m->shapeAt(translatedPos);
+}
+
+int Game::hoveredShapeIndex() const
+{
+    return m->hoveredShapeIndex;
+}
+
+void Game::setHoveredShapeIndex(int index)
+{
+    m->hoveredShapeIndex = index;
+}
+
+bool Game::mouseOverCanvas() const
+{
+    return m->mouseOverCanvas;
+}
+
+void Game::setMouseOverCanvas(bool overCanvas)
+{
+    m->mouseOverCanvas = overCanvas;
+}
+
+Vector2 Game::viewSize() const
+{
+    return m->viewSize;
+}
+
+void Game::setViewSize(Vector2 size)
+{
+    m->viewSize = size;
+}
+
+void Game::setScript(SceneScript *script)
+{
+    delete m->script;
+    m->script = script;
+}
+
+SceneScript *Game::script() const
+{
+    return m->script;
 }
 
 void Game::runFor(int timeMillis, bool pauseAfter)
