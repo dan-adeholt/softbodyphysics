@@ -144,6 +144,11 @@ public:
         // The shape being dragged with the mouse, if any
         const int draggedShape = game.dragging() ? game.shapeUnderMouse() : -1;
 
+        for (int i = 0; i < obstacles.size(); i++)
+        {
+            updateObstacle(space, obstacles[i]);
+        }
+
         for (int i = 0; i < boids.size(); i++)
         {
             Boid &boid = boids[i];
@@ -394,6 +399,7 @@ private:
         float flashMs;
     };
 
+    // A rock's position and size, read from its shape every frame, as it can be dragged around
     struct Obstacle
     {
         Vector2 pos;
@@ -537,6 +543,38 @@ private:
         }
 
         return sum / static_cast<float>(boid.pointEnd - boid.pointStart);
+    }
+
+    // Where the rock's shape is now, and how big: its points' center and their average distance from it
+    void updateObstacle(const PhysicsSpace &space, Obstacle &obstacle) const
+    {
+        if (obstacle.shapeIndex >= space.shapes.size())
+        {
+            return;
+        }
+
+        const Shape &shape = space.shapes[obstacle.shapeIndex];
+        const float numPoints = static_cast<float>(shape.end - shape.start);
+        Vector2 sum;
+
+        for (int p = shape.start; p < shape.end; p++)
+        {
+            sum += space.points.pos[p];
+        }
+
+        const Vector2 pos = sum / numPoints;
+        float distanceSum = 0.0f;
+
+        for (int p = shape.start; p < shape.end; p++)
+        {
+            distanceSum += (space.points.pos[p] - pos).length();
+        }
+
+        if (!isnan(pos.x) && !isnan(pos.y))
+        {
+            obstacle.pos = pos;
+            obstacle.radius = distanceSum / numPoints;
+        }
     }
 
     Vector2 groupVelocity(const PhysicsSpace &space, const Boid &boid) const
