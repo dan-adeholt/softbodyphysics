@@ -1,5 +1,5 @@
 #include "Scenes.h"
-#include "DownpourScene.h"
+#include "ChaosScene.h"
 #include <stdio.h>
 #include "Shapes.h"
 #include "Game.h"
@@ -637,32 +637,6 @@ SceneDefinition shapeScenes[] = {
 };
 
 SceneDefinition collectionScenes[] = {
-    {"Stacked boxes", [](Game *game)
-     {
-         float size = 30.0f;
-         float spacing = (size + 1.0f) * 3.0f;
-         PhysicsSpace &space = game->physicsSpace();
-         for (int y = 0; y < 20; y++)
-         {
-             float yf = static_cast<float>(y);
-             Shapes::createQuad(space, 150.0f + yf * 2.0f, -1900.0f + yf * spacing, size, size, 0.25f);
-
-             //  if (y < 4)
-             //  {
-
-             //  }
-         }
-
-         //  space.gravityEnabled = false;
-
-         Shapes::createStaticQuad(space, -36.0f, 0.0f, 40.0f, 755.0f, 1.0f);
-         Shapes::createStaticQuad(space, 1214.0f, 0.0f, 40.0f, 755.0f, 1.0f);
-         Shapes::createStaticQuad(space, 1.0f, 755.0f, 1217.0f, 80.0f, 1.0f);
-
-         //  game->scale() = 4.14f;
-         game->offset() = Vector2(400.0f, -400.0f);
-         //  game->runFor(2430, true);
-     }},
     {"Falling boxes", [](Game *game)
      {
          float size = 25.0f;
@@ -734,6 +708,32 @@ SceneDefinition collectionScenes[] = {
 
 // Scenes that work but are left out of the curated web demo list
 SceneDefinition otherScenes[] = {
+    {"Stacked boxes", [](Game *game)
+     {
+         float size = 30.0f;
+         float spacing = (size + 1.0f) * 3.0f;
+         PhysicsSpace &space = game->physicsSpace();
+         for (int y = 0; y < 20; y++)
+         {
+             float yf = static_cast<float>(y);
+             Shapes::createQuad(space, 150.0f + yf * 2.0f, -1900.0f + yf * spacing, size, size, 0.25f);
+
+             //  if (y < 4)
+             //  {
+
+             //  }
+         }
+
+         //  space.gravityEnabled = false;
+
+         Shapes::createStaticQuad(space, -36.0f, 0.0f, 40.0f, 755.0f, 1.0f);
+         Shapes::createStaticQuad(space, 1214.0f, 0.0f, 40.0f, 755.0f, 1.0f);
+         Shapes::createStaticQuad(space, 1.0f, 755.0f, 1217.0f, 80.0f, 1.0f);
+
+         //  game->scale() = 4.14f;
+         game->offset() = Vector2(400.0f, -400.0f);
+         //  game->runFor(2430, true);
+     }},
     {"Circle", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();
@@ -825,7 +825,7 @@ SceneDefinition otherScenes[] = {
 };
 
 SceneDefinition gameScenes[] = {
-    {"Downpour", initDownpourScene},
+    {"Chaos", initChaosScene},
     {"Chains", [](Game *game)
      {
          PhysicsSpace &space = game->physicsSpace();

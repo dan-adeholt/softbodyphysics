@@ -1,4 +1,4 @@
-#include "DownpourScene.h"
+#include "ChaosScene.h"
 #include <math.h>
 #include "Game.h"
 #include "SceneScript.h"
@@ -47,14 +47,30 @@ static void drawBurst(SceneCanvas &canvas, Vector2 pos, float radius, float t, C
     canvas.ring(pos, radius * (0.3f + 0.7f * t), 6.0f * fade + 1.0f, {1.0f, 1.0f, 1.0f, 0.9f * fade});
 }
 
-// The downpour scene: a mass of balls, boxes and bridge-like strips in all sizes rains down without end.
+// Between colours a and b, as 0xRRGGBB, t of the way to b
+static uint32_t mixHex(uint32_t a, uint32_t b, float t)
+{
+    uint32_t mixed = 0;
+
+    for (int shift = 0; shift <= 16; shift += 8)
+    {
+        const float from = static_cast<float>((a >> shift) & 0xFF);
+        const float to = static_cast<float>((b >> shift) & 0xFF);
+        mixed |= static_cast<uint32_t>(from + (to - from) * t + 0.5f) << shift;
+    }
+
+    return mixed;
+}
+
+// The chaos scene: a mass of balls, boxes and bridge-like strips in all sizes rains down without end.
 // Once landed, rollers roll, hoppers hop and strips crawl the way they were thrown, turning back at the
 // walls, while boxes just tumble. When the arena holds as many as it can, each new arrival
-// pops the oldest one in an explosion that flings everything near it away.
-class DownpourScript : public SceneScript
+// pops the oldest one in an explosion of sparkles that flings everything near it away. New arrivals fade
+// in from white.
+class ChaosScript : public SceneScript
 {
 public:
-    explicit DownpourScript(Game &game)
+    explicit ChaosScript(Game &game)
     {
         PhysicsSpace &space = game.physicsSpace();
 
@@ -63,6 +79,19 @@ public:
         Shapes::createStaticQuad(space, 4.0f - wallWidth, 0.0f, wallWidth, groundTop, 1.0f);
         Shapes::createStaticQuad(space, arenaRight, 0.0f, wallWidth, groundTop, 1.0f);
         Shapes::createStaticQuad(space, 4.0f - wallWidth, groundTop, arenaRight + wallWidth * 2.0f - 4.0f, floorThickness, 1.0f);
+
+        // A first lot straight away, spread over the arena so none start inside each other: columns far enough
+        // apart for the widest strip, rows for the biggest ball
+        for (int row = 0; row < startRows; row++)
+        {
+            for (int column = 0; column < startColumns; column++)
+            {
+                const float jitter = (random() - 0.5f) * 20.0f;
+                const Vector2 pos(spawnLeft + static_cast<float>(column) * (spawnRight - spawnLeft) / static_cast<float>(startColumns - 1) + jitter,
+                                  spawnY + 20.0f + static_cast<float>(row) * 95.0f);
+                spawnAt(game, pos);
+            }
+        }
     }
 
     void update(Game &game, float elapsedMs) override
@@ -103,6 +132,23 @@ public:
                 i--;
             }
         }
+
+        // Sparkles slow down and sink a little
+        for (int i = 0; i < sparkles.size(); i++)
+        {
+            Sparkle &sparkle = sparkles[i];
+            sparkle.ageMs += elapsedMs;
+
+            if (sparkle.ageMs >= sparkle.lifeMs)
+            {
+                sparkles.remove(i);
+                i--;
+                continue;
+            }
+
+            sparkle.pos += sparkle.velocity * elapsedMs;
+            sparkle.velocity = sparkle.velocity * expf(-elapsedMs / 250.0f) + Vector2(0.0f, 0.0002f * elapsedMs);
+        }
     }
 
     void drawOverlay(Game &game, SceneCanvas &canvas) override
@@ -110,6 +156,16 @@ public:
         for (int i = 0; i < bursts.size(); i++)
         {
             drawBurst(canvas, bursts[i].pos, bursts[i].radius, bursts[i].ageMs / burstDurationMs, CanvasColor::hex(bursts[i].color));
+        }
+
+        // Sparkles from explosions, shrinking and fading as they go
+        for (int i = 0; i < sparkles.size(); i++)
+        {
+            const Sparkle &sparkle = sparkles[i];
+            const float t = sparkle.ageMs / sparkle.lifeMs;
+            CanvasColor color = CanvasColor::hex(sparkle.color);
+            color.a = 1.0f - t;
+            canvas.disc(sparkle.pos, sparkle.sizePixels * (1.0f - 0.5f * t) * canvas.pixel(), color);
         }
     }
 
@@ -119,7 +175,16 @@ public:
         {
             if (shapeIndex >= things[i].shapeStart && shapeIndex < things[i].shapeStart + things[i].shapeCount)
             {
-                color = kindColors[(int)things[i].kind];
+                // New arrivals start out white and fade into their colour, eased in and out
+                if (things[i].active && things[i].ageMs < appearDurationMs)
+                {
+                    const float t = things[i].ageMs / appearDurationMs;
+                    color = mixHex(0xFFFFFF, kindColors[(int)things[i].kind], t * t * (3.0f - 2.0f * t));
+                }
+                else
+                {
+                    color = kindColors[(int)things[i].kind];
+                }
                 return true;
             }
         }
@@ -158,6 +223,17 @@ private:
         float sinceDraggedMs; // Time since it was last dragged with the mouse
     };
 
+    // A small dot thrown out from an exploding thing's outline
+    struct Sparkle
+    {
+        Vector2 pos;
+        Vector2 velocity;
+        float sizePixels;
+        float ageMs;
+        float lifeMs;
+        uint32_t color;
+    };
+
     struct Burst
     {
         Vector2 pos;
@@ -175,8 +251,12 @@ private:
     static constexpr float spawnLeft = 130.0f;
     static constexpr float spawnRight = arenaRight - 125.0f;
     static constexpr float spawnY = 80.0f;
-    static constexpr float spawnIntervalMs = 140.0f;
+    static constexpr float spawnIntervalMs = 140.0f / 1.5f;
+    static const int startColumns = 5; // 30 things to start with
+    static const int startRows = 6;
     static constexpr float burstDurationMs = 400.0f;
+    static constexpr float appearDurationMs = 400.0f;
+    static const int sparklesPerExplosion = 16;
     static constexpr float maxSpeed = 3.0f;   // A safety net; crowds can't fling things faster than this
     static constexpr float explosionRadius = 110.0f; // For a medium thing; scaled by size
     static constexpr float explosionImpulse = 1.0f;  // Velocity change times mass at the center, for a medium thing
@@ -268,14 +348,18 @@ private:
         return thing;
     }
 
+    // From anywhere along the top
     void spawn(Game &game)
+    {
+        spawnAt(game, Vector2(spawnLeft + random() * (spawnRight - spawnLeft), spawnY));
+    }
+
+    // A random thing at pos, thrown in any direction from 20 degrees below horizontal to straight down
+    void spawnAt(Game &game, Vector2 pos)
     {
         PhysicsSpace &space = game.physicsSpace();
         const Kind kind = chooseKind();
         const int size = chooseSize();
-
-        // From anywhere along the top, thrown in any direction from 20 degrees below horizontal to straight down
-        const Vector2 pos(spawnLeft + random() * (spawnRight - spawnLeft), spawnY);
         const float throwAngle = (20.0f + random() * 140.0f) * PI_F / 180.0f;
         const Vector2 throwDirection(cosf(throwAngle), sinf(throwAngle));
         const float throwSpeed = 0.05f + random() * 0.35f;
@@ -326,6 +410,22 @@ private:
         thing.hopCooldownMs = 0.0f;
         thing.sinceDraggedMs = 1e9f;
         place(space, thing, pos, throwDirection * throwSpeed);
+    }
+
+    // Sparkles thrown outwards from points on the thing's outline, the same size whatever its size
+    void addSparkles(const PhysicsSpace &space, const Thing &thing)
+    {
+        const Vector2 center = groupCenter(space, thing);
+        const int numPoints = thing.pointEnd - thing.pointStart;
+        const uint32_t color = mixHex(kindColors[(int)thing.kind], 0xFFFFFF, 0.35f);
+
+        for (int k = 0; k < sparklesPerExplosion; k++)
+        {
+            const Vector2 from = space.points.pos[thing.pointStart + static_cast<int>(random() * static_cast<float>(numPoints)) % numPoints];
+            const float angle = random() * 2.0f * PI_F;
+            const Vector2 outwards = ((from - center).normalized() + Vector2(cosf(angle), sinf(angle)) * 0.6f).normalized();
+            sparkles.push({from, outwards * (0.15f + random() * 0.25f), 2.0f + random() * 2.5f, 0.0f, 350.0f + random() * 300.0f, color});
+        }
     }
 
     Vector2 groupCenter(const PhysicsSpace &space, const Thing &thing) const
@@ -386,9 +486,16 @@ private:
     {
         const Vector2 center = groupCenter(space, thing);
         const float blastRadius = explosionRadius * sizeScales[thing.size];
+        const bool valid = !isnan(center.x) && !isnan(center.y);
+
+        if (valid)
+        {
+            addSparkles(space, thing);
+        }
+
         park(space, thing, slot);
 
-        if (!isnan(center.x) && !isnan(center.y))
+        if (valid)
         {
             pushAwayFrom(space, center, blastRadius, explosionImpulse * sizeScales[thing.size], maxExplosionVelocityChange);
             bursts.push({center, blastRadius * 0.8f, kindColors[(int)thing.kind], 0.0f});
@@ -504,9 +611,10 @@ private:
     Array<Thing> things;
     Array<Vector2> templateOffsets;
     Array<Burst> bursts;
+    Array<Sparkle> sparkles;
 };
 
-void initDownpourScene(Game *game)
+void initChaosScene(Game *game)
 {
-    game->setScript(new DownpourScript(*game));
+    game->setScript(new ChaosScript(*game));
 }

@@ -78,7 +78,7 @@ set(SOURCE_FILES
     game/Game.cpp
     game/Editor.cpp
     game/Scenes.cpp
-    game/DownpourScene.cpp
+    game/ChaosScene.cpp
     utils/Console.cpp
     utils/UnitTestUtil.cpp
     containers/ContainerPlatform.cpp
@@ -118,7 +118,7 @@ set(SOURCE_FILES
     math/Vector2.h
     math/Vector2.cpp
     game/Scenes.h
-    game/DownpourScene.h
+    game/ChaosScene.h
     game/SceneScript.h
     game/Editor.h
     tasks/Scheduler.h
