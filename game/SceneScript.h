@@ -54,6 +54,12 @@ public:
 
     // A fill colour for a shape instead of its usual one, as 0xRRGGBB
     virtual bool shapeFill(int shapeIndex, uint32_t &color) { return false; }
+
+    // A left click on the canvas that didn't grab a point or a shape, at pos in world coordinates
+    virtual void clickedEmptySpace(Game &game, Vector2 pos) {}
+
+    // The mouse moving to pos while the button that clicked empty space is still held
+    virtual void draggedOverEmptySpace(Game &game, Vector2 pos) {}
 };
 
 #endif

@@ -66,7 +66,7 @@ static uint32_t mixHex(uint32_t a, uint32_t b, float t)
 // Once landed, rollers roll, hoppers hop and strips crawl the way they were thrown, turning back at the
 // walls, while boxes just tumble. When the arena holds as many as it can, each new arrival
 // pops the oldest one in an explosion of sparkles that flings everything near it away. New arrivals fade
-// in from white.
+// in from white. Clicking empty space sets off a bigger explosion there, and dragging from it a trail of them.
 class ChaosScript : public SceneScript
 {
 public:
@@ -169,6 +169,37 @@ public:
         }
     }
 
+    // A click on empty space sets off an explosion there, and dragging from it sets off more along the way
+    void clickedEmptySpace(Game &game, Vector2 pos) override
+    {
+        explode(game, pos);
+    }
+
+    void draggedOverEmptySpace(Game &game, Vector2 pos) override
+    {
+        if ((pos - lastExplosionPos).length() >= dragExplosionSpacing)
+        {
+            explode(game, pos);
+        }
+    }
+
+    void explode(Game &game, Vector2 pos)
+    {
+        lastExplosionPos = pos;
+        pushAwayFrom(game.physicsSpace(), pos, clickBlastRadius, clickBlastImpulse, clickBlastMaxVelocityChange);
+        bursts.push({pos, clickBlastRadius * 0.75f, 0xFFB040, 0.0f});
+
+        const uint32_t sparkleColors[3] = {0xFFFFFF, 0xFFD966, 0xFF8A3D};
+
+        for (int k = 0; k < clickSparkles; k++)
+        {
+            const float angle = random() * 2.0f * PI_F;
+            const Vector2 direction(cosf(angle), sinf(angle));
+            sparkles.push({pos + direction * (random() * 12.0f), direction * (0.2f + random() * 0.35f), 2.5f + random() * 3.0f, 0.0f,
+                           400.0f + random() * 400.0f, sparkleColors[k % 3]});
+        }
+    }
+
     bool shapeFill(int shapeIndex, uint32_t &color) override
     {
         for (int i = 0; i < things.size(); i++)
@@ -257,6 +288,11 @@ private:
     static constexpr float burstDurationMs = 400.0f;
     static constexpr float appearDurationMs = 400.0f;
     static const int sparklesPerExplosion = 16;
+    static constexpr float clickBlastRadius = 220.0f;
+    static constexpr float clickBlastImpulse = 3.0f; // Velocity change times mass at the center
+    static constexpr float clickBlastMaxVelocityChange = 1.0f;
+    static const int clickSparkles = 30;
+    static constexpr float dragExplosionSpacing = 40.0f; // How far the mouse moves between explosions while dragging
     static constexpr float maxSpeed = 3.0f;   // A safety net; crowds can't fling things faster than this
     static constexpr float explosionRadius = 110.0f; // For a medium thing; scaled by size
     static constexpr float explosionImpulse = 1.0f;  // Velocity change times mass at the center, for a medium thing
@@ -606,6 +642,7 @@ private:
         }
     }
 
+    Vector2 lastExplosionPos;
     float timeToNextSpawnMs = 500.0f;
     uint32_t randomState = 12345u;
     Array<Thing> things;

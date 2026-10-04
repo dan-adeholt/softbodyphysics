@@ -147,6 +147,7 @@ struct Game::Impl
     Vector2 mousePos;
     AddSubShapeData addSubshapeData;
     int hoveredShapeIndex = -1;
+    bool draggingOverEmptySpace = false; // Since a left click that didn't grab anything, until it is released
     SceneScript *script = nullptr;
 };
 
@@ -172,6 +173,7 @@ void Game::init(const SceneDefinition &scene)
     m->frameCallbacks.clear();
     delete m->script;
     m->script = nullptr;
+    m->draggingOverEmptySpace = false;
     m->scale = 1.0f;
     m->offset = Vector2(400, 0);
     m->historicalIndex = 0;
@@ -481,6 +483,11 @@ void Game::onMouseDown(int button, float x, float y, bool shiftDown)
         m->shapeMatchDragData.dragShapeIndex = shapeIndex;
         m->shapeMatchDragData.center = translatedPos;
     }
+    else if (button == 1 && m->script != nullptr)
+    {
+        m->script->clickedEmptySpace(*this, translatedPos);
+        m->draggingOverEmptySpace = true;
+    }
 }
 
 void Game::onMouseUp(int button, float x, float y, bool shiftDown)
@@ -489,6 +496,7 @@ void Game::onMouseUp(int button, float x, float y, bool shiftDown)
     m->mousePos = Vector2((float)x, (float)y);
     m->physicsSpace.mouseJoint.pointIndex = -1;
     m->shapeMatchDragData.dragShapeIndex = -1;
+    m->draggingOverEmptySpace = false;
 
     if (button == 2)
     {
@@ -543,6 +551,11 @@ void Game::onMouseMove(float x, float y, float relativeX, float relativeY)
         return;
     }
     Vector2 translatedPos = m->translatedMousePos();
+
+    if (m->draggingOverEmptySpace && m->script != nullptr)
+    {
+        m->script->draggedOverEmptySpace(*this, translatedPos);
+    }
 
     if (m->addSubshapeData.active && m->addSubshapeData.mouseDown)
     {
