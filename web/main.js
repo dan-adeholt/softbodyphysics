@@ -23,6 +23,31 @@ function appendRuntimeLog(message) {
   console.log(message);
 }
 
+// SDL measures the canvas and the device pixel ratio only on the window's resize event. The canvas can change
+// size without one, as when a device preview resizes its frame or the notch padding settles, and zooming
+// changes the pixel ratio. Then SDL kept drawing at the old size, into part of the canvas or blurred, so these
+// changes are passed on to it as resize events too.
+function forwardCanvasChangesToSdl() {
+  const notify = () => window.dispatchEvent(new Event("resize"));
+
+  new ResizeObserver(notify).observe(canvas);
+
+  // A media query for the current ratio stops matching when it changes; then watch for the new one
+  const watchPixelRatio = () => {
+    const query = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    query.addEventListener(
+      "change",
+      () => {
+        notify();
+        watchPixelRatio();
+      },
+      { once: true },
+    );
+  };
+
+  watchPixelRatio();
+}
+
 async function loadGeneratedModule() {
   return import(
     /* @vite-ignore */
@@ -56,6 +81,7 @@ async function boot() {
   });
 
   moduleInstance = await createSoftBodyPhysicsModule(moduleConfig);
+  forwardCanvasChangesToSdl();
 
   window.addEventListener("beforeunload", () => {
     moduleInstance?.requestPersistSync?.();
