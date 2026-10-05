@@ -11,17 +11,14 @@
 
 int main(int argc, char *argv[])
 {
-    // ——— Initialize SDL3 ———
-    // SDL_Init now returns bool, and the GAMECONTROLLER flag is replaced by GAMEPAD.
+    // SDL3's SDL_Init returns a bool
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMEPAD))
     {
         SDL_Log("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
         return 1;
     }
 
-    // ——— Query current display mode ———
-    // In SDL3 you call SDL_GetCurrentDisplayMode on a display ID,
-    // and it returns a pointer or NULL on failure :contentReference[oaicite:0]{index=0}.
+    // The primary display's current mode, a pointer or null on failure
     SDL_DisplayID primary = SDL_GetPrimaryDisplay();
     const SDL_DisplayMode *displayMode = SDL_GetCurrentDisplayMode(primary);
     if (!displayMode)
@@ -45,41 +42,32 @@ int main(int argc, char *argv[])
     }
 
     double frameTime = 1000.0 / displayMode->refresh_rate;
-    // 1) Create window with width, height and new flags
     SDL_Window *window = SDL_CreateWindow(
-        "SDL3 Window",
+        "Soft body physics",
         windowWidth, windowHeight,
-        SDL_WINDOW_RESIZABLE                /* allow resizing */
-            | SDL_WINDOW_HIGH_PIXEL_DENSITY /* use high‑density back‑buffer if available */
-    );
+        SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (!window)
     {
         SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
         return 1;
     }
 
-    // 2) Now set its position explicitly
     SDL_SetWindowPosition(window, windowPosX, windowPosY);
-    // 1) Build a property group
+
+    // A renderer for the window, with whichever driver SDL picks
     SDL_PropertiesID props = SDL_CreateProperties();
-
-    // 2) Tell it which window to target
     SDL_SetPointerProperty(props, SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, window);
-
-    // 3) Let SDL pick the driver (NULL name)
     SDL_SetStringProperty(props, SDL_PROP_RENDERER_CREATE_NAME_STRING, NULL);
 
     bool vsync = true;
 
-    // 4) Turn on vsync
     if (vsync)
     {
         SDL_SetBooleanProperty(props, SDL_PROP_RENDERER_CREATE_PRESENT_VSYNC_NUMBER, true);
     }
 
-    // 5) Finally create the renderer
     SDL_Renderer *renderer = SDL_CreateRendererWithProperties(props);
-    SDL_DestroyProperties(props); // you can drop the props struct once done
+    SDL_DestroyProperties(props);
 
     if (renderer == nullptr)
     {
