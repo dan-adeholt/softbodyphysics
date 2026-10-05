@@ -196,6 +196,8 @@ struct CollisionSolver
 private:
     void boxSeparateDynamicAndStaticShapes(PointMassesRange points, const Shape &movingShape, const Shape &staticShape);
 
+    void separateStuckShapes(PhysicsSpace &space, const Shape &shape1, const Shape &shape2);
+
     struct Impl;
     Impl *m;
 };

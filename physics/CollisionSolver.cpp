@@ -1250,6 +1250,7 @@ CollisionSolver::~CollisionSolver()
 void CollisionSolver::clear()
 {
     m->collisionMap.clear();
+    m->separationMemories.clear();
     m->boundingBoxes.clear();
     m->sortedBoundingBoxes.clear();
     m->sortedBoundingBoxShapeIndices.clear();
@@ -1322,8 +1323,66 @@ void CollisionSolver::boxSeparateDynamicAndStaticShapes(PointMassesRange points,
     }
 }
 
+// How many collision passes, about 2 ms each, the last resort keeps moving two bodies the same way
+static const int separationMemoryPasses = 250;
+
+// The last resort for two moving shapes that have stayed overlapping. Bodies that were moved apart a moment
+// ago are moved the same way again if that clears them. Two strips crossed through each other can't be
+// cleared by a short move: each one frees a pair of segments and the crossing moves on to the next, so
+// moving them whichever way is shortest each time sent the crossing back and forth. Moving them the same
+// way every time slides the crossing steadily to the strips' ends.
+void CollisionSolver::separateStuckShapes(PhysicsSpace &space, const Shape &shape1, const Shape &shape2)
+{
+    Array<Impl::SeparationMemory> &memories = m->separationMemories;
+    const bool sameBody = shape1.start == shape2.start;
+    int memoryIndex = -1;
+
+    for (int i = 0; i < memories.size(); i++)
+    {
+        if (m->collisionPass - memories[i].collisionPass > separationMemoryPasses)
+        {
+            memories.remove(i);
+            i--;
+            continue;
+        }
+
+        const bool sameOrder = memories[i].bodyStart1 == shape1.start && memories[i].bodyStart2 == shape2.start;
+        const bool swapped = memories[i].bodyStart1 == shape2.start && memories[i].bodyStart2 == shape1.start;
+
+        if (!sameBody && (sameOrder || swapped))
+        {
+            memoryIndex = i;
+        }
+    }
+
+    Vector2 keepDirection;
+
+    if (memoryIndex != -1)
+    {
+        const Impl::SeparationMemory &memory = memories[memoryIndex];
+        keepDirection = memory.bodyStart1 == shape1.start ? memory.direction : -memory.direction;
+    }
+
+    PointMassesRange range(space.points.range());
+    Vector2 usedDirection;
+
+    if (!ShapeAxisSeparator::separateShapesFromIntersectionAxis(range, shape1, shape2, memoryIndex != -1 ? &keepDirection : nullptr, &usedDirection) || sameBody)
+    {
+        return;
+    }
+
+    if (memoryIndex == -1)
+    {
+        memories.push(Impl::SeparationMemory());
+        memoryIndex = memories.size() - 1;
+    }
+
+    memories[memoryIndex] = {shape1.start, shape2.start, usedDirection, m->collisionPass};
+}
+
 void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &profileInfo)
 {
+    m->collisionPass++;
     Timer collisionsTimer;
     resetWheelMotorState(&space);
     updateBoundingBoxes(space, profileInfo);
@@ -1402,8 +1461,7 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &
             }
             else if (!shape1.isStatic && !shape2.isStatic)
             {
-                PointMassesRange range(space.points.range());
-                ShapeAxisSeparator::separateShapesFromIntersectionAxis(range, shape1, shape2);
+                separateStuckShapes(space, shape1, shape2);
             }
             else if ((shape1.isStatic && !shape2.isStatic) || (shape2.isStatic && !shape1.isStatic))
             {
@@ -1433,6 +1491,8 @@ void CollisionSolver::handleCollisions(PhysicsSpace &space, ConsoleProfileInfo &
 void CollisionSolver::assign(CollisionSolver &other)
 {
     m->collisionMap.assign(other.m->collisionMap);
+    m->separationMemories.replace(other.m->separationMemories);
+    m->collisionPass = other.m->collisionPass;
     m->boundingBoxes.replace(other.m->boundingBoxes);
     m->sortedBoundingBoxes.replace(other.m->sortedBoundingBoxes);
 }

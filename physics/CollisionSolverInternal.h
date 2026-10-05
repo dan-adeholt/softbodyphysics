@@ -14,7 +14,8 @@ struct CollisionSolver::Impl
              gridCollisionMap(0),
              boundingBoxes(0),
              sortedBoundingBoxes(0),
-             sortedBoundingBoxShapeIndices(0)
+             sortedBoundingBoxShapeIndices(0),
+             separationMemories(64)
     {
     }
 
@@ -27,6 +28,20 @@ struct CollisionSolver::Impl
     Array<int> sortedBoundingBoxShapeIndices;
     CollisionGridSimple collisionGridSimple;
     bool useCollisionGrid = false;
+
+    // Which way the last resort separation last moved two bodies apart: the second body's direction from
+    // the first, bodies being told apart by their first point. Kept for a while so it keeps moving them the
+    // same way while they stay tangled.
+    struct SeparationMemory
+    {
+        int bodyStart1;
+        int bodyStart2;
+        Vector2 direction;
+        int collisionPass;
+    };
+
+    Array<SeparationMemory> separationMemories;
+    int collisionPass = 0;
 };
 
 // Direction a penetrating point is nudged after being snapped onto the entry

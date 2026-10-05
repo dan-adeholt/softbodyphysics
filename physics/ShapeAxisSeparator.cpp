@@ -127,7 +127,8 @@ namespace
     }
 }
 
-bool ShapeAxisSeparator::separateShapesFromIntersectionAxis(PointMassesRange &points, const Shape &shape1, const Shape &shape2)
+bool ShapeAxisSeparator::separateShapesFromIntersectionAxis(PointMassesRange &points, const Shape &shape1, const Shape &shape2,
+                                                            const Vector2 *keepDirection, Vector2 *usedDirection)
 {
     int commonEdge = shape1.commonEdge(shape2);
     if (commonEdge != -1)
@@ -151,6 +152,26 @@ bool ShapeAxisSeparator::separateShapesFromIntersectionAxis(PointMassesRange &po
         !separation.found)
     {
         return false;
+    }
+
+    // The same way as last time, if moving that way clears them without moving more than three times as far as the
+    // shortest way would. Much further, and a shape in a pile gets shoved a long way into its neighbours.
+    if (keepDirection != nullptr)
+    {
+        const Projection projection1 = project(points, range1, *keepDirection);
+        const Projection projection2 = project(points, range2, *keepDirection);
+        const float distance = projection1.max - projection2.min;
+
+        if (distance > 0.0f && distance <= separation.distance * 3.0f)
+        {
+            separation.direction = *keepDirection;
+            separation.distance = distance;
+        }
+    }
+
+    if (usedDirection != nullptr)
+    {
+        *usedDirection = separation.direction;
     }
 
     // A little past touching, like the collision passes' push out
