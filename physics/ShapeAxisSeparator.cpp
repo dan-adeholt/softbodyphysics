@@ -2,165 +2,133 @@
 #include "ShapeUtils.h"
 #include "../math/Vector2.h"
 #include "../physics/Physics.h"
-#include "../utils/Console.h"
 #include "../utils/MinMax.h"
 #include <math.h>
 
-struct ShapeIntersectionInfo
+// The last resort for two moving shapes that the collision passes have failed to pull apart for a while.
+// They are moved apart in one go, along the direction that takes the shortest move to clear them, as found by
+// the separating axis test over the shapes' outer edges. The bodies they belong to are shifted as a whole,
+// all their points together, so their shapes are left alone and shape matching has nothing to undo, and they
+// share the move by inverse mass. Any speed they still have towards each other along that direction is taken
+// away too, so they don't run straight back in.
+//
+// Whole bodies move, not just the two shapes, because a shape can be one segment of a strip such as a
+// bridge, sharing its points with the next. Moving one segment on its own wrenched its neighbours into the
+// other strip, and strips lying across each other stayed tangled.
+//
+// Edges a shape shares with a neighbouring shape of the same body, such as the joints between bridge
+// segments, aren't used as directions: moving apart along them would push a segment into its neighbour.
+
+namespace
 {
-    bool isValid;
-    int numIntersections;
-    Vector2 averageIntersectionPoint;
-    Vector2 averageIntersectionDirection;
-};
-
-Vector2 closestPointToLine(const Vector2 &A, const Vector2 &B, const Vector2 &P)
-{
-    Vector2 AP = P - A;
-    Vector2 AB = B - A;
-
-    float magnitudeAB = AB.lengthSquared();
-    float t = AP.dot(AB) / magnitudeAB;
-
-    return A + AB * t;
-}
-
-struct FarthestPointResult
-{
-    float distance;
-    bool negative;
-    int shape;
-    Vector2 point;
-};
-
-float distanceToLine(const Vector2 &A, const Vector2 &B, const Vector2 &P)
-{
-    Vector2 closest = closestPointToLine(A, B, P);
-    return (P - closest).length();
-}
-
-ShapeIntersectionInfo getShapeIntersectionInfo(const PointMassesRange &points, const Shape &shape1, const Shape &shape2)
-{
-    ShapeIntersectionInfo result;
-    int numIntersections = 0;
-
-    const ShapeIndexedRange range1(shape1);
-    const ShapeIndexedRange range2(shape2);
-
-    for (int i = 0; i < range1.size(); i++)
+    struct Projection
     {
-        int i0 = range1[i];
-        int i1 = range1[(i + 1) % range1.size()];
-        Vector2 p0 = points.pos[i0];
-        Vector2 p1 = points.pos[i1];
+        float min;
+        float max;
+    };
 
-        for (int j = 0; j < range2.size(); j++)
+    Projection project(const PointMassesRange &points, const ShapeIndexedRange &range, Vector2 axis)
+    {
+        Projection projection = {__FLT_MAX__, -__FLT_MAX__};
+
+        for (int i = 0; i < range.size(); i++)
         {
-            int j0 = range2[j];
-            int j1 = range2[(j + 1) % range2.size()];
+            const float distance = points.pos[range[i]].dot(axis);
+            projection.min = min(projection.min, distance);
+            projection.max = max(projection.max, distance);
+        }
 
-            if (i0 == j0 || i0 == j1 || i1 == j0 || i1 == j1)
+        return projection;
+    }
+
+    struct Separation
+    {
+        bool found;
+        Vector2 direction; // The way shape 2 moves away from shape 1
+        float distance;
+    };
+
+    // Tries the normals of the shape's outer edges as directions to move the shapes apart along, keeping the
+    // one with the shortest move. Returns false if the shapes are already apart along one of them.
+    bool findShortestSeparation(const PointMassesRange &points, const ShapeIndexedRange &edgeRange, const ShapeIndexedRange &range1,
+                                const ShapeIndexedRange &range2, Separation &best)
+    {
+        for (int i = 0; i < edgeRange.size(); i++)
+        {
+            if (edgeRange.hasInteriorEdge(i))
             {
                 continue;
             }
 
-            Vector2 op0 = points.pos[j0];
-            Vector2 op1 = points.pos[j1];
-            float t_point, t_edge;
-            if (lineSegmentIntersection(p0, p1, op0, op1, t_point, t_edge))
+            const Vector2 edge = points.pos[edgeRange[(i + 1) % edgeRange.size()]] - points.pos[edgeRange[i]];
+
+            if (edge.lengthSquared() < 1e-8f)
             {
-                Vector2 intersection = p0 + (p1 - p0) * t_point;
-                Vector2 dir1 = (p1 - p0).normalized();
-                Vector2 dir2 = (op1 - op0).normalized();
-                result.averageIntersectionDirection += dir1 + dir2;
-                numIntersections++;
-                result.averageIntersectionPoint += intersection;
-                // Console::drawPoint(intersection, 0x00FF00);
-            }
-        }
-    }
-
-    result.isValid = numIntersections > 0;
-    result.numIntersections = numIntersections;
-
-    if (result.isValid)
-    {
-        result.averageIntersectionPoint /= (float)numIntersections;
-        result.averageIntersectionDirection = result.averageIntersectionDirection.normalized();
-    }
-
-    return result;
-}
-
-Vector2 getCentroid(const PointMassesRange &points, const Shape &shape)
-{
-    Vector2 centroid;
-    ShapeIndexedRange range(shape);
-
-    for (int i = 0; i < range.size(); i++)
-    {
-        centroid += points.pos[range[i]];
-    }
-
-    return centroid / (float)range.size();
-}
-
-void placeOutsideRange(PointMassesRange &points, const Shape &shape, const Vector2 &averageIntersectionPoint, const Vector2 &averageIntersectionDirection, int shapeIndex, const FarthestPointResult &result)
-{
-    ShapeIndexedRange range(shape);
-
-    for (int i = 0; i < range.size(); i++)
-    {
-        int pointIndex = range[i];
-        Vector2 p0 = points.pos[pointIndex];
-        bool isNegative = (p0 - averageIntersectionPoint).cross(averageIntersectionDirection) < 0;
-        bool shouldBeNegative = result.shape == shapeIndex ? result.negative : !result.negative;
-
-        if (isNegative != shouldBeNegative)
-        {
-            Vector2 closestPoint = closestPointToLine(averageIntersectionPoint, averageIntersectionPoint + averageIntersectionDirection, p0);
-
-            Vector2 direction = (closestPoint - p0);
-            float directionLength = direction.length();
-
-            if (directionLength != 0.0f)
-            {
-                direction = direction / directionLength;
+                continue;
             }
 
-            Vector2 oldPos = points.pos[pointIndex];
-            points.pos[pointIndex] = closestPoint + direction * 0.01f;
-            float diff = (points.pos[pointIndex] - oldPos).length();
-            points.velocity[pointIndex] *= 0.8f;
+            const Vector2 axis = edge.normalVector().normalized();
+            const Projection projection1 = project(points, range1, axis);
+            const Projection projection2 = project(points, range2, axis);
+
+            // How far shape 2 would have to move along the axis, one way or the other, to clear shape 1
+            const float forwards = projection1.max - projection2.min;
+            const float backwards = projection2.max - projection1.min;
+
+            if (forwards <= 0.0f || backwards <= 0.0f)
+            {
+                return false;
+            }
+
+            const float distance = min(forwards, backwards);
+
+            if (!best.found || distance < best.distance)
+            {
+                best.found = true;
+                best.direction = forwards < backwards ? axis : -axis;
+                best.distance = distance;
+            }
         }
+
+        return true;
     }
-}
 
-void findFarthestPointFromRange(const PointMassesRange &points, const Shape &shape, const Vector2 &averageIntersectionPoint, const Vector2 &averageIntersectionDirection, int shapeIndex, FarthestPointResult &result)
-{
-    Vector2 A = averageIntersectionPoint;
-    Vector2 B = averageIntersectionPoint + averageIntersectionDirection * 10.0f;
-    ShapeIndexedRange range(shape);
-    for (int i = 0; i < range.size(); i++)
+    float totalMass(const PointMassesRange &points, const ShapeIndexedRange &range)
     {
-        Vector2 p0 = points.pos[range[i]];
-        bool isNegative = (p0 - averageIntersectionPoint).cross(averageIntersectionDirection) < 0;
+        float mass = 0.0f;
 
-        float distance = distanceToLine(A, B, p0);
-
-        if (distance > result.distance)
+        for (int i = 0; i < range.size(); i++)
         {
-            result.distance = distance;
-            result.negative = isNegative;
-            result.shape = shapeIndex;
-            result.point = p0;
+            mass += points.mass[range[i]];
+        }
+
+        return mass;
+    }
+
+    Vector2 averageVelocity(const PointMassesRange &points, const ShapeIndexedRange &range)
+    {
+        Vector2 velocity;
+
+        for (int i = 0; i < range.size(); i++)
+        {
+            velocity += points.velocity[range[i]];
+        }
+
+        return velocity / static_cast<float>(range.size());
+    }
+
+    void shift(PointMassesRange &points, const ShapeIndexedRange &range, Vector2 offset, Vector2 velocityChange)
+    {
+        for (int i = 0; i < range.size(); i++)
+        {
+            points.pos[range[i]] += offset;
+            points.velocity[range[i]] += velocityChange;
         }
     }
 }
 
 bool ShapeAxisSeparator::separateShapesFromIntersectionAxis(PointMassesRange &points, const Shape &shape1, const Shape &shape2)
 {
-
     int commonEdge = shape1.commonEdge(shape2);
     if (commonEdge != -1)
     {
@@ -168,23 +136,44 @@ bool ShapeAxisSeparator::separateShapesFromIntersectionAxis(PointMassesRange &po
         return false;
     }
 
-    ShapeIntersectionInfo info = getShapeIntersectionInfo(points, shape1, shape2);
+    const ShapeIndexedRange range1(shape1);
+    const ShapeIndexedRange range2(shape2);
 
-    if (info.isValid > 0)
+    if (range1.size() < 3 || range2.size() < 3)
     {
-        Vector2 center1 = getCentroid(points, shape1);
-        Vector2 center2 = getCentroid(points, shape2);
-
-        Vector2 direction = (center2 - center1).normalized().normalVector();
-
-        FarthestPointResult result = {__FLT_MIN__, false, 0, Vector2()};
-
-        findFarthestPointFromRange(points, shape1, info.averageIntersectionPoint, direction, 0, result);
-        findFarthestPointFromRange(points, shape2, info.averageIntersectionPoint, direction, 1, result);
-        placeOutsideRange(points, shape1, info.averageIntersectionPoint, direction, 0, result);
-        placeOutsideRange(points, shape2, info.averageIntersectionPoint, direction, 1, result);
-        return true;
+        return false;
     }
 
-    return false;
+    Separation separation = {false, Vector2(), 0.0f};
+
+    if (!findShortestSeparation(points, range1, range1, range2, separation) ||
+        !findShortestSeparation(points, range2, range1, range2, separation) ||
+        !separation.found)
+    {
+        return false;
+    }
+
+    // A little past touching, like the collision passes' push out
+    const float clearance = 0.1f;
+    // All the points of the bodies the shapes belong to. Two parts of the same body, such as a strip
+    // folded onto itself, move just the two parts; moving the body both ways would cancel out.
+    const bool sameBody = shape1.start == shape2.start;
+    const Shape bodyShape1(shape1.start, shape1.end);
+    const Shape bodyShape2(shape2.start, shape2.end);
+    const ShapeIndexedRange body1(sameBody ? shape1 : bodyShape1);
+    const ShapeIndexedRange body2(sameBody ? shape2 : bodyShape2);
+
+    const float inverseMass1 = 1.0f / totalMass(points, body1);
+    const float inverseMass2 = 1.0f / totalMass(points, body2);
+    const float share1 = inverseMass1 / (inverseMass1 + inverseMass2);
+    const float share2 = inverseMass2 / (inverseMass1 + inverseMass2);
+    const Vector2 move = separation.direction * (separation.distance + clearance);
+
+    // Only take away speed towards each other, not apart
+    const float closingSpeed = (averageVelocity(points, body2) - averageVelocity(points, body1)).dot(separation.direction);
+    const Vector2 velocityChange = closingSpeed < 0.0f ? separation.direction * -closingSpeed : Vector2();
+
+    shift(points, body1, -move * share1, -velocityChange * share1);
+    shift(points, body2, move * share2, velocityChange * share2);
+    return true;
 }
