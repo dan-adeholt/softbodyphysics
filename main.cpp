@@ -135,7 +135,6 @@ static void dumpWindowGeometry(int windowPosX, int windowPosY, int windowWidth, 
 
     fprintf(f, "%d %d %d %d\n", windowPosX, windowPosY, windowWidth, windowHeight);
     fclose(f);
-    fflush(f);
 #else
     (void)windowPosX;
     (void)windowPosY;

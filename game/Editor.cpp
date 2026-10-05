@@ -1144,8 +1144,13 @@ void Editor::renderStepperButtons(Game &game, ConsoleProfileInfo &profileInfo, I
     // Mirrored around play/pause: history rewind and forward next to it, restart and single step at the ends
     if (ImGui::Button(ICON_FA_STEP_BACKWARD, buttonSize) && currentSceneName != nullptr)
     {
+        // A level file has no scene definition to restart
         const SceneDefinition *scene = SceneDefinition::getDefinitionFromName(currentSceneName);
-        game.init(*scene);
+
+        if (scene != nullptr)
+        {
+            game.init(*scene);
+        }
     }
 
     ImGui::SetItemTooltip("Restart the scene");

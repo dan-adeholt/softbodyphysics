@@ -56,6 +56,32 @@ struct Game::Impl
         return (mousePos - offset) / scale;
     }
 
+    // Scene scripts keep the indices of the shapes and points they made. When something else changes the
+    // shapes, as when one is deleted or pasted, a level is loaded or history is rewound to before a shape was
+    // added, those indices go stale, so the script ends and the scene carries on without it.
+    void rememberScriptLayout()
+    {
+        scriptShapeCount = physicsSpace.shapes.size();
+        scriptPointCount = physicsSpace.points.size();
+    }
+
+    void endScriptIfLayoutChanged()
+    {
+        if (script != nullptr && (physicsSpace.shapes.size() != scriptShapeCount || physicsSpace.points.size() != scriptPointCount))
+        {
+            delete script;
+            script = nullptr;
+            Console::log("The scene's shapes were changed, so its script has stopped");
+        }
+    }
+
+    // The selected shape, or -1. The stored index can outlive the shape, as when shapes are deleted or a
+    // smaller scene or level is loaded.
+    int selectedShape() const
+    {
+        return selectedShapeIndex >= 0 && selectedShapeIndex < physicsSpace.shapes.size() ? selectedShapeIndex : -1;
+    }
+
     // The point within a few pixels of pos, which a click grabs on its own, or -1
     int pointAt(Vector2 pos)
     {
@@ -116,7 +142,7 @@ struct Game::Impl
     CollisionSolver collisionSolver;
     Integrator integrator;
 
-    int selectedShapeIndex = 0;
+    int selectedShapeIndex = -1;
     double timeBucket = 0.0;
     double lastElapsedTimeMilliseconds = 0.0;
     int iterationNumber = 0;
@@ -149,6 +175,8 @@ struct Game::Impl
     int hoveredShapeIndex = -1;
     bool draggingOverEmptySpace = false; // Since a left click that didn't grab anything, until it is released
     SceneScript *script = nullptr;
+    int scriptShapeCount = 0;
+    int scriptPointCount = 0;
 };
 
 Game::Game(const char *appPath, const char *filePath) : m(new Game::Impl(appPath, filePath))
@@ -174,12 +202,15 @@ void Game::init(const SceneDefinition &scene)
     delete m->script;
     m->script = nullptr;
     m->draggingOverEmptySpace = false;
+    m->selectedShapeIndex = -1;
+    m->copyShapeIndex = -1;
     m->scale = 1.0f;
     m->offset = Vector2(400, 0);
     m->historicalIndex = 0;
     m->paused = false;
     m->iterationNumber = 0;
     scene.initFunc(this);
+    m->rememberScriptLayout();
     m->currentSceneName = scene.name;
     m->timeBucket = 0.0;
     m->title.clear();
@@ -401,9 +432,9 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
         }
     }
 
-    if (m->selectedShapeIndex != -1)
+    if (m->selectedShape() != -1)
     {
-        m->collisionSolver.getCollisionCandidates(m->selectedShapeIndex, m->collisionCandidates, m->physicsSpace);
+        m->collisionSolver.getCollisionCandidates(m->selectedShape(), m->collisionCandidates, m->physicsSpace);
     }
     else
     {
@@ -425,9 +456,12 @@ void Game::update(double elapsedTimeMilliseconds, bool singleStep, ConsoleProfil
         callback.function(this, callback.args);
     }
 
+    m->endScriptIfLayoutChanged();
+
     if (m->script != nullptr)
     {
         m->script->update(*this, (float)elapsedTimeMilliseconds);
+        m->rememberScriptLayout();
     }
 
     for (int i = 0; i < (int)GameKeyCode::NUM_KEY_CODES; i++)
@@ -483,9 +517,10 @@ void Game::onMouseDown(int button, float x, float y, bool shiftDown)
         m->shapeMatchDragData.dragShapeIndex = shapeIndex;
         m->shapeMatchDragData.center = translatedPos;
     }
-    else if (button == 1 && m->script != nullptr)
+    else if (button == 1 && script() != nullptr)
     {
         m->script->clickedEmptySpace(*this, translatedPos);
+        m->rememberScriptLayout();
         m->draggingOverEmptySpace = true;
     }
 }
@@ -552,9 +587,10 @@ void Game::onMouseMove(float x, float y, float relativeX, float relativeY)
     }
     Vector2 translatedPos = m->translatedMousePos();
 
-    if (m->draggingOverEmptySpace && m->script != nullptr)
+    if (m->draggingOverEmptySpace && script() != nullptr)
     {
         m->script->draggedOverEmptySpace(*this, translatedPos);
+        m->rememberScriptLayout();
     }
 
     if (m->addSubshapeData.active && m->addSubshapeData.mouseDown)
@@ -660,14 +696,23 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
         m->offset += Vector2(0.0f, static_cast<float>(-nudge));
         break;
     case GameKeyCode::BACKSPACE:
-        m->physicsSpace.removeShape(m->selectedShapeIndex);
-        updateBoundingBoxes(true);
+        if (m->selectedShape() != -1)
+        {
+            m->physicsSpace.removeShape(m->selectedShape());
+            // The shapes after it have moved down
+            m->selectedShapeIndex = -1;
+            m->copyShapeIndex = -1;
+            updateBoundingBoxes(true);
+        }
         break;
     case GameKeyCode::F1:
         PhysicsSpaceStorage::dumpToUnitTest(m->physicsSpace, scale(), offset());
         break;
     case GameKeyCode::F2:
-        PhysicsSpaceStorage::dumpToPrefab(m->physicsSpace, m->selectedShapeIndex);
+        if (m->selectedShape() != -1)
+        {
+            PhysicsSpaceStorage::dumpToPrefab(m->physicsSpace, m->selectedShape());
+        }
         break;
     case GameKeyCode::F5:
         togglePaused();
@@ -720,7 +765,7 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
     {
         if (modState & (int)GameModkey::Ctrl || modState & (int)GameModkey::Meta)
         {
-            m->copyShapeIndex = m->selectedShapeIndex;
+            m->copyShapeIndex = m->selectedShape();
         }
     }
     break;
@@ -748,9 +793,9 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
         {
             saveToFile();
         }
-        else if (m->selectedShapeIndex != -1)
+        else if (m->selectedShape() != -1)
         {
-            Shape &shape = m->physicsSpace.shapes[m->selectedShapeIndex];
+            Shape &shape = m->physicsSpace.shapes[m->selectedShape()];
             shape.isStatic = !shape.isStatic;
         }
     }
@@ -758,9 +803,9 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
     break;
     case GameKeyCode::O:
     {
-        if (m->selectedShapeIndex != -1)
+        if (m->selectedShape() != -1)
         {
-            Shapes::snapToGrid(m->physicsSpace, m->selectedShapeIndex);
+            Shapes::snapToGrid(m->physicsSpace, m->selectedShape());
         }
     }
     break;
@@ -822,9 +867,9 @@ void Game::keyDown(GameKeyCode keyCode, int modState, ConsoleProfileInfo &profil
     {
         Vector2 newPos = m->translatedMousePos();
 
-        if (m->selectedShapeIndex != -1)
+        if (m->selectedShape() != -1)
         {
-            Shapes::addPointToShape(m->physicsSpace, m->selectedShapeIndex, newPos.x, newPos.y);
+            Shapes::addPointToShape(m->physicsSpace, m->selectedShape(), newPos.x, newPos.y);
         }
     }
     break;
@@ -964,7 +1009,7 @@ void Game::scheduleFrameCallback(void (*function)(Game *, void *), void *args)
 
 int Game::selectedShapeIndex() const
 {
-    return m->selectedShapeIndex;
+    return m->selectedShape();
 }
 
 void Game::setSelectedShapeIndex(int index)
@@ -1015,10 +1060,12 @@ void Game::setScript(SceneScript *script)
 {
     delete m->script;
     m->script = script;
+    m->rememberScriptLayout();
 }
 
 SceneScript *Game::script() const
 {
+    m->endScriptIfLayoutChanged();
     return m->script;
 }
 

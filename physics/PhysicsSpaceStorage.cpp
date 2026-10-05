@@ -352,13 +352,15 @@ void PhysicsSpaceStorage::dumpToPrefab(PhysicsSpace &space, int selectedShapeInd
 
     PhysicsSpace tempSpace;
 
-    Shape &selectedShape = space.shapes[selectedShapeIndex];
-
-    if (selectedShapeIndex == -1)
+    if (selectedShapeIndex < 0 || selectedShapeIndex >= space.shapes.size())
     {
         Console::log("No shape selected");
+        return;
     }
-    else if (selectedShape.parentId != -1 || selectedShape.hasIndices())
+
+    const Shape &selectedShape = space.shapes[selectedShapeIndex];
+
+    if (selectedShape.parentId != -1 || selectedShape.hasIndices())
     {
         Console::log("Multi-shapes not supported for prefabs");
         return;
@@ -394,7 +396,6 @@ void PhysicsSpaceStorage::dumpToPrefab(PhysicsSpace &space, int selectedShapeInd
     fprintf(f, "         game->setPaused();\n");
     fprintf(f, "    }},\n");
     fclose(f);
-    fflush(f);
 
     // Open the file
     FILE *file = fopen(tempFileName, "r");
@@ -457,7 +458,6 @@ void PhysicsSpaceStorage::dumpToUnitTest(PhysicsSpace &space, float scale, const
     fprintf(f, "         game->setPaused();\n");
     fprintf(f, "    }},\n");
     fclose(f);
-    fflush(f);
 
     // Open the file
     FILE *file = fopen(tempFileName, "r");
