@@ -954,10 +954,17 @@ static int calculateCollisionsMidPointInternal(
             {
                 Vector2 pushOutDirection = depenetrationDirection(pointVelocity, segmentNormal, collisionShape.windingSign);
 
-                // The two points move together, so they count as one body of twice their average mass
-                const int movingPoints[2] = {pointIndex, nextPointIndex};
-                separatePointFromEdge(points, movingPoints, 2, pointPos, 0.5f / pointMass,
-                                      collisionIndex0, collisionIndex1, result.entryTime0, result.closestPoint0, pushOutDirection * 0.2f);
+                // Both points go onto the edge's line and out past it, and the edge stays where it is. Unlike
+                // the vertex pass, the edge doesn't take a share by mass: here that pushed strips of bridge
+                // segments sideways into their neighbours, so overlapping strips stayed stuck together.
+                Vector2 avgDir = (pm1Pos - pm0Pos).normalized();
+                Vector2 A = result.closestPoint0 - avgDir * 100.0f;
+                Vector2 B = result.closestPoint0 + avgDir * 100.0f;
+
+                points.pos[collisionIndex0] = closestPointToAxis(A, B, pm0Pos);
+                points.pos[collisionIndex1] = closestPointToAxis(A, B, pm1Pos);
+                points.pos[pointIndex] = closestPointToAxis(A, B, points.pos[pointIndex]) + pushOutDirection * 0.2f;
+                points.pos[nextPointIndex] = closestPointToAxis(A, B, points.pos[nextPointIndex]) + pushOutDirection * 0.2f;
 
                 points.velocity[pointIndex] += (impulse / pointMass) * 0.5f;
                 points.velocity[nextPointIndex] += (impulse / pointMass) * 0.5f;
