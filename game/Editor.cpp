@@ -780,18 +780,27 @@ void Editor::fitViewToScene(Game &game)
         bottom = consoleHeight + toolbarMargin;
     }
 
-    const float padding = 40.0f;
     ImVec2 displaySize = ImGui::GetIO().DisplaySize;
+    // Less margin on a small screen, like a phone's
+    const float padding = min(40.0f, min(displaySize.x, displaySize.y) * 0.05f);
     float availableWidth = displaySize.x - left - padding * 2.0f;
     float availableHeight = displaySize.y - top - bottom - padding * 2.0f;
     Vector2 size = maxPos - minPos;
 
-    float scale = min(availableWidth / max(size.x, 1.0f), availableHeight / max(size.y, 1.0f));
-    scale = clamp(scale, 0.25f, 1.5f);
+    const float fitScale = min(availableWidth / max(size.x, 1.0f), availableHeight / max(size.y, 1.0f));
+    const float scale = clamp(fitScale, 0.25f, 1.5f);
+
+    // Centered if it fits. A scene too tall to fit, even zoomed out as far as the view goes, is lined up with
+    // the bottom instead, where its ground is and where things end up, as when boxes start stacked high above.
+    float y = top + padding + (availableHeight - size.y * scale) * 0.5f - minPos.y * scale;
+
+    if (size.y * scale > availableHeight)
+    {
+        y = top + padding + availableHeight - maxPos.y * scale;
+    }
 
     game.scale() = scale;
-    game.offset() = Vector2(left + padding + (availableWidth - size.x * scale) * 0.5f - minPos.x * scale,
-                            top + padding + (availableHeight - size.y * scale) * 0.5f - minPos.y * scale);
+    game.offset() = Vector2(left + padding + (availableWidth - size.x * scale) * 0.5f - minPos.x * scale, y);
 }
 
 
