@@ -161,6 +161,7 @@ struct Editor::Impl
     Array<FileEntry> openedBuffers;
     BridgePopup bridgePopup;
     bool fitViewPending = true;
+    ImVec2 lastDisplaySize;
     bool openAddLevelPopup = false;
     bool showConsole = false;
     bool showProfiler = false;
@@ -901,6 +902,15 @@ void Editor::renderToolbar(Game &game, ImFont *titleFont)
     // View settings, so they follow the editor rather than the scene or level that is open
     game.debugDraw() = m->debugDraw;
     game.antiAliasing() = m->antiAliasing;
+
+    // Refit when the screen changes size, as when a phone is turned, so the scene doesn't end up off to one side
+    const ImVec2 currentDisplaySize = ImGui::GetIO().DisplaySize;
+
+    if (currentDisplaySize.x != m->lastDisplaySize.x || currentDisplaySize.y != m->lastDisplaySize.y)
+    {
+        m->lastDisplaySize = currentDisplaySize;
+        m->fitViewPending = true;
+    }
 
     if (m->fitViewPending)
     {
