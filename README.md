@@ -90,4 +90,5 @@ Unit tests cover the containers and the physics. `PerfTest` benchmarks the integ
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+The project's own code is MIT, see [LICENSE](LICENSE). Bundled third-party code and fonts keep their own
+licenses, listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
