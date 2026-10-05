@@ -23,6 +23,7 @@
 #include "timer.h"
 #include "utils/Console.h"
 #include "utils/CustomFont.h"
+#include "utils/MinMax.h"
 #include "utils/DynamicLibrary.h"
 #include "utils/UnitTestUtil.h"
 
@@ -51,6 +52,7 @@ struct GameApp
     GameRenderer *gameRenderer = nullptr;
     ImFont *boldFont = nullptr;
     ImFont *titleFont = nullptr;
+    float fontPixelDensity = 0.0f; // What the fonts were rasterized for
     uint64_t startNanos = 0;
     bool pausedDueToFocus = false;
     bool showDemoWindow = false;
@@ -271,31 +273,17 @@ GameKeyCode convertSdlKeycode(SDL_Keycode code)
     }
 }
 
-static float queryDisplayContentScale()
-{
-    SDL_DisplayID display = SDL_GetPrimaryDisplay();
-    float contentScale = SDL_GetDisplayContentScale(display);
-
-    if (contentScale <= 0.0f)
-    {
-        SDL_Log("SDL_GetDisplayContentScale failed for display %d: %s",
-                display, SDL_GetError());
-        return 1.0f;
-    }
-
-    return contentScale;
-}
-
-static void configureFonts(ImGuiIO &io, ImFont *&boldFont, ImFont *&titleFont, float contentScale)
+// Fonts rasterized for the screen's pixel density, so text stays sharp on high density screens and when
+// zoomed in a browser. At 1x, hand-tuned bitmap versions of the regular and bold fonts replace their glyphs.
+static void configureFonts(ImGuiIO &io, ImFont *&boldFont, ImFont *&titleFont, float pixelDensity)
 {
     ImFontConfig baseFontConfig;
     ImFontConfig iconFontConfig;
+    const bool bitmapFonts = pixelDensity < 1.05f;
 
-    if (contentScale >= 2.0f)
-    {
-        iconFontConfig.RasterizerDensity = 2.0f;
-        baseFontConfig.RasterizerDensity = 2.0f;
-    }
+    // Rasterizing above 4x only makes the font texture bigger
+    iconFontConfig.RasterizerDensity = clamp(pixelDensity, 1.0f, 4.0f);
+    baseFontConfig.RasterizerDensity = clamp(pixelDensity, 1.0f, 4.0f);
 
     ImFont *font = io.Fonts->AddFontFromFileTTF("data/JetBrainsMono-Regular.ttf", 17.0f, &baseFontConfig);
 
@@ -306,7 +294,8 @@ static void configureFonts(ImGuiIO &io, ImFont *&boldFont, ImFont *&titleFont, f
 
     boldFont = io.Fonts->AddFontFromFileTTF("data/JetBrainsMono-ExtraBold.ttf", 15.0f, &baseFontConfig);
     titleFont = io.Fonts->AddFontFromFileTTF("data/JetBrainsMono-ExtraBold.ttf", 21.0f, &baseFontConfig);
-    if (contentScale < 2.0f)
+
+    if (bitmapFonts)
     {
         CustomFontEntry fonts[2] = {};
         fonts[0].font = font;
@@ -349,7 +338,8 @@ GameApp *createGameApp(SDL_Window *window, SDL_Renderer *renderer, bool vsync, d
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
 
-    configureFonts(io, app->boldFont, app->titleFont, queryDisplayContentScale());
+    app->fontPixelDensity = SDL_GetWindowPixelDensity(window);
+    configureFonts(io, app->boldFont, app->titleFont, app->fontPixelDensity);
 
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
@@ -438,6 +428,18 @@ bool tickGameApp(GameApp *app)
         {
             Scheduler::instance->start();
         }
+    }
+
+    // The window can move to a screen with another pixel density, or the browser can zoom; then the fonts are
+    // rasterized again, and the renderer backend makes a new texture for them
+    const float pixelDensity = SDL_GetWindowPixelDensity(app->window);
+
+    if (pixelDensity > 0.0f && fabsf(pixelDensity - app->fontPixelDensity) > 0.01f)
+    {
+        ImGui_ImplSDLRenderer3_DestroyFontsTexture();
+        ImGui::GetIO().Fonts->Clear();
+        configureFonts(ImGui::GetIO(), app->boldFont, app->titleFont, pixelDensity);
+        app->fontPixelDensity = pixelDensity;
     }
 
     ImGui_ImplSDLRenderer3_NewFrame();
