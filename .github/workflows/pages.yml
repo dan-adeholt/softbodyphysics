@@ -1,0 +1,61 @@
+# Builds the web demo with Emscripten and publishes it on GitHub Pages
+name: Web demo
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a newer push replaces one still waiting
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  EMSCRIPTEN_VERSION: 5.0.3
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ env.EMSCRIPTEN_VERSION }}
+          actions-cache-folder: emsdk-cache
+
+      # Emscripten's cache holds the compiled SDL3 port and system libraries, which take minutes to build
+      - uses: actions/cache@v4
+        with:
+          path: .cache/emscripten
+          key: emscripten-cache-${{ env.EMSCRIPTEN_VERSION }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: emscripten-cache-${{ env.EMSCRIPTEN_VERSION }}-
+
+      - run: npm run build:web
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

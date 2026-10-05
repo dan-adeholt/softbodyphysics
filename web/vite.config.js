@@ -27,6 +27,8 @@ function generatedArtifactsReloadPlugin() {
 }
 
 export default defineConfig({
+  // Relative asset paths, so the built page works wherever it is hosted, such as under a sub-path on GitHub Pages
+  base: "./",
   root: rootDir,
   publicDir: path.resolve(rootDir, "public"),
   plugins: [generatedArtifactsReloadPlugin()],

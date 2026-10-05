@@ -1,6 +1,9 @@
 import "./styles.css";
 
-const GENERATED_BASE = "/generated";
+// The Emscripten build's files, next to the page, so the demo works hosted under a sub-path such as GitHub Pages'
+// /softbodyphysics/ as well as at the dev server's root. A plain relative path would resolve against this
+// module's own URL, which is in assets/ once built.
+const GENERATED_BASE = new URL("generated", document.baseURI).href;
 const statusText = document.querySelector("#status-text");
 const canvas = document.querySelector("#game-canvas");
 

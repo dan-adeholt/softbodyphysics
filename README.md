@@ -2,6 +2,8 @@
 
 A 2D soft-body physics engine and level editor, written from scratch in C++ without the standard library. It runs natively on macOS and in the browser through WebAssembly.
 
+**[Try the web demo](https://dan-adeholt.github.io/softbodyphysics/)**, on a computer or a phone.
+
 ![The Bridge scene in the web demo: colored soft balls resting on a sagging teal bridge between two posts](docs/screenshot.png)
 
 It is heavily inspired by [this video](https://www.youtube.com/watch?v=3OmkehAJoyo) from the author of JellyCar. I usually do full stack web development these days, but I have a background in fairly low-level C++, and this is where I keep that up.
@@ -51,6 +53,8 @@ npm run build:web  # production bundle in web/dist
 ```
 
 The scripts use `emcmake` from your `PATH`, or a sibling `../emsdk` checkout if there is one. `dev:web` rebuilds the wasm bundle whenever a source or asset file changes, then reloads the page. Don't run both at once: they write to the same output folder.
+
+Every push to `main` builds the web demo with Emscripten and publishes it on GitHub Pages, through the workflow in `.github/workflows/pages.yml`.
 
 The Emscripten cache lives in `.cache/emscripten` by default. If you override `EM_CACHE`, the scripts resolve it to its real path first, which avoids the `/tmp` -> `/private/tmp` symlink problem that breaks Emscripten 5.0.3 on macOS.
 
