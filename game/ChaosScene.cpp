@@ -19,11 +19,13 @@ public:
     {
         PhysicsSpace &space = game.physicsSpace();
 
-        // Wide walls, and a thick floor that runs under them. With the floor ending at the walls' inner faces,
-        // things squeezed out low through a wall had nothing underneath and slid away.
+        // Wide walls, and a thick floor and ceiling that run across them, so nothing is flung out of the top.
+        // With the floor ending at the walls' inner faces, things squeezed out low through a wall had nothing
+        // underneath and slid away.
         Shapes::createStaticQuad(space, 4.0f - wallWidth, 0.0f, wallWidth, groundTop, 1.0f);
         Shapes::createStaticQuad(space, arenaRight, 0.0f, wallWidth, groundTop, 1.0f);
         Shapes::createStaticQuad(space, 4.0f - wallWidth, groundTop, arenaRight + wallWidth * 2.0f - 4.0f, floorThickness, 1.0f);
+        Shapes::createStaticQuad(space, 4.0f - wallWidth, -floorThickness, arenaRight + wallWidth * 2.0f - 4.0f, floorThickness, 1.0f);
 
         // A first lot straight away, spread over the arena so none start inside each other: columns far enough
         // apart for the widest strip, rows for the biggest ball
@@ -218,12 +220,12 @@ private:
         float ageMs;
     };
 
-    static constexpr float groundTop = 755.0f;
+    static constexpr float groundTop = 880.0f;
     static constexpr float arenaRight = 1214.0f;
     static constexpr float wallWidth = 100.0f;
-    static constexpr float floorThickness = 250.0f;
-    // Things start between the walls, below their tops, so none are thrown over them. Far enough in from the
-    // walls that the widest strip starts inside.
+    static constexpr float floorThickness = 125.0f; // The ceiling's too
+    // Things start between the walls, below the ceiling. Far enough in from the walls that the widest strip
+    // starts inside.
     static constexpr float spawnLeft = 130.0f;
     static constexpr float spawnRight = arenaRight - 125.0f;
     static constexpr float spawnY = 80.0f;
@@ -520,8 +522,8 @@ private:
             }
         }
 
-        // Flung or squeezed out over a wall: popped like an old one
-        if (!dragged && (center.x < 0.0f || center.x > arenaRight || center.y > groundTop + 50.0f))
+        // Squeezed out through a wall, the floor or the ceiling: popped like an old one
+        if (!dragged && (center.x < 0.0f || center.x > arenaRight || center.y > groundTop + 50.0f || center.y < 0.0f))
         {
             remove(space, thing, slot);
             return;
