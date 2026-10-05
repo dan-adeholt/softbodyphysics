@@ -932,6 +932,9 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
 
     // Sizes given in screen pixels are converted to world units, so they stay the same when zooming
     const float pixel = 1.0f / scale;
+    // Joint dots keep their size zooming in, but shrink zooming out, as on a phone's small screen, or they
+    // would cover the bridge segments between them. Not below 40%, so they stay visible.
+    const float jointDotPixel = pixel * clamp(scale, 0.4f, 1.0f);
     const Vector2 shadowOffset(3.0f * pixel, 7.0f * pixel);
     const SDL_FColor shadow = {0.0f, 0.0f, 0.0f, 0.10f};
     const SDL_FColor outline = hexColor(outlineColor);
@@ -955,8 +958,8 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
                 addLine(m->shadowVertices, p0.x + shadowOffset.x, p0.y + shadowOffset.y, p1.x + shadowOffset.x, p1.y + shadowOffset.y, scale, shadow, 9.0f);
                 addLine(m->outlineVertices, p0.x, p0.y, p1.x, p1.y, scale, outline, 9.0f);
                 addLine(m->outlineVertices, p0.x, p0.y, p1.x, p1.y, scale, hexColor(structureFillColor), 5.0f);
-                addJointDot(m->detailVertices, p0, pixel, outline);
-                addJointDot(m->detailVertices, p1, pixel, outline);
+                addJointDot(m->detailVertices, p0, jointDotPixel, outline);
+                addJointDot(m->detailVertices, p1, jointDotPixel, outline);
             }
 
             continue;
@@ -1136,7 +1139,7 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
         {
             for (int k = 0; k < numPoints; k++)
             {
-                addJointDot(m->detailVertices, points.pos[range[k]], pixel, outline);
+                addJointDot(m->detailVertices, points.pos[range[k]], jointDotPixel, outline);
             }
         }
 
@@ -1168,7 +1171,7 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
 
     for (int i = 0; i < space.staticJoints.size(); i++)
     {
-        addJointDot(m->detailVertices, points.pos[space.staticJoints[i].pointIndex], pixel, outline);
+        addJointDot(m->detailVertices, points.pos[space.staticJoints[i].pointIndex], jointDotPixel, outline);
     }
 
     if (game.script() != nullptr)
