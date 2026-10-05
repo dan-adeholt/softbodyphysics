@@ -794,6 +794,104 @@ void Editor::fitViewToScene(Game &game)
 }
 
 
+// How the toolbar fits the screen. As it gets narrower, the scene list shrinks first, then the buttons drop
+// their text, then the title goes, then the flask icon and some spacing, so it fits a phone held upright. The
+// scene list takes whatever room is left, up to its full width.
+struct ToolbarLayout
+{
+    bool iconOnly = false;
+    bool showTitle = true;
+    bool showFlask = true;
+    float spacing = 0.0f;
+    float sceneListWidth = 240.0f;
+};
+
+static const char *const fileLabel = ICON_FA_FOLDER_OPEN_O "  File";
+static const char *const consoleLabel = ICON_FA_TERMINAL "  Console";
+static const char *const settingsLabel = ICON_FA_COG "  Settings";
+static const char *const playLabel = ICON_FA_PLAY "  Play";
+static const char *const pauseLabel = ICON_FA_PAUSE "  Pause";
+static const char *const resetLabel = ICON_FA_REFRESH "  Reset";
+
+// The icon alone, the part of the label before its two spaces
+static void iconOf(const char *label, char *icon, size_t size)
+{
+    const char *end = strstr(label, "  ");
+    const size_t length = end != nullptr ? (size_t)(end - label) : strlen(label);
+    snprintf(icon, size, "%.*s", (int)min(length, size - 1), label);
+}
+
+static float toolbarButtonWidth(const char *label, bool iconOnly)
+{
+    if (iconOnly)
+    {
+        // Square, and no smaller than a fingertip
+        return max(ImGui::GetFrameHeight(), 36.0f);
+    }
+
+    return ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+}
+
+// A toolbar button showing just its icon when the layout asks for it, with the full label as a tooltip
+static bool toolbarButton(const char *label, float width, bool iconOnly)
+{
+    if (!iconOnly)
+    {
+        return ImGui::Button(label, ImVec2(width, 0.0f));
+    }
+
+    char icon[16];
+    iconOf(label, icon, sizeof(icon));
+    ImGui::PushID(label);
+    // No side padding, or the icon is wider than the room left inside the square button and sits off center
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, ImGui::GetStyle().FramePadding.y));
+    const bool pressed = ImGui::Button(icon, ImVec2(width, 0.0f));
+    ImGui::PopStyleVar();
+    ImGui::PopID();
+    ImGui::SetItemTooltip("%s", label + strlen(icon) + 2);
+    return pressed;
+}
+
+static ToolbarLayout layoutToolbar(float availableWidth, ImFont *titleFont)
+{
+    const float flaskWidth = ImGui::CalcTextSize(ICON_FA_FLASK).x;
+    ImGui::PushFont(titleFont);
+    const float titleWidth = ImGui::CalcTextSize("Physics Sandbox").x;
+    ImGui::PopFont();
+    const float titleGap = 28.0f;
+    const float minSceneListWidth = 110.0f;
+
+    // Widest first, each step giving up a little more
+    for (int step = 0; step < 4; step++)
+    {
+        ToolbarLayout layout;
+        layout.iconOnly = step >= 1;
+        layout.showTitle = step < 2;
+        layout.showFlask = step < 3;
+        layout.spacing = step < 3 ? ImGui::GetStyle().ItemSpacing.x : 6.0f;
+
+        float buttons = toolbarButtonWidth(fileLabel, layout.iconOnly) + toolbarButtonWidth(consoleLabel, layout.iconOnly) +
+                        toolbarButtonWidth(settingsLabel, layout.iconOnly) + toolbarButtonWidth(resetLabel, layout.iconOnly) +
+                        max(toolbarButtonWidth(playLabel, layout.iconOnly), toolbarButtonWidth(pauseLabel, layout.iconOnly));
+        float used = buttons + layout.spacing * 5.0f;
+
+        if (layout.showFlask)
+        {
+            used += flaskWidth + (layout.showTitle ? layout.spacing + titleWidth + titleGap : titleGap);
+        }
+
+        layout.sceneListWidth = min(availableWidth - used, 240.0f);
+
+        if (layout.sceneListWidth >= minSceneListWidth || step == 3)
+        {
+            layout.sceneListWidth = max(layout.sceneListWidth, 40.0f);
+            return layout;
+        }
+    }
+
+    return ToolbarLayout();
+}
+
 void Editor::renderToolbar(Game &game, ImFont *titleFont)
 {
     const float margin = toolbarMargin;
@@ -823,18 +921,28 @@ void Editor::renderToolbar(Game &game, ImFont *titleFont)
         ImGuiStyle &style = ImGui::GetStyle();
         const float frameTop = (barHeight - ImGui::GetFrameHeight()) * 0.5f;
         const char *currentSceneName = game.currentSceneName();
+        const ToolbarLayout layout = layoutToolbar(ImGui::GetContentRegionAvail().x, titleFont);
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(layout.spacing, style.ItemSpacing.y));
 
-        ImGui::SetCursorPosY((barHeight - ImGui::GetTextLineHeight()) * 0.5f);
-        ImGui::TextColored(ImVec4(0.95f, 0.65f, 0.18f, 1.0f), ICON_FA_FLASK);
-        ImGui::SameLine();
-        ImGui::PushFont(titleFont);
-        ImGui::SetCursorPosY((barHeight - ImGui::GetTextLineHeight()) * 0.5f);
-        ImGui::TextUnformatted("Physics Sandbox");
-        ImGui::PopFont();
+        if (layout.showFlask)
+        {
+            ImGui::SetCursorPosY((barHeight - ImGui::GetTextLineHeight()) * 0.5f);
+            ImGui::TextColored(ImVec4(0.95f, 0.65f, 0.18f, 1.0f), ICON_FA_FLASK);
 
-        ImGui::SameLine(0.0f, 28.0f);
+            if (layout.showTitle)
+            {
+                ImGui::SameLine();
+                ImGui::PushFont(titleFont);
+                ImGui::SetCursorPosY((barHeight - ImGui::GetTextLineHeight()) * 0.5f);
+                ImGui::TextUnformatted("Physics Sandbox");
+                ImGui::PopFont();
+            }
+
+            ImGui::SameLine(0.0f, 28.0f);
+        }
+
         ImGui::SetCursorPosY(frameTop);
-        ImGui::SetNextItemWidth(240.0f);
+        ImGui::SetNextItemWidth(layout.sceneListWidth);
 
         // The toolbar has no vertical padding, but the dropdown list should
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 10.0f));
@@ -913,18 +1021,13 @@ void Editor::renderToolbar(Game &game, ImFont *titleFont)
             ImGui::EndCombo();
         }
 
-        renderFileMenu(frameTop, game);
+        renderFileMenu(frameTop, game, layout.iconOnly);
 
         // Console, settings and playback controls, right aligned
-        const char *consoleLabel = ICON_FA_TERMINAL "  Console";
-        const char *settingsLabel = ICON_FA_COG "  Settings";
-        const char *playLabel = ICON_FA_PLAY "  Play";
-        const char *pauseLabel = ICON_FA_PAUSE "  Pause";
-        const char *resetLabel = ICON_FA_REFRESH "  Reset";
-        const float consoleWidth = ImGui::CalcTextSize(consoleLabel).x + style.FramePadding.x * 2.0f;
-        const float settingsWidth = ImGui::CalcTextSize(settingsLabel).x + style.FramePadding.x * 2.0f;
-        const float playWidth = max(ImGui::CalcTextSize(playLabel).x, ImGui::CalcTextSize(pauseLabel).x) + style.FramePadding.x * 2.0f;
-        const float resetWidth = ImGui::CalcTextSize(resetLabel).x + style.FramePadding.x * 2.0f;
+        const float consoleWidth = toolbarButtonWidth(consoleLabel, layout.iconOnly);
+        const float settingsWidth = toolbarButtonWidth(settingsLabel, layout.iconOnly);
+        const float playWidth = max(toolbarButtonWidth(playLabel, layout.iconOnly), toolbarButtonWidth(pauseLabel, layout.iconOnly));
+        const float resetWidth = toolbarButtonWidth(resetLabel, layout.iconOnly);
 
         ImGui::SameLine(ImGui::GetWindowWidth() - style.WindowPadding.x - consoleWidth - settingsWidth - playWidth - resetWidth - style.ItemSpacing.x * 3.0f);
         ImGui::SetCursorPosY(frameTop);
@@ -938,7 +1041,7 @@ void Editor::renderToolbar(Game &game, ImFont *titleFont)
             ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.62f, 0.78f, 0.93f, 1.0f));
         }
 
-        if (ImGui::Button(consoleLabel, ImVec2(consoleWidth, 0.0f)))
+        if (toolbarButton(consoleLabel, consoleWidth, layout.iconOnly))
         {
             m->showConsole = !m->showConsole;
             m->fitViewPending = true;
@@ -953,7 +1056,7 @@ void Editor::renderToolbar(Game &game, ImFont *titleFont)
         ImGui::SameLine();
         ImGui::SetCursorPosY(frameTop);
 
-        if (ImGui::Button(settingsLabel, ImVec2(settingsWidth, 0.0f)))
+        if (toolbarButton(settingsLabel, settingsWidth, layout.iconOnly))
         {
             ImGui::OpenPopup("Settings");
         }
@@ -984,7 +1087,7 @@ void Editor::renderToolbar(Game &game, ImFont *titleFont)
         ImGui::PushStyleColor(ImGuiCol_Border, green);
         ImGui::PushStyleColor(ImGuiCol_Text, white);
 
-        if (ImGui::Button(game.paused() ? playLabel : pauseLabel, ImVec2(playWidth, 0.0f)))
+        if (toolbarButton(game.paused() ? playLabel : pauseLabel, playWidth, layout.iconOnly))
         {
             game.togglePaused();
         }
@@ -993,7 +1096,7 @@ void Editor::renderToolbar(Game &game, ImFont *titleFont)
         ImGui::SameLine();
         ImGui::SetCursorPosY(frameTop);
 
-        if (ImGui::Button(resetLabel, ImVec2(resetWidth, 0.0f)) && currentSceneName != nullptr)
+        if (toolbarButton(resetLabel, resetWidth, layout.iconOnly) && currentSceneName != nullptr)
         {
             const SceneDefinition *scene = SceneDefinition::getDefinitionFromName(currentSceneName);
 
@@ -1002,6 +1105,8 @@ void Editor::renderToolbar(Game &game, ImFont *titleFont)
                 loadScene(*scene);
             }
         }
+
+        ImGui::PopStyleVar();
     }
 
     ImGui::End();
@@ -1429,13 +1534,13 @@ void Editor::renderProfilerOverlay(Game &game, ConsoleProfileInfo &profileInfo)
 }
 
 // File dropdown in the toolbar
-void Editor::renderFileMenu(float frameTop, Game &game)
+void Editor::renderFileMenu(float frameTop, Game &game, bool iconOnly)
 {
     const char *id = "File";
     ImGui::SameLine();
     ImGui::SetCursorPosY(frameTop);
 
-    if (ImGui::Button(ICON_FA_FOLDER_OPEN_O "  File"))
+    if (toolbarButton(fileLabel, toolbarButtonWidth(fileLabel, iconOnly), iconOnly))
     {
         ImGui::OpenPopup(id);
     }

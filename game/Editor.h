@@ -30,7 +30,7 @@ private:
     void fitViewToScene(Game &game);
 
     void renderToolbar(Game &game, ImFont *titleFont);
-    void renderFileMenu(float frameTop, Game &game);
+    void renderFileMenu(float frameTop, Game &game, bool iconOnly);
     void renderLevelTabs();
     void renderCanvasPopups(Game &game);
     void updateCanvasHover(Game &game);
