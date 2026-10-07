@@ -80,6 +80,7 @@ set(SOURCE_FILES
     game/Scenes.cpp
     game/ChaosScene.cpp
     game/BoidsScene.cpp
+    game/ChainsScene.cpp
     game/SceneScript.cpp
     utils/Console.cpp
     utils/UnitTestUtil.cpp
@@ -122,6 +123,7 @@ set(SOURCE_FILES
     game/Scenes.h
     game/ChaosScene.h
     game/BoidsScene.h
+    game/ChainsScene.h
     game/SceneScript.h
     game/Editor.h
     tasks/Scheduler.h

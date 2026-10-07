@@ -1,6 +1,7 @@
 #include "Scenes.h"
 #include "ChaosScene.h"
 #include "BoidsScene.h"
+#include "ChainsScene.h"
 #include <stdio.h>
 #include "Shapes.h"
 #include "Game.h"
@@ -828,13 +829,7 @@ SceneDefinition otherScenes[] = {
 SceneDefinition gameScenes[] = {
     {"Chaos", initChaosScene},
     {"Boids", initBoidsScene},
-    {"Chains", [](Game *game)
-     {
-         PhysicsSpace &space = game->physicsSpace();
-         PhysicsSpaceStorage::loadFromFile(space, "scenedefs/unit_31.txt");
-         game->scale() = 1.00f;
-         game->offset() = Vector2(-109.00f, 69.00f);
-     }},
+    {"Chains", initChainsScene},
     {"Bridge", [](Game *game)
      {
          int numSegments = 13;
