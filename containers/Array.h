@@ -255,6 +255,18 @@ public:
         m_size--;
     }
 
+    // Removes the element at index by moving the last one into its place, so without shifting the rest, for when
+    // the order doesn't matter
+    void removeUnordered(int index)
+    {
+        if (index != m_size - 1)
+        {
+            m_data[index] = m_data[m_size - 1];
+        }
+
+        pop();
+    }
+
     void removeRange(Span span)
     {
         removeRange(span.start, span.end);

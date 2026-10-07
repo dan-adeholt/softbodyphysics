@@ -137,6 +137,7 @@ struct GameRenderer::Impl
     GeometryLayer outlineVertices;
     GeometryLayer detailVertices;
     Array<Vector2> outlinePoints;
+    Array<Vector2> canvasPoints; // For the scene canvas, kept from frame to frame
 };
 
 GameRenderer::GameRenderer(SDL_Renderer *renderer) : m(new Impl(renderer))
@@ -873,7 +874,7 @@ static SDL_FColor toSdlColor(CanvasColor color)
     return {color.r, color.g, color.b, color.a};
 }
 
-SceneCanvas::SceneCanvas(GeometryLayer &layer, float scale) : layer(layer), scale(scale)
+SceneCanvas::SceneCanvas(GeometryLayer &layer, float scale, Array<Vector2> &points) : layer(layer), scale(scale), ringPoints(points)
 {
 }
 
@@ -1008,7 +1009,7 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
     // A scene that draws itself, as one seen at an angle does
     if (game.script() != nullptr)
     {
-        SceneCanvas canvas(m->fillVertices, scale);
+        SceneCanvas canvas(m->fillVertices, scale, m->canvasPoints);
 
         if (game.script()->drawScene(game, canvas))
         {
@@ -1269,7 +1270,7 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
 
     if (game.script() != nullptr)
     {
-        SceneCanvas canvas(m->detailVertices, scale);
+        SceneCanvas canvas(m->detailVertices, scale, m->canvasPoints);
         game.script()->drawOverlay(game, canvas);
     }
 

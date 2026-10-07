@@ -207,4 +207,24 @@ UNIT_TEST(ArrayTestClearAndFree)
     testAssert(ints[0] == 3);
 }
 
+UNIT_TEST(ArrayTestRemoveUnordered)
+{
+    Array<int> ints;
+
+    for (int i = 0; i < 5; i++)
+    {
+        ints.push(i);
+    }
+
+    // The last element fills the gap
+    ints.removeUnordered(1);
+    testAssert(ints.size() == 4);
+    testAssert(ints[0] == 0 && ints[1] == 4 && ints[2] == 2 && ints[3] == 3);
+
+    // Removing the last element just drops it
+    ints.removeUnordered(3);
+    testAssert(ints.size() == 3);
+    testAssert(ints[0] == 0 && ints[1] == 4 && ints[2] == 2);
+}
+
 #endif

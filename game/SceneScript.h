@@ -51,7 +51,8 @@ struct ViewProjection
 class SceneCanvas
 {
 public:
-    SceneCanvas(GeometryLayer &layer, float scale);
+    // points is room for working out outlines, kept by the caller so it isn't allocated again every frame
+    SceneCanvas(GeometryLayer &layer, float scale, Array<Vector2> &points);
 
     // World units per screen pixel
     float pixel() const;
@@ -78,7 +79,7 @@ private:
     GeometryLayer &layer;
     float scale;
     const ViewProjection *ground = nullptr;
-    Array<Vector2> ringPoints;
+    Array<Vector2> &ringPoints;
 };
 
 // Pushes every moving point within radius away from center, less with distance and on heavier points

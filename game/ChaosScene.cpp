@@ -75,7 +75,7 @@ public:
 
             if (bursts[i].ageMs >= burstDurationMs)
             {
-                bursts.remove(i);
+                bursts.removeUnordered(i);
                 i--;
             }
         }
@@ -88,7 +88,7 @@ public:
 
             if (sparkle.ageMs >= sparkle.lifeMs)
             {
-                sparkles.remove(i);
+                sparkles.removeUnordered(i);
                 i--;
                 continue;
             }
