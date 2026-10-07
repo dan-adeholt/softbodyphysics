@@ -109,14 +109,21 @@ struct Game::Impl
     }
 
     // The point within a few pixels of pos, which a click grabs on its own, or -1
-    int pointAt(Vector2 pos)
+    // The point near pos, or -1. Points of static shapes, like walls and posts, only with includeStatic: they can be
+    // picked to select their shape, but not dragged, as moving them shoves walls through what's against them.
+    int pointAt(Vector2 pos, bool includeStatic = false)
     {
         for (int i = 0; i < physicsSpace.points.size(); i++)
         {
             Vector2 pointPos = physicsSpace.points.pos[i];
             if (Vector2::vec2distance(pos.x, pos.y, pointPos.x, pointPos.y) < (4.0f / scale))
             {
-                return i;
+                const int shapeIndex = shapeOfPoint(i);
+
+                if (includeStatic || shapeIndex == -1 || !physicsSpace.shapes[shapeIndex].isStatic)
+                {
+                    return i;
+                }
             }
         }
 
@@ -138,8 +145,9 @@ struct Game::Impl
         return -1;
     }
 
-    // The shape that pos is inside, which a click drags as a whole, or -1
-    int shapeAt(Vector2 pos)
+    // The shape that pos is inside, which a click drags as a whole, or -1. Static shapes only with includeStatic,
+    // as they can be selected but not dragged.
+    int shapeAt(Vector2 pos, bool includeStatic = false)
     {
         Array<ShapeBoundingBox> &boxes = collisionSolver.boundingBoxes();
 
@@ -150,7 +158,8 @@ struct Game::Impl
             {
                 Shape &shape = physicsSpace.shapes[box.shapeIndex];
 
-                if (!CollisionSolver::isPointOutsideShape(-1, pos.x, pos.y, box, physicsSpace.points.range(), shape))
+                if ((includeStatic || !shape.isStatic) &&
+                    !CollisionSolver::isPointOutsideShape(-1, pos.x, pos.y, box, physicsSpace.points.range(), shape))
                 {
                     return box.shapeIndex;
                 }
@@ -514,7 +523,8 @@ void Game::onMouseDown(int button, float x, float y, bool shiftDown)
     }
 
     Vector2 translatedPos = m->translatedMousePos();
-    int pointIndex = m->pointAt(translatedPos);
+    // With shift, a point selects its shape, a static one's too; without, it's dragged, so not a static shape's
+    int pointIndex = m->pointAt(translatedPos, shiftDown);
 
     if (pointIndex != -1)
     {
@@ -536,13 +546,18 @@ void Game::onMouseDown(int button, float x, float y, bool shiftDown)
         return;
     }
 
-    int shapeIndex = m->shapeAt(translatedPos);
+    // A static shape, like a wall, is selected but not dragged, and isn't empty space either
+    int shapeIndex = m->shapeAt(translatedPos, true);
 
     if (shapeIndex != -1)
     {
         m->selectedShapeIndex = shapeIndex;
-        m->shapeMatchDragData.dragShapeIndex = shapeIndex;
-        m->shapeMatchDragData.center = translatedPos;
+
+        if (!m->physicsSpace.shapes[shapeIndex].isStatic)
+        {
+            m->shapeMatchDragData.dragShapeIndex = shapeIndex;
+            m->shapeMatchDragData.center = translatedPos;
+        }
     }
     else if (button == 1 && script() != nullptr)
     {
@@ -672,7 +687,8 @@ void Game::onMouseMove(float x, float y, float relativeX, float relativeY)
         Shape &shape = m->physicsSpace.shapes[m->shapeMatchDragData.dragShapeIndex];
         Vector2 delta = m->translatedMouseMove(relativeX, relativeY);
 
-        if (shape.isStatic || paused())
+        // Static shapes aren't dragged, see onMouseDown. While paused, the shape is moved as it is.
+        if (paused())
         {
             for (int i = shape.start; i < shape.end; i++)
             {
