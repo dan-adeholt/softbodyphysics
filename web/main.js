@@ -10,6 +10,36 @@ const canvas = document.querySelector("#game-canvas");
 // Right click opens the app's own menu for adding shapes, so keep the browser's menu away
 canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
+// SDL cancels the browser's default action for every key it passes to the app, so F12 and the other developer
+// tools and reload shortcuts did nothing on the page. Those keys are kept from SDL here, before its listener on
+// the canvas sees them, so the browser handles them. The app's own function keys are F1 to F10.
+function isBrowserShortcut(event) {
+  // By physical key, as with Option held on macOS the key types a different character
+  const code = event.code;
+  const command = event.metaKey || event.ctrlKey;
+
+  return (
+    code === "F12" ||
+    code === "F11" ||
+    // Developer tools: Cmd+Option+I/J/C on macOS, Ctrl+Shift+I/J/C elsewhere
+    (command && (event.altKey || event.shiftKey) && ["KeyI", "KeyJ", "KeyC"].includes(code)) ||
+    // Reload, and reload without the cache
+    (command && code === "KeyR")
+  );
+}
+
+for (const type of ["keydown", "keyup"]) {
+  window.addEventListener(
+    type,
+    (event) => {
+      if (isBrowserShortcut(event)) {
+        event.stopImmediatePropagation();
+      }
+    },
+    { capture: true },
+  );
+}
+
 let moduleInstance = null;
 
 function setStatus(message) {
