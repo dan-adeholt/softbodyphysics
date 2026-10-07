@@ -1107,15 +1107,7 @@ private:
         canvas.setGround(nullptr);
 
         // The walls on the far side stand behind everything, those on the near side in front
-        const Vector2 arenaMiddle((arenaLeft + arenaRight) * 0.5f, (arenaTop + arenaBottom) * 0.5f);
-
-        for (int s = firstWallShape; s < firstWallShape + numWalls; s++)
-        {
-            if ((shapeCenter(space, s) - arenaMiddle).dot(towardsViewer) < 0.0f)
-            {
-                drawWall(canvas, space, s, wallHeight);
-            }
-        }
+        drawWalls(canvas, space, false);
 
         standing.clear();
 
@@ -1155,13 +1147,7 @@ private:
             }
         }
 
-        for (int s = firstWallShape; s < firstWallShape + numWalls; s++)
-        {
-            if ((shapeCenter(space, s) - arenaMiddle).dot(towardsViewer) >= 0.0f)
-            {
-                drawWall(canvas, space, s, wallHeight);
-            }
-        }
+        drawWalls(canvas, space, true);
 
         // Sparkles fly up out of an explosion and fall back as they fade
         for (int i = 0; i < sparkles.size(); i++)
@@ -1218,14 +1204,51 @@ private:
         return sum / static_cast<float>(shape.end - shape.start);
     }
 
-    // A wall as a block standing on its outline, with the sides that face the viewer, then the top
-    void drawWall(SceneCanvas &canvas, const PhysicsSpace &space, int shapeIndex, float height)
+    // The walls on the near side of the arena, or the far side, as blocks standing on their outlines. All their sides
+    // go before any of their tops: the walls are the same height, so a top only covers the sides of walls behind
+    // it. Drawn one wall at a time, a wall's sides were drawn over the top of the one before where they met.
+    void drawWalls(SceneCanvas &canvas, const PhysicsSpace &space, bool nearSide)
     {
-        const Shape &shape = space.shapes[shapeIndex];
-        const int numPoints = shape.end - shape.start;
+        const Vector2 arenaMiddle((arenaLeft + arenaRight) * 0.5f, (arenaTop + arenaBottom) * 0.5f);
         const Vector2 towardsViewer = projection.towardsViewer();
         const CanvasColor outline = CanvasColor::hex(isoOutlineColor);
         const float outlineWidth = 1.5f * detailScale(canvas);
+
+        for (int pass = 0; pass < 2; pass++)
+        {
+            for (int s = firstWallShape; s < firstWallShape + numWalls; s++)
+            {
+                if (((shapeCenter(space, s) - arenaMiddle).dot(towardsViewer) >= 0.0f) != nearSide)
+                {
+                    continue;
+                }
+
+                if (pass == 0)
+                {
+                    drawWallSides(canvas, space, s, outlineWidth, outline);
+                    continue;
+                }
+
+                const Shape &shape = space.shapes[s];
+                viewPoints.clear();
+
+                for (int p = shape.start; p < shape.end; p++)
+                {
+                    viewPoints.push(projection.toView(space.points.pos[p], wallHeight));
+                }
+
+                canvas.polygon(viewPoints, CanvasColor::hex(mixHex(wallColor, 0xFFFFFF, 0.25f)));
+                canvas.outline(viewPoints, outlineWidth, outline);
+            }
+        }
+    }
+
+    // The sides of a wall that face the viewer, except those up against another wall, as where two walls meet in
+    // a corner: they're inside the walls, and drawn they showed through the other wall's top
+    void drawWallSides(SceneCanvas &canvas, const PhysicsSpace &space, int shapeIndex, float outlineWidth, CanvasColor outline)
+    {
+        const Shape &shape = space.shapes[shapeIndex];
+        const int numPoints = shape.end - shape.start;
 
         // Which way round the outline goes, for the sides' outward directions
         float area = 0.0f;
@@ -1242,7 +1265,7 @@ private:
             const Vector2 edge = b - a;
             const Vector2 outward = (area > 0.0f ? Vector2(edge.y, -edge.x) : Vector2(-edge.y, edge.x)).normalized();
 
-            if (outward.dot(towardsViewer) <= 0.0f)
+            if (outward.dot(projection.towardsViewer()) <= 0.0f || insideAnotherWall(space, shapeIndex, (a + b) * 0.5f + outward))
             {
                 continue;
             }
@@ -1252,21 +1275,38 @@ private:
             viewPoints.clear();
             viewPoints.push(projection.toView(a));
             viewPoints.push(projection.toView(b));
-            viewPoints.push(projection.toView(b, height));
-            viewPoints.push(projection.toView(a, height));
+            viewPoints.push(projection.toView(b, wallHeight));
+            viewPoints.push(projection.toView(a, wallHeight));
             canvas.polygon(viewPoints, CanvasColor::hex(mixHex(wallColor, 0x1B2430, 0.45f - 0.3f * lit)));
             canvas.outline(viewPoints, outlineWidth, outline);
         }
+    }
 
-        viewPoints.clear();
-
-        for (int k = 0; k < numPoints; k++)
+    bool insideAnotherWall(const PhysicsSpace &space, int shapeIndex, Vector2 pos) const
+    {
+        for (int s = firstWallShape; s < firstWallShape + numWalls; s++)
         {
-            viewPoints.push(projection.toView(space.points.pos[shape.start + k], height));
+            const Shape &shape = space.shapes[s];
+            bool inside = false;
+
+            for (int i = shape.start, j = shape.end - 1; i < shape.end && s != shapeIndex; j = i++)
+            {
+                const Vector2 p = space.points.pos[i];
+                const Vector2 q = space.points.pos[j];
+
+                if ((p.y > pos.y) != (q.y > pos.y) && pos.x < (q.x - p.x) * (pos.y - p.y) / (q.y - p.y) + p.x)
+                {
+                    inside = !inside;
+                }
+            }
+
+            if (inside)
+            {
+                return true;
+            }
         }
 
-        canvas.polygon(viewPoints, CanvasColor::hex(mixHex(wallColor, 0xFFFFFF, 0.25f)));
-        canvas.outline(viewPoints, outlineWidth, outline);
+        return false;
     }
 
     // A rock as a dome: the top half of the circle a sphere is seen as, closed by the near half of its base
