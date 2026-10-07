@@ -1,24 +1,28 @@
-
-
-https://github.com/user-attachments/assets/114cd01c-062b-40ca-9ce7-fc40b9495a06
-
-
-
-https://github.com/user-attachments/assets/819411b6-f36b-4fe4-a46f-ac8e63a04d3c
-
-
-
-https://github.com/user-attachments/assets/a05406ee-4703-465d-975f-f0896b52cd0c
-
 # Soft-body physics
 
 A 2D soft-body physics engine and level editor, written from scratch in C++ without the standard library. It runs natively on macOS and in the browser through WebAssembly.
 
 **[Try the web demo](https://dan-adeholt.github.io/softbodyphysics/)**, on a computer or a phone.
 
-![The Bridge scene in the web demo: colored soft balls resting on a sagging teal bridge between two posts](docs/screenshot.png)
+![The Bridge scene: a soft ball is thrown down onto a pile of balls on a bridge, which sags into a V and bounces them back up](docs/bridge.gif)
 
 It is heavily inspired by [this video](https://www.youtube.com/watch?v=3OmkehAJoyo) from the author of JellyCar. I usually do full stack web development these days, but I have a background in fairly low-level C++, and this is where I keep that up.
+
+## Demos
+
+Recorded from the web demo, in real time.
+
+**Bridge.** A ball is lifted out of the pile and thrown down; the bridge sags under the impact and bounces the balls back up.
+
+https://github.com/user-attachments/assets/a05406ee-4703-465d-975f-f0896b52cd0c
+
+**Mesh.** A grid of soft quads, tossed with a twist so it spins, squashes into a corner and tumbles down.
+
+https://github.com/user-attachments/assets/114cd01c-062b-40ca-9ce7-fc40b9495a06
+
+**Chaos.** Balls, boxes and crawling strips rain in without end. Once the arena is full, each new arrival pops the oldest in an explosion that flings everything near it away.
+
+https://github.com/user-attachments/assets/819411b6-f36b-4fe4-a46f-ac8e63a04d3c
 
 ## Features
 
