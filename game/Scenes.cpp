@@ -829,6 +829,7 @@ SceneDefinition otherScenes[] = {
 SceneDefinition gameScenes[] = {
     {"Chaos", initChaosScene},
     {"Boids", initBoidsScene},
+    {"Boids iso", initIsometricBoidsScene},
     {"Chains", initChainsScene},
     {"Bridge", [](Game *game)
      {

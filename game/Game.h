@@ -105,6 +105,11 @@ public:
     void setScript(SceneScript *script);
     SceneScript *script() const;
 
+    // Asks for the view to be zoomed and centred on the scene again, as when the way a scene is seen changes.
+    // takeFitViewRequest says whether that was asked for since it was last called.
+    void requestFitView();
+    bool takeFitViewRequest();
+
     void runFor(int timeMillis, bool pauseAfter = false);
 
     void setStopPointWhenDragging(bool stopPointWhenDragging);

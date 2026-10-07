@@ -882,9 +882,41 @@ float SceneCanvas::pixel() const
     return 1.0f / scale;
 }
 
+void SceneCanvas::setGround(const ViewProjection *projection)
+{
+    ground = projection;
+}
+
+Vector2 SceneCanvas::onGround(Vector2 pos) const
+{
+    return ground != nullptr ? ground->toView(pos) : pos;
+}
+
 void SceneCanvas::disc(Vector2 center, float radius, CanvasColor color)
 {
-    addDisc(layer, center, radius, toSdlColor(color));
+    if (ground == nullptr)
+    {
+        addDisc(layer, center, radius, toSdlColor(color));
+        return;
+    }
+
+    // Lying on the ground, an ellipse
+    const int numPoints = clamp(static_cast<int>(radius * scale * 0.5f), 16, 64);
+    ringPoints.clear();
+
+    for (int k = 0; k < numPoints; k++)
+    {
+        const float angle = static_cast<float>(k) * 2.0f * PI_F / static_cast<float>(numPoints);
+        ringPoints.push(ground->toView(center + Vector2(cosf(angle), sinf(angle)) * radius));
+    }
+
+    const SDL_FColor sdlColor = toSdlColor(color);
+    const Vector2 middle = ground->toView(center);
+
+    for (int k = 0; k < numPoints; k++)
+    {
+        addTriangle(layer, middle, ringPoints[k], ringPoints[(k + 1) % numPoints], sdlColor, sdlColor, sdlColor);
+    }
 }
 
 void SceneCanvas::ring(Vector2 center, float radius, float widthPixels, CanvasColor color)
@@ -896,7 +928,7 @@ void SceneCanvas::ring(Vector2 center, float radius, float widthPixels, CanvasCo
     for (int k = 0; k < numPoints; k++)
     {
         const float angle = static_cast<float>(k) * 2.0f * PI_F / static_cast<float>(numPoints);
-        ringPoints.push(center + Vector2(cosf(angle), sinf(angle)) * radius);
+        ringPoints.push(onGround(center + Vector2(cosf(angle), sinf(angle)) * radius));
     }
 
     addOutlineRing(layer, ringPoints, widthPixels, toSdlColor(color));
@@ -904,7 +936,51 @@ void SceneCanvas::ring(Vector2 center, float radius, float widthPixels, CanvasCo
 
 void SceneCanvas::line(Vector2 from, Vector2 to, float widthPixels, CanvasColor color)
 {
+    from = onGround(from);
+    to = onGround(to);
     addLine(layer, from.x, from.y, to.x, to.y, scale, toSdlColor(color), widthPixels);
+}
+
+void SceneCanvas::polygon(const Array<Vector2> &points, CanvasColor color)
+{
+    const int numPoints = points.size();
+
+    if (numPoints < 3)
+    {
+        return;
+    }
+
+    Vector2 middle;
+
+    for (int k = 0; k < numPoints; k++)
+    {
+        middle += points[k];
+    }
+
+    middle /= static_cast<float>(numPoints);
+    const SDL_FColor sdlColor = toSdlColor(color);
+
+    for (int k = 0; k < numPoints; k++)
+    {
+        addTriangle(layer, middle, points[k], points[(k + 1) % numPoints], sdlColor, sdlColor, sdlColor);
+    }
+}
+
+void SceneCanvas::shadedPolygon(const Array<Vector2> &points, Vector2 light, CanvasColor lightColor, CanvasColor rimColor)
+{
+    const int numPoints = points.size();
+    const SDL_FColor center = toSdlColor(lightColor);
+    const SDL_FColor rim = toSdlColor(rimColor);
+
+    for (int k = 0; k < numPoints && numPoints >= 3; k++)
+    {
+        addTriangle(layer, light, points[k], points[(k + 1) % numPoints], center, rim, rim);
+    }
+}
+
+void SceneCanvas::outline(const Array<Vector2> &points, float widthPixels, CanvasColor color)
+{
+    addOutlineRing(layer, points, widthPixels, toSdlColor(color));
 }
 
 static void addJointDot(GeometryLayer &vertices, Vector2 pos, float pixel, SDL_FColor outline)
@@ -928,6 +1004,21 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
     SDL_FColor background = hexColor(backgroundColor);
     SDL_SetRenderDrawColorFloat(renderer, background.r, background.g, background.b, 1.0f);
     SDL_RenderClear(renderer);
+
+    // A scene that draws itself, as one seen at an angle does
+    if (game.script() != nullptr)
+    {
+        SceneCanvas canvas(m->fillVertices, scale);
+
+        if (game.script()->drawScene(game, canvas))
+        {
+            renderVertices(renderer, m->fillVertices, offset, scale, m->texture);
+            return;
+        }
+
+        m->fillVertices.clear();
+    }
+
     renderGrid(renderer, game, scale, 1.0f, hexColor(gridColor));
 
     // Sizes given in screen pixels are converted to world units, so they stay the same when zooming

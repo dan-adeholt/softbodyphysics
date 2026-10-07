@@ -747,6 +747,8 @@ void Editor::fitViewToScene(Game &game)
     Vector2 maxPos(-1e9f, -1e9f);
     bool hasPoints = false;
     float staticTop = 1e9f; // The top of the shapes that don't move, like a scene's floor and walls
+    // A scene seen at an angle is fitted as it is seen, with room above for the tallest things standing on it
+    const ViewProjection *projection = game.script() != nullptr ? game.script()->viewProjection() : nullptr;
 
     for (int s = 0; s < space.shapes.size(); s++)
     {
@@ -759,6 +761,13 @@ void Editor::fitViewToScene(Game &game)
             if (isnan(pos.x) || isnan(pos.y))
             {
                 continue;
+            }
+
+            if (projection != nullptr)
+            {
+                const Vector2 top = projection->toView(pos, projection->tallest);
+                pos = projection->toView(pos);
+                minPos = Vector2(min(minPos.x, top.x), min(minPos.y, top.y));
             }
 
             minPos = Vector2(min(minPos.x, pos.x), min(minPos.y, pos.y));
@@ -938,6 +947,11 @@ void Editor::renderToolbar(Game &game, ImFont *titleFont)
     if (currentDisplaySize.x != m->lastDisplaySize.x || currentDisplaySize.y != m->lastDisplaySize.y)
     {
         m->lastDisplaySize = currentDisplaySize;
+        m->fitViewPending = true;
+    }
+
+    if (game.takeFitViewRequest())
+    {
         m->fitViewPending = true;
     }
 

@@ -51,9 +51,35 @@ struct Game::Impl
         integrator.clear();
     }
 
+    // How the scene's script has it seen, if at an angle
+    const ViewProjection *projection() const
+    {
+        return script != nullptr ? script->viewProjection() : nullptr;
+    }
+
+    // Where the mouse is over the scene. In a scene seen at an angle, at the height things are grabbed at, so
+    // a ball standing on the ground is grabbed by its body rather than by the ground behind it.
     Vector2 translatedMousePos()
     {
-        return (mousePos - offset) / scale;
+        const Vector2 view = (mousePos - offset) / scale;
+        const ViewProjection *viewProjection = projection();
+        return viewProjection != nullptr ? viewProjection->toGround(view, viewProjection->pickHeight) : view;
+    }
+
+    // Where the mouse is on the ground itself
+    Vector2 groundMousePos()
+    {
+        const Vector2 view = (mousePos - offset) / scale;
+        const ViewProjection *viewProjection = projection();
+        return viewProjection != nullptr ? viewProjection->toGround(view) : view;
+    }
+
+    // A mouse move, in screen pixels, as a move over the scene
+    Vector2 translatedMouseMove(float relativeX, float relativeY)
+    {
+        const Vector2 view = Vector2(relativeX, relativeY) / scale;
+        const ViewProjection *viewProjection = projection();
+        return viewProjection != nullptr ? viewProjection->toGroundMove(view) : view;
     }
 
     // Scene scripts keep the indices of the shapes and points they made. When something else changes the
@@ -171,6 +197,7 @@ struct Game::Impl
     ShapeMatchDragData shapeMatchDragData;
     int copyShapeIndex = -1;
     Vector2 mousePos;
+    bool fitViewRequested = false;
     AddSubShapeData addSubshapeData;
     int hoveredShapeIndex = -1;
     bool draggingOverEmptySpace = false; // Since a left click that didn't grab anything, until it is released
@@ -519,7 +546,7 @@ void Game::onMouseDown(int button, float x, float y, bool shiftDown)
     }
     else if (button == 1 && script() != nullptr)
     {
-        m->script->clickedEmptySpace(*this, translatedPos);
+        m->script->clickedEmptySpace(*this, m->groundMousePos());
         m->rememberScriptLayout();
         m->draggingOverEmptySpace = true;
     }
@@ -589,7 +616,7 @@ void Game::onMouseMove(float x, float y, float relativeX, float relativeY)
 
     if (m->draggingOverEmptySpace && script() != nullptr)
     {
-        m->script->draggedOverEmptySpace(*this, translatedPos);
+        m->script->draggedOverEmptySpace(*this, m->groundMousePos());
         m->rememberScriptLayout();
     }
 
@@ -628,8 +655,7 @@ void Game::onMouseMove(float x, float y, float relativeX, float relativeY)
 
         if (paused())
         {
-            Vector2 offset = (Vector2((float)relativeX, (float)relativeY)) / m->scale;
-            m->physicsSpace.points.shapeOriginalPos[i] += offset;
+            m->physicsSpace.points.shapeOriginalPos[i] += m->translatedMouseMove(relativeX, relativeY);
         }
 
         if (m->stopPointWhenDragging)
@@ -641,13 +667,10 @@ void Game::onMouseMove(float x, float y, float relativeX, float relativeY)
         m->physicsSpace.triangulate();
     }
 
-    float translatedRelativeX = (float)relativeX / m->scale;
-    float translatedRelativeY = (float)relativeY / m->scale;
-
     if (m->shapeMatchDragData.dragShapeIndex != -1)
     {
         Shape &shape = m->physicsSpace.shapes[m->shapeMatchDragData.dragShapeIndex];
-        Vector2 delta(translatedRelativeX, translatedRelativeY);
+        Vector2 delta = m->translatedMouseMove(relativeX, relativeY);
 
         if (shape.isStatic || paused())
         {
@@ -1061,6 +1084,18 @@ void Game::setScript(SceneScript *script)
     delete m->script;
     m->script = script;
     m->rememberScriptLayout();
+}
+
+void Game::requestFitView()
+{
+    m->fitViewRequested = true;
+}
+
+bool Game::takeFitViewRequest()
+{
+    const bool requested = m->fitViewRequested;
+    m->fitViewRequested = false;
+    return requested;
 }
 
 SceneScript *Game::script() const

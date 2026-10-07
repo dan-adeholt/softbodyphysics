@@ -47,7 +47,7 @@ struct BoidSettings
 {
     float cohesion = 0.01f;           // Towards the middle of the neighbours, per unit of distance from it
     float alignment = 0.5f;           // Towards the neighbours' average velocity
-    float separation = 0.5f;          // Away from boids that are too close, per unit of distance
+    float separation = 0.1f;          // Away from boids that are too close, per unit of distance
     float separationDistance = 56.0f; // Closer than this is too close
     float neighbourDistance = 280.0f; // Boids this near are neighbours, for cohesion and alignment
     float maxSpeed = 14.0f;           // Distance per tick
@@ -57,9 +57,35 @@ struct BoidSettings
     // a boid's intended velocity drifts from its body's, and the flock lines up in intention only.
     float bumpCarry = 1.0f;
     float hunterFear = 0.5f;          // On how hard boids keep away from the hunters
+    // On the bodies' stiffness and damping as made: how hard their points are pulled back into a circle, and how
+    // fast their wobbling dies down. Stiffness does most of it. At 0.6 and 0.5, as these once were, explosions and
+    // crowding flung points out of line so that, one frame in 20, a body was a quarter of its radius out of round;
+    // at 1 and 1 a sixth, at 2 and 2 a tenth. In between, they still squash on a hard hit but read as balls.
+    // Stable up to 16 and beyond.
+    float bodyStiffness = 1.5f;
+    float bodyDamping = 1.75f;
 };
 
 static BoidSettings settings;
+
+// How the isometric version is seen, from its sliders. Kept when the scene is reset. As in the classic isometric
+// strategy games: the ground turned 45 degrees and seen from 30 degrees above the horizon, so it is drawn half as
+// tall as it is wide.
+struct IsoView
+{
+    float turn = PI_F * 0.25f;
+    float elevation = PI_F / 6.0f;
+};
+
+static IsoView isoView;
+
+// Through the points p1 to p2, curving to meet p0 and p3
+static Vector2 catmullRom(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
+{
+    const float t2 = t * t;
+    const float t3 = t2 * t;
+    return (p1 * 2.0f + (p2 - p0) * t + (p0 * 2.0f - p1 * 5.0f + p2 * 4.0f - p3) * t2 + (p1 * 3.0f - p0 - p2 * 3.0f + p3) * t3) * 0.5f;
+}
 
 // The boids scene: a port of the boids from an old JavaScript simulation, after
 // http://www.kfish.org/boids/pseudocode.html, where each boid is a soft body ball. A flock keeps apart,
@@ -69,13 +95,17 @@ static BoidSettings settings;
 // towards that velocity, so the bodies themselves keep apart, squash and bounce off each other. A hunter
 // that catches one rests after; the one caught flashes and bolts. Clicking empty space sets off an
 // explosion there that flings the boids near it away, and dragging from it sets off a trail of them.
+//
+// The isometric version is the same flock on the same flat ground, seen at an angle like a strategy game's
+// map: the boids are balls standing on a tiled floor, the rocks domes and the walls blocks.
 class BoidsScript : public SceneScript
 {
 public:
-    explicit BoidsScript(Game &game)
+    BoidsScript(Game &game, bool isometric) : isometric(isometric)
     {
         PhysicsSpace &space = game.physicsSpace();
         space.gravityEnabled = false;
+        firstWallShape = space.shapes.size();
 
         Shapes::createStaticQuad(space, arenaLeft - wallWidth, arenaTop - wallWidth, wallWidth, arenaBottom - arenaTop + wallWidth * 2.0f, 1.0f);
         Shapes::createStaticQuad(space, arenaRight, arenaTop - wallWidth, wallWidth, arenaBottom - arenaTop + wallWidth * 2.0f, 1.0f);
@@ -111,10 +141,9 @@ public:
             Shapes::createCircle(space, boid.pos.x, boid.pos.y, boid.radius, mass);
             boid.pointEnd = space.points.size();
 
-            // Softer than the shapes are made by default, and less damped, so they squash and wobble
-            Shape &shape = space.shapes[firstBoidShape + i];
-            shape.stiffness *= stiffness;
-            shape.damping *= damping;
+            const Shape &shape = space.shapes[firstBoidShape + i];
+            baseStiffness = shape.stiffness;
+            baseDamping = shape.damping;
 
             boid.templateStart = templateOffsets.size();
 
@@ -129,12 +158,15 @@ public:
             boids.push(boid);
         }
 
+        applyBodySettings(space);
+        updateProjection();
         game.updateBoundingBoxes();
     }
 
     void update(Game &game, float elapsedMs) override
     {
         PhysicsSpace &space = game.physicsSpace();
+        applyBodySettings(space);
 
         if (game.paused())
         {
@@ -296,8 +328,37 @@ public:
         return true;
     }
 
+    const ViewProjection *viewProjection() const override
+    {
+        return isometric ? &projection : nullptr;
+    }
+
+    bool drawScene(Game &game, SceneCanvas &canvas) override
+    {
+        if (!isometric)
+        {
+            return false;
+        }
+
+        drawIsometric(game, canvas);
+        return true;
+    }
+
     void drawControls(Game &game) override
     {
+        if (isometric)
+        {
+            ImGui::SeparatorText("View");
+            bool changed = ImGui::SliderAngle("Turn", &isoView.turn, -90.0f, 90.0f, "%.0f deg");
+            changed |= ImGui::SliderAngle("Tilt", &isoView.elevation, 15.0f, 90.0f, "%.0f deg");
+
+            if (changed)
+            {
+                updateProjection();
+                game.requestFitView();
+            }
+        }
+
         ImGui::SeparatorText("Flocking");
         ImGui::SliderFloat("Alignment", &settings.alignment, 0.0f, 1.0f, "%.2f");
         ImGui::SliderFloat("Cohesion", &settings.cohesion, 0.0f, 0.05f, "%.3f");
@@ -311,6 +372,10 @@ public:
         ImGui::SliderFloat("Resting", &settings.restChance, 0.0f, 0.05f, "%.3f");
         ImGui::SliderFloat("Bump carry-over", &settings.bumpCarry, 0.0f, 1.0f, "%.2f");
         ImGui::SliderFloat("Fear of hunters", &settings.hunterFear, 0.0f, 3.0f, "%.2f");
+
+        ImGui::SeparatorText("Bodies");
+        ImGui::SliderFloat("Stiffness", &settings.bodyStiffness, 0.1f, 8.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+        ImGui::SliderFloat("Damping", &settings.bodyDamping, 0.1f, 8.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
 
         ImGui::Spacing();
 
@@ -450,8 +515,6 @@ private:
     static constexpr float predatorRadius = 26.0f;
     static constexpr float preyMass = 1.0f;
     static constexpr float predatorMass = 2.5f;
-    static constexpr float stiffness = 0.6f; // On every boid's stiffness
-    static constexpr float damping = 0.5f;   // On every boid's damping
 
     // The original's rules and numbers. It ran its rules every third frame at 60 frames per second, and its
     // boids had a radius of 10 pixels, so distances and speeds here are scaled up by sizeScale.
@@ -978,7 +1041,387 @@ private:
         }
     }
 
+    // The isometric drawing
+
+    // About a boid's height, so those along the near walls still show over them
+    static constexpr float wallHeight = 30.0f;
+    static constexpr float floorTileSize = 60.0f;
+    static constexpr uint32_t floorColors[2] = {0xEDE6D8, 0xE5DCCB};
+    static constexpr uint32_t wallColor = 0x7C8A9C;
+    static constexpr uint32_t isoOutlineColor = 0x22303F;
+
+    // Something standing on the ground, drawn in order from the back
+    struct Standing
+    {
+        float depth; // How near the viewer
+        int boid;    // Or -1 for a rock
+        int rock;
+    };
+
+    void updateProjection()
+    {
+        projection.turn = isoView.turn;
+        projection.elevation = isoView.elevation;
+        projection.pickHeight = preyRadius;
+        projection.tallest = wallHeight;
+    }
+
+    // Outlines and highlights keep their size zooming in, and shrink zooming out, like the usual drawing
+    static float detailScale(const SceneCanvas &canvas)
+    {
+        return clamp(1.0f / canvas.pixel(), 0.4f, 1.0f);
+    }
+
+    void drawIsometric(Game &game, SceneCanvas &canvas)
+    {
+        const PhysicsSpace &space = game.physicsSpace();
+        const Vector2 towardsViewer = projection.towardsViewer();
+        canvas.setGround(nullptr);
+        drawFloor(canvas);
+
+        // Shadows, flat on the floor under everything standing on it
+        for (int i = 0; i < obstacles.size(); i++)
+        {
+            drawGroundShadow(canvas, obstacles[i].pos, obstacles[i].radius * 1.05f);
+        }
+
+        for (int i = 0; i < boids.size(); i++)
+        {
+            drawGroundShadow(canvas, boids[i].pos, boids[i].radius * 1.1f);
+        }
+
+        // Marks on the floor: explosions and catches
+        canvas.setGround(&projection);
+
+        for (int i = 0; i < ripples.size(); i++)
+        {
+            const Ripple &ripple = ripples[i];
+            drawRipple(canvas, ripple.pos, ripple.radius, ripple.ageMs / ripple.durationMs, CanvasColor::hex(ripple.color, 0.9f));
+        }
+
+        for (int i = 0; i < bursts.size(); i++)
+        {
+            drawBurst(canvas, bursts[i].pos, explosionRadius * 0.75f, bursts[i].ageMs / burstDurationMs, CanvasColor::hex(0xFFB040));
+        }
+
+        canvas.setGround(nullptr);
+
+        // The walls on the far side stand behind everything, those on the near side in front
+        const Vector2 arenaMiddle((arenaLeft + arenaRight) * 0.5f, (arenaTop + arenaBottom) * 0.5f);
+
+        for (int s = firstWallShape; s < firstWallShape + numWalls; s++)
+        {
+            if ((shapeCenter(space, s) - arenaMiddle).dot(towardsViewer) < 0.0f)
+            {
+                drawWall(canvas, space, s, wallHeight);
+            }
+        }
+
+        standing.clear();
+
+        for (int i = 0; i < obstacles.size(); i++)
+        {
+            standing.push({obstacles[i].pos.dot(towardsViewer), -1, i});
+        }
+
+        for (int i = 0; i < boids.size(); i++)
+        {
+            standing.push({boids[i].pos.dot(towardsViewer), i, -1});
+        }
+
+        // Insertion sort: from one frame to the next the order hardly changes
+        for (int i = 1; i < standing.size(); i++)
+        {
+            const Standing item = standing[i];
+            int j = i - 1;
+
+            for (; j >= 0 && standing[j].depth > item.depth; j--)
+            {
+                standing[j + 1] = standing[j];
+            }
+
+            standing[j + 1] = item;
+        }
+
+        for (int i = 0; i < standing.size(); i++)
+        {
+            if (standing[i].boid != -1)
+            {
+                drawStandingBoid(game, canvas, space, standing[i].boid);
+            }
+            else
+            {
+                drawRock(game, canvas, standing[i].rock);
+            }
+        }
+
+        for (int s = firstWallShape; s < firstWallShape + numWalls; s++)
+        {
+            if ((shapeCenter(space, s) - arenaMiddle).dot(towardsViewer) >= 0.0f)
+            {
+                drawWall(canvas, space, s, wallHeight);
+            }
+        }
+
+        // Sparkles fly up out of an explosion and fall back as they fade
+        for (int i = 0; i < sparkles.size(); i++)
+        {
+            const Sparkle &sparkle = sparkles[i];
+            const float t = sparkle.ageMs / sparkle.lifeMs;
+            CanvasColor color = CanvasColor::hex(sparkle.color);
+            color.a = 1.0f - t;
+            canvas.disc(projection.toView(sparkle.pos, 40.0f * t * (1.0f - t) * 4.0f), sparkle.sizePixels * (1.0f - 0.5f * t) * canvas.pixel(), color);
+        }
+    }
+
+    // A chequered floor over the arena
+    void drawFloor(SceneCanvas &canvas)
+    {
+        const int columns = static_cast<int>(ceilf((arenaRight - arenaLeft) / floorTileSize));
+        const int rows = static_cast<int>(ceilf((arenaBottom - arenaTop) / floorTileSize));
+
+        for (int row = 0; row < rows; row++)
+        {
+            for (int column = 0; column < columns; column++)
+            {
+                const float x0 = arenaLeft + static_cast<float>(column) * floorTileSize;
+                const float y0 = arenaTop + static_cast<float>(row) * floorTileSize;
+                const float x1 = min(x0 + floorTileSize, arenaRight);
+                const float y1 = min(y0 + floorTileSize, arenaBottom);
+                viewPoints.clear();
+                viewPoints.push(projection.toView(Vector2(x0, y0)));
+                viewPoints.push(projection.toView(Vector2(x1, y0)));
+                viewPoints.push(projection.toView(Vector2(x1, y1)));
+                viewPoints.push(projection.toView(Vector2(x0, y1)));
+                canvas.polygon(viewPoints, CanvasColor::hex(floorColors[(row + column) % 2]));
+            }
+        }
+    }
+
+    void drawGroundShadow(SceneCanvas &canvas, Vector2 pos, float radius)
+    {
+        canvas.setGround(&projection);
+        canvas.disc(pos, radius, {0.0f, 0.0f, 0.0f, 0.13f});
+        canvas.setGround(nullptr);
+    }
+
+    Vector2 shapeCenter(const PhysicsSpace &space, int shapeIndex) const
+    {
+        const Shape &shape = space.shapes[shapeIndex];
+        Vector2 sum;
+
+        for (int p = shape.start; p < shape.end; p++)
+        {
+            sum += space.points.pos[p];
+        }
+
+        return sum / static_cast<float>(shape.end - shape.start);
+    }
+
+    // A wall as a block standing on its outline, with the sides that face the viewer, then the top
+    void drawWall(SceneCanvas &canvas, const PhysicsSpace &space, int shapeIndex, float height)
+    {
+        const Shape &shape = space.shapes[shapeIndex];
+        const int numPoints = shape.end - shape.start;
+        const Vector2 towardsViewer = projection.towardsViewer();
+        const CanvasColor outline = CanvasColor::hex(isoOutlineColor);
+        const float outlineWidth = 1.5f * detailScale(canvas);
+
+        // Which way round the outline goes, for the sides' outward directions
+        float area = 0.0f;
+
+        for (int k = 0; k < numPoints; k++)
+        {
+            area += space.points.pos[shape.start + k].cross(space.points.pos[shape.start + (k + 1) % numPoints]);
+        }
+
+        for (int k = 0; k < numPoints; k++)
+        {
+            const Vector2 a = space.points.pos[shape.start + k];
+            const Vector2 b = space.points.pos[shape.start + (k + 1) % numPoints];
+            const Vector2 edge = b - a;
+            const Vector2 outward = (area > 0.0f ? Vector2(edge.y, -edge.x) : Vector2(-edge.y, edge.x)).normalized();
+
+            if (outward.dot(towardsViewer) <= 0.0f)
+            {
+                continue;
+            }
+
+            // Lit from the left of the view, so sides facing that way are lighter
+            const float lit = 0.5f - 0.5f * projection.turned(outward).x;
+            viewPoints.clear();
+            viewPoints.push(projection.toView(a));
+            viewPoints.push(projection.toView(b));
+            viewPoints.push(projection.toView(b, height));
+            viewPoints.push(projection.toView(a, height));
+            canvas.polygon(viewPoints, CanvasColor::hex(mixHex(wallColor, 0x1B2430, 0.45f - 0.3f * lit)));
+            canvas.outline(viewPoints, outlineWidth, outline);
+        }
+
+        viewPoints.clear();
+
+        for (int k = 0; k < numPoints; k++)
+        {
+            viewPoints.push(projection.toView(space.points.pos[shape.start + k], height));
+        }
+
+        canvas.polygon(viewPoints, CanvasColor::hex(mixHex(wallColor, 0xFFFFFF, 0.25f)));
+        canvas.outline(viewPoints, outlineWidth, outline);
+    }
+
+    // A rock as a dome: the top half of the circle a sphere is seen as, closed by the near half of its base
+    void drawRock(Game &game, SceneCanvas &canvas, int rockIndex)
+    {
+        const Obstacle &rock = obstacles[rockIndex];
+        const Vector2 base = projection.toView(rock.pos);
+        const float r = rock.radius;
+        const int segments = 24;
+        viewPoints.clear();
+
+        for (int k = 0; k <= segments; k++)
+        {
+            const float angle = PI_F + PI_F * static_cast<float>(k) / static_cast<float>(segments);
+            viewPoints.push(base + Vector2(cosf(angle), sinf(angle)) * r);
+        }
+
+        for (int k = 1; k < segments; k++)
+        {
+            const float angle = PI_F * static_cast<float>(k) / static_cast<float>(segments);
+            viewPoints.push(base + Vector2(cosf(angle), sinf(angle) * sinf(projection.elevation)) * r);
+        }
+
+        uint32_t color = rockColor;
+        shapeFill(rock.shapeIndex, color);
+        drawLitBody(canvas, base + Vector2(-0.3f, -0.45f) * r, color, game.hoveredShapeIndex() == rock.shapeIndex);
+    }
+
+    // A boid as a ball resting on the floor. Its outline is its body's, squashes and all, stood up to face the viewer.
+    void drawStandingBoid(Game &game, SceneCanvas &canvas, const PhysicsSpace &space, int boidIndex)
+    {
+        const Boid &boid = boids[boidIndex];
+        const float r = boid.radius;
+        const Vector2 middle = projection.toView(boid.pos, r);
+        const int numPoints = boid.pointEnd - boid.pointStart;
+        const int subdivisions = clamp(static_cast<int>(ceilf(2.0f * PI_F * r / static_cast<float>(numPoints) / (6.0f * canvas.pixel()))), 1, 4);
+        viewPoints.clear();
+
+        for (int k = 0; k < numPoints; k++)
+        {
+            const Vector2 p0 = upright(space, boid, middle, k - 1 + numPoints);
+            const Vector2 p1 = upright(space, boid, middle, k);
+            const Vector2 p2 = upright(space, boid, middle, k + 1);
+            const Vector2 p3 = upright(space, boid, middle, k + 2);
+
+            for (int step = 0; step < subdivisions; step++)
+            {
+                viewPoints.push(catmullRom(p0, p1, p2, p3, static_cast<float>(step) / static_cast<float>(subdivisions)));
+            }
+        }
+
+        const int shapeIndex = firstBoidShape + boidIndex;
+        uint32_t color = boid.color;
+        shapeFill(shapeIndex, color);
+        drawLitBody(canvas, middle + Vector2(-0.3f, -0.35f) * r, color, game.hoveredShapeIndex() == shapeIndex);
+
+        if (r / canvas.pixel() >= 6.0f)
+        {
+            canvas.disc(middle + Vector2(-0.38f, -0.42f) * r, 0.16f * r, {1.0f, 1.0f, 1.0f, 0.55f});
+        }
+
+        drawStandingEyes(canvas, boid);
+    }
+
+    // Point k of the boid's body, around middle in the view, turned with the ground but not tilted
+    Vector2 upright(const PhysicsSpace &space, const Boid &boid, Vector2 middle, int k) const
+    {
+        const int numPoints = boid.pointEnd - boid.pointStart;
+        return middle + projection.turned(space.points.pos[boid.pointStart + k % numPoints] - boid.pos);
+    }
+
+    // Fills viewPoints, shaded from light, and outlines it. Lighter when the mouse is over it, like the usual drawing.
+    void drawLitBody(SceneCanvas &canvas, Vector2 light, uint32_t color, bool hovered)
+    {
+        uint32_t outline = isoOutlineColor;
+
+        if (hovered)
+        {
+            outline = mixHex(outline, color, 0.4f);
+            color = mixHex(color, 0xFFFFFF, 0.2f);
+        }
+
+        canvas.shadedPolygon(viewPoints, light, CanvasColor::hex(mixHex(color, 0xFFFFFF, 0.35f)), CanvasColor::hex(mixHex(color, 0x000000, 0.10f)));
+        canvas.outline(viewPoints, 2.5f * detailScale(canvas), CanvasColor::hex(outline));
+    }
+
+    // The eyes as on the flat version, but on the ball's surface, looking the way it heads. Those on the far side
+    // of the ball can't be seen, and ones turning away get smaller.
+    void drawStandingEyes(SceneCanvas &canvas, const Boid &boid)
+    {
+        const Vector2 forward = boid.heading;
+        const Vector2 side(-forward.y, forward.x);
+        const float r = boid.radius;
+        const float eyeRadius = r * (boid.type == Type::Predator ? 0.22f : 0.26f);
+        const CanvasColor white = {1.0f, 1.0f, 1.0f, 1.0f};
+        const CanvasColor dark = CanvasColor::hex(0x1B1F2A);
+        const Vector2 towardsViewer = projection.towardsViewer() * cosf(projection.elevation);
+        const float viewerUp = sinf(projection.elevation);
+        const float eyeUp = r * 0.3f;
+
+        for (int k = -1; k <= 1; k += 2)
+        {
+            const Vector2 out = forward * (r * 0.78f) + side * (static_cast<float>(k) * r * 0.4f);
+            const float facing = (out.dot(towardsViewer) + eyeUp * viewerUp) / sqrtf(out.lengthSquared() + eyeUp * eyeUp);
+
+            if (facing < 0.15f)
+            {
+                continue;
+            }
+
+            const float size = sqrtf(facing);
+            const Vector2 eye = projection.toView(boid.pos + out, r + eyeUp);
+
+            if (boid.idle)
+            {
+                canvas.line(projection.toView(boid.pos + out - side * eyeRadius, r + eyeUp),
+                            projection.toView(boid.pos + out + side * eyeRadius, r + eyeUp), 2.0f, dark);
+                continue;
+            }
+
+            // Wide eyed when frightened
+            canvas.disc(eye, eyeRadius * size * (1.0f + 0.25f * boid.fear), white);
+            canvas.disc(projection.toView(boid.pos + out + forward * (eyeRadius * 0.4f), r + eyeUp), eyeRadius * size * (0.55f - 0.15f * boid.fear), dark);
+
+            if (boid.type == Type::Predator)
+            {
+                // Slanting down towards the middle
+                const Vector2 brow = out + forward * (eyeRadius * 0.3f);
+                canvas.line(projection.toView(boid.pos + brow + side * (static_cast<float>(k) * eyeRadius * 1.2f), r + eyeUp + eyeRadius * 1.5f),
+                            projection.toView(boid.pos + brow - side * (static_cast<float>(k) * eyeRadius * 1.2f), r + eyeUp + eyeRadius * 0.9f), 3.0f, dark);
+            }
+        }
+    }
+
+    static const int numWalls = 4;
+    const bool isometric;
+    ViewProjection projection;
+    int firstWallShape = 0;
+    Array<Standing> standing;
+    Array<Vector2> viewPoints;
+
+    // From the sliders, every frame, so the Defaults and Original buttons take effect too
+    void applyBodySettings(PhysicsSpace &space)
+    {
+        for (int i = 0; i < boids.size(); i++)
+        {
+            Shape &shape = space.shapes[firstBoidShape + i];
+            shape.stiffness = baseStiffness * settings.bodyStiffness;
+            shape.damping = baseDamping * settings.bodyDamping;
+        }
+    }
+
     int firstBoidShape = 0;
+    float baseStiffness = 1.0f; // A boid's body's stiffness and damping as made, before the sliders
+    float baseDamping = 1.0f;
     float timeToNextTickMs = 0.0f;
     uint32_t randomState = 4242u;
     Vector2 lastExplosionPos;
@@ -992,5 +1435,10 @@ private:
 
 void initBoidsScene(Game *game)
 {
-    game->setScript(new BoidsScript(*game));
+    game->setScript(new BoidsScript(*game, false));
+}
+
+void initIsometricBoidsScene(Game *game)
+{
+    game->setScript(new BoidsScript(*game, true));
 }
