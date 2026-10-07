@@ -1,6 +1,6 @@
 # Soft-body physics
 
-A 2D soft-body physics engine and level editor, written from scratch in C++ without the standard library. It runs natively on macOS and in the browser through WebAssembly.
+A 2D soft-body physics engine and level editor, written from scratch in C++ without the standard library. It runs natively on macOS and in the browser through WebAssembly, at the display's full refresh rate, so on 120 Hz and faster screens the bodies squash and wobble silky smooth.
 
 **[Try the web demo](https://dan-adeholt.github.io/softbodyphysics/)**, on a computer or a phone.
 
@@ -44,6 +44,7 @@ It is heavily inspired by [this video](https://www.youtube.com/watch?v=3OmkehAJo
 * **No STL.** The native build uses `-nostdlib++ -fno-exceptions -fno-rtti`, so the engine runs on its own containers (`Array`, `Range`, `Span`, `StringBuffer`). For more serious projects I have always used the STL, but this is a hobby project, so why not challenge my own perspective.
 * **Simple, data-oriented structures**, inspired by Mike Acton's talks. Point masses are stored as structure-of-arrays (positions, velocities and masses in separate arrays) so the hot loops stream through contiguous memory.
 * **Parallel where it pays.** Spring and shape-matching forces are split across worker threads by a small task scheduler (native only).
+* **Smooth at any refresh rate.** Frames follow the display, 120 Hz and up included: through vsync natively and `requestAnimationFrame` in the browser. The physics runs in fixed 1 ms steps, so every frame shows a fresh state, and natively each frame's time is snapped to a whole number of refresh intervals, so the simulation moves on by exactly the same amount every frame, without the judder of a loop fixed at 60 Hz.
 * **Hot reload.** On macOS a thin shell executable loads the game as a dynamic library and reloads it when it is rebuilt, keeping the window and console.
 
 ## Building
