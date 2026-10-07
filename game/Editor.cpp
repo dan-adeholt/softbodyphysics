@@ -746,19 +746,30 @@ void Editor::fitViewToScene(Game &game)
     Vector2 minPos(1e9f, 1e9f);
     Vector2 maxPos(-1e9f, -1e9f);
     bool hasPoints = false;
+    float staticTop = 1e9f; // The top of the shapes that don't move, like a scene's floor and walls
 
-    for (int i = 0; i < space.points.size(); i++)
+    for (int s = 0; s < space.shapes.size(); s++)
     {
-        Vector2 pos = space.points.pos[i];
+        const Shape &shape = space.shapes[s];
 
-        if (isnan(pos.x) || isnan(pos.y))
+        for (int i = shape.start; i < shape.end; i++)
         {
-            continue;
-        }
+            Vector2 pos = space.points.pos[i];
 
-        minPos = Vector2(min(minPos.x, pos.x), min(minPos.y, pos.y));
-        maxPos = Vector2(max(maxPos.x, pos.x), max(maxPos.y, pos.y));
-        hasPoints = true;
+            if (isnan(pos.x) || isnan(pos.y))
+            {
+                continue;
+            }
+
+            minPos = Vector2(min(minPos.x, pos.x), min(minPos.y, pos.y));
+            maxPos = Vector2(max(maxPos.x, pos.x), max(maxPos.y, pos.y));
+            hasPoints = true;
+
+            if (shape.isStatic)
+            {
+                staticTop = min(staticTop, pos.y);
+            }
+        }
     }
 
     if (!hasPoints)
@@ -785,6 +796,15 @@ void Editor::fitViewToScene(Game &game)
     const float padding = min(40.0f, min(displaySize.x, displaySize.y) * 0.05f);
     float availableWidth = displaySize.x - left - padding * 2.0f;
     float availableHeight = displaySize.y - top - bottom - padding * 2.0f;
+
+    // Too tall to fit even zoomed out as far as the view goes, and most likely because things start high above
+    // the scene's floor and walls to fall in, as in Falling circles: fit what's from the top of those down,
+    // so the view isn't zoomed far out, and let the rest fall into view.
+    if (staticTop > minPos.y && staticTop < maxPos.y && availableHeight / (maxPos.y - minPos.y) < 0.25f)
+    {
+        minPos.y = staticTop;
+    }
+
     Vector2 size = maxPos - minPos;
 
     const float fitScale = min(availableWidth / max(size.x, 1.0f), availableHeight / max(size.y, 1.0f));
