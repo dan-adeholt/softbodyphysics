@@ -932,10 +932,12 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
 
     // Sizes given in screen pixels are converted to world units, so they stay the same when zooming
     const float pixel = 1.0f / scale;
-    // Joint dots keep their size zooming in, but shrink zooming out, as on a phone's small screen, or they
-    // would cover the bridge segments between them. Not below 40%, so they stay visible.
-    const float jointDotPixel = pixel * clamp(scale, 0.4f, 1.0f);
-    const Vector2 shadowOffset(3.0f * pixel, 7.0f * pixel);
+    // Outlines, shadows and joint dots keep their size zooming in, but shrink zooming out, as on a phone's small
+    // screen, so shapes keep their proportions: otherwise a small ball becomes mostly outline, and joint dots
+    // cover the bridge segments between them. Not below 40%, so they stay visible.
+    const float detailScale = clamp(scale, 0.4f, 1.0f);
+    const float jointDotPixel = pixel * detailScale;
+    const Vector2 shadowOffset = Vector2(3.0f * pixel, 7.0f * pixel) * detailScale;
     const SDL_FColor shadow = {0.0f, 0.0f, 0.0f, 0.10f};
     const SDL_FColor outline = hexColor(outlineColor);
     const SDL_FColor white = {1.0f, 1.0f, 1.0f, 1.0f};
@@ -955,9 +957,9 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
 
             if (!isnan(p0.x) && !isnan(p0.y) && !isnan(p1.x) && !isnan(p1.y))
             {
-                addLine(m->shadowVertices, p0.x + shadowOffset.x, p0.y + shadowOffset.y, p1.x + shadowOffset.x, p1.y + shadowOffset.y, scale, shadow, 9.0f);
-                addLine(m->outlineVertices, p0.x, p0.y, p1.x, p1.y, scale, outline, 9.0f);
-                addLine(m->outlineVertices, p0.x, p0.y, p1.x, p1.y, scale, hexColor(structureFillColor), 5.0f);
+                addLine(m->shadowVertices, p0.x + shadowOffset.x, p0.y + shadowOffset.y, p1.x + shadowOffset.x, p1.y + shadowOffset.y, scale, shadow, 9.0f * detailScale);
+                addLine(m->outlineVertices, p0.x, p0.y, p1.x, p1.y, scale, outline, 9.0f * detailScale);
+                addLine(m->outlineVertices, p0.x, p0.y, p1.x, p1.y, scale, hexColor(structureFillColor), 5.0f * detailScale);
                 addJointDot(m->detailVertices, p0, jointDotPixel, outline);
                 addJointDot(m->detailVertices, p1, jointDotPixel, outline);
             }
@@ -1133,7 +1135,7 @@ void GameRenderer::renderStyled(SDL_Renderer *renderer, Game &game)
             }
         }
 
-        addOutlineRing(m->outlineVertices, outlinePoints, 2.5f, shapeOutline);
+        addOutlineRing(m->outlineVertices, outlinePoints, 2.5f * detailScale, shapeOutline);
 
         if (style == ShapeStyle::Structure)
         {
