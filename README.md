@@ -4,9 +4,12 @@ A 2D soft-body physics engine and level editor, written from scratch in C++ with
 
 **[Try the web demo](https://dan-adeholt.github.io/softbodyphysics/)**, on a computer or a phone.
 
-<p>
-  <img src="docs/bridge.gif" width="49%" alt="The Bridge scene: a soft ball is thrown down onto a pile of balls on a bridge, which sags into a V and bounces them back up">
-  <img src="docs/mesh.gif" width="49%" alt="The Mesh scene: a grid of soft quads, tossed into a corner, falls spinning and lands on its corner">
+<p align="center">
+  <img src="docs/bridge.gif" width="640" alt="The Bridge scene: a soft ball is thrown down onto a pile of balls on a bridge, which sags into a V and bounces them back up">
+</p>
+
+<p align="center">
+  <img src="docs/mesh.gif" width="640" alt="The Mesh scene: a grid of soft quads, tossed into a corner, falls spinning and lands on its corner">
 </p>
 
 It is heavily inspired by [this video](https://www.youtube.com/watch?v=3OmkehAJoyo) from the author of JellyCar. I usually do full stack web development these days, but I have a background in fairly low-level C++, and this is where I keep that up.
