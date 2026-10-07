@@ -6,7 +6,9 @@
 #include <math.h>
 
 // The last resort for two moving shapes that the collision passes have failed to pull apart for a while.
-// They are moved apart in one go, along the direction that takes the shortest move to clear them, as found by
+// Single shapes, like balls and boxes, get their points pushed across a line between them, see
+// pushPointsAcrossDividingLine. Parts of bigger bodies, like the segments of a bridge, are moved apart in one
+// go instead, along the direction that takes the shortest move to clear them, as found by
 // the separating axis test over the shapes' outer edges. The bodies they belong to are shifted as a whole,
 // all their points together, so their shapes are left alone and shape matching has nothing to undo, and they
 // share the move by inverse mass. Any speed they still have towards each other along that direction is taken
@@ -117,6 +119,107 @@ namespace
         return velocity / static_cast<float>(range.size());
     }
 
+    Vector2 centroid(const PointMassesRange &points, const ShapeIndexedRange &range)
+    {
+        Vector2 sum;
+
+        for (int i = 0; i < range.size(); i++)
+        {
+            sum += points.pos[range[i]];
+        }
+
+        return sum / static_cast<float>(range.size());
+    }
+
+    // How single shapes, like balls and boxes, are pulled apart. A line is drawn through where their outlines
+    // cross, square to the line between their centers. The shape with the point farthest from that line stays
+    // on that point's side, the other goes to the other side, and their points on the wrong side are moved onto
+    // the line. Moving points rather than whole shapes also unfolds a shape crushed into a tangle in a pile;
+    // moved as a whole, it only got shoved, still folded, into its neighbours, and stayed folded for longer.
+    bool pushPointsAcrossDividingLine(PointMassesRange &points, const Shape &shape1, const Shape &shape2)
+    {
+        const ShapeIndexedRange range1(shape1);
+        const ShapeIndexedRange range2(shape2);
+
+        // Where the outlines cross, averaged
+        Vector2 crossing;
+        int numCrossings = 0;
+
+        for (int i = 0; i < range1.size(); i++)
+        {
+            const int i0 = range1[i];
+            const int i1 = range1[(i + 1) % range1.size()];
+
+            for (int j = 0; j < range2.size(); j++)
+            {
+                const int j0 = range2[j];
+                const int j1 = range2[(j + 1) % range2.size()];
+                float t1, t2;
+
+                if (i0 != j0 && i0 != j1 && i1 != j0 && i1 != j1 &&
+                    lineSegmentIntersection(points.pos[i0], points.pos[i1], points.pos[j0], points.pos[j1], t1, t2))
+                {
+                    crossing += points.pos[i0] + (points.pos[i1] - points.pos[i0]) * t1;
+                    numCrossings++;
+                }
+            }
+        }
+
+        const Vector2 betweenCenters = centroid(points, range2) - centroid(points, range1);
+
+        if (numCrossings == 0 || betweenCenters.lengthSquared() < 1e-8f)
+        {
+            return false;
+        }
+
+        crossing = crossing / static_cast<float>(numCrossings);
+        const Vector2 lineDirection = betweenCenters.normalized().normalVector();
+        const Vector2 lineNormal = lineDirection.normalVector();
+
+        // The point farthest from the line decides which side its shape keeps
+        float farthest = -1.0f;
+        bool farthestOnPositiveSide = false;
+        bool farthestInShape1 = true;
+
+        for (int k = 0; k < 2; k++)
+        {
+            const ShapeIndexedRange &range = k == 0 ? range1 : range2;
+
+            for (int i = 0; i < range.size(); i++)
+            {
+                const float side = (points.pos[range[i]] - crossing).dot(lineNormal);
+
+                if (fabsf(side) > farthest)
+                {
+                    farthest = fabsf(side);
+                    farthestOnPositiveSide = side > 0.0f;
+                    farthestInShape1 = k == 0;
+                }
+            }
+        }
+
+        for (int k = 0; k < 2; k++)
+        {
+            const ShapeIndexedRange &range = k == 0 ? range1 : range2;
+            const bool positiveSide = (k == 0) == farthestInShape1 ? farthestOnPositiveSide : !farthestOnPositiveSide;
+
+            for (int i = 0; i < range.size(); i++)
+            {
+                const int index = range[i];
+                const float side = (points.pos[index] - crossing).dot(lineNormal);
+
+                if ((side > 0.0f) != positiveSide)
+                {
+                    // Onto the line, and a hair past it
+                    points.pos[index] += lineNormal * (positiveSide ? 0.01f - side : -0.01f - side);
+                    points.velocity[index] *= 0.8f;
+                }
+            }
+        }
+
+        return true;
+    }
+
     void shift(PointMassesRange &points, const ShapeIndexedRange &range, Vector2 offset, Vector2 velocityChange)
     {
         for (int i = 0; i < range.size(); i++)
@@ -135,6 +238,17 @@ bool ShapeAxisSeparator::separateShapesFromIntersectionAxis(PointMassesRange &po
     {
         // TODO: Handle common edge?
         return false;
+    }
+
+    // Parts of bodies, like the segments of a bridge, are moved with their whole bodies below
+    if (!shape1.hasIndices() && !shape2.hasIndices())
+    {
+        if (usedDirection != nullptr)
+        {
+            *usedDirection = Vector2();
+        }
+
+        return pushPointsAcrossDividingLine(points, shape1, shape2);
     }
 
     const ShapeIndexedRange range1(shape1);
