@@ -73,8 +73,11 @@ if(NOT EMSCRIPTEN)
     find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
 endif()
 
+# The engine's own files are listed in engine.cmake, which other projects use too
+include("${CMAKE_SOURCE_DIR}/engine.cmake")
+
 set(SOURCE_FILES
-    timer.cpp
+    ${SOFTBODY_ENGINE_SOURCE_FILES}
     game/Game.cpp
     game/Editor.cpp
     game/Scenes.cpp
@@ -84,9 +87,6 @@ set(SOURCE_FILES
     game/SceneScript.cpp
     utils/Console.cpp
     utils/UnitTestUtil.cpp
-    containers/ContainerPlatform.cpp
-    game/Shapes.cpp
-    physics/Physics.cpp
     imgui/imgui.cpp
     imgui/imgui_demo.cpp
     imgui/imgui_draw.cpp
@@ -94,50 +94,20 @@ set(SOURCE_FILES
     imgui/imgui_tables.cpp
     imgui/imgui_impl_sdlrenderer3.cpp
     imgui/imgui_impl_sdl3.cpp
-    tasks/Scheduler.cpp
     game/GameRenderer.cpp
     game/GameRenderer.h
     physics/Physics.test.h
-    physics/Physics.h
-    physics/CollisionSet.h
-    physics/CollisionSet.cpp
-    physics/PhysicsSpace.h
-    physics/PhysicsSpace.cpp
-    physics/Springs.h
-    physics/Springs.cpp
-    physics/CollisionSolver.h
-    physics/CollisionSolver.cpp
-    physics/CollisionSolverInternal.h
-    physics/CollisionSolverPerf.cpp
-    physics/ShapeAxisSeparator.h
-    physics/ShapeAxisSeparator.cpp
-    physics/Integrator.h
-    physics/Integrator.cpp
-    physics/ShapeUtils.h
-    physics/ShapeUtils.cpp
-    physics/PhysicsSpaceStorage.h
-    physics/PhysicsSpaceStorage.cpp
     utils/CustomFont.cpp
-    math/Vector2.h
-    math/Vector2.cpp
     game/Scenes.h
     game/ChaosScene.h
     game/BoidsScene.h
     game/ChainsScene.h
     game/SceneScript.h
     game/Editor.h
-    tasks/Scheduler.h
     stb_image/stb_image.cpp
-    stb_sprintf/stb_sprintf.cpp
-    utils/Console.h
     utils/UnitTestUtil.h
-    utils/MinMax.h
     utils/DynamicLibrary.h
     utils/CustomFont.h
-    containers/Array.h
-    containers/ContainerPlatform.h
-    containers/Range.h
-    containers/Span.h
 )
 
 set(NATIVE_ONLY_SOURCE_FILES
