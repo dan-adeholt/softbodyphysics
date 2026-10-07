@@ -346,7 +346,9 @@ void RK4Integrator::performRK4Integration(PhysicsSpace &space, const ShapeMatchD
 
     for (int i = 0; i < space.shapes.size(); i++)
     {
-        m->shapeProperties.push(ShapeUtils::getShapeProperties(space.points.range(), space.shapes[i]));
+        // Static shapes have no springs, so nothing reads theirs
+        const Shape &shape = space.shapes[i];
+        m->shapeProperties.push(shape.isStatic ? ShapeProperties() : ShapeUtils::getShapeProperties(space.points.range(), shape));
     }
 
     prepareRK4Step(space, 0.0, m->rkEmptyDerivatives, m->rk1, dragData, profileInfo);
@@ -476,7 +478,9 @@ void RK4Integrator::performRK4Integration(PhysicsSpace &space, const ShapeMatchD
 
     for (int i = 0; i < space.shapes.size(); i++)
     {
-        m->shapeProperties.push(ShapeUtils::getShapeProperties(space.points.range(), space.shapes[i]));
+        // Static shapes have no springs, so nothing reads theirs
+        const Shape &shape = space.shapes[i];
+        m->shapeProperties.push(shape.isStatic ? ShapeProperties() : ShapeUtils::getShapeProperties(space.points.range(), shape));
     }
 }
 

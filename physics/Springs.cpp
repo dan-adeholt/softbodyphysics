@@ -35,13 +35,13 @@ void applySpringDerivatives(
     {
         const Shape &shape = shapes[i];
 
-        ShapeProperties averages = ShapeUtils::getShapeProperties(points, shape);
-
         // Shape is being dragged == enable shape matching in order to drag the shape
         if (shape.isStatic)
         {
             continue;
         }
+
+        ShapeProperties averages = ShapeUtils::getShapeProperties(points, shape);
 
         ShapeVelocities averageVelocity = ShapeUtils::getAverageShapeVelocity(points, shape);
 
