@@ -1,3 +1,15 @@
+
+
+https://github.com/user-attachments/assets/114cd01c-062b-40ca-9ce7-fc40b9495a06
+
+
+
+https://github.com/user-attachments/assets/819411b6-f36b-4fe4-a46f-ac8e63a04d3c
+
+
+
+https://github.com/user-attachments/assets/a05406ee-4703-465d-975f-f0896b52cd0c
+
 # Soft-body physics
 
 A 2D soft-body physics engine and level editor, written from scratch in C++ without the standard library. It runs natively on macOS and in the browser through WebAssembly.
